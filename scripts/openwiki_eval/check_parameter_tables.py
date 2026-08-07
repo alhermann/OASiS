@@ -76,13 +76,27 @@ def norm_cell(c: str) -> str:
     return c.strip().strip("*_ ")
 
 
-def parse_tables(text: str):
-    """Yield (section_context, header_cells, row_cells) for each table row."""
+def parse_tables(text: str, sections=frozenset()):
+    """Yield (section_context, mentioned_sections, header, row) per table row.
+
+    A heading is often a description ("Initial and boundary conditions
+    subsection") rather than the literal section name, so the row also carries
+    every real section name the document has mentioned so far, most recent
+    first. Attributing a key to the wrong section makes a correct table look
+    invented, which is the error this whole evaluation is trying not to make.
+    """
     section = None
+    mentioned: list[str] = []
     lines = text.splitlines()
     i = 0
     while i < len(lines):
         line = lines[i]
+        for name in BACKTICK.findall(line):
+            n = name.strip()
+            if n in sections:
+                if n in mentioned:
+                    mentioned.remove(n)
+                mentioned.insert(0, n)
         h = HEADING.match(line)
         if h:
             title = h.group(1)
@@ -95,7 +109,7 @@ def parse_tables(text: str):
             i += 2
             while i < len(lines) and TABLE_ROW.match(lines[i]):
                 cells = [c.strip() for c in lines[i].strip().strip("|").split("|")]
-                yield section, header, cells
+                yield section, list(mentioned), header, cells
                 i += 1
             continue
         i += 1
@@ -131,6 +145,8 @@ def default_matches(claimed: str, actual) -> str:
     if isinstance(actual, str) and c.strip('"\'') != actual and \
             c.strip('"\'').lower() == actual.lower():
         return "case"
+    if c.lower() in {"empty string", "empty", "``", '""', "''", "(empty)"}:
+        return "match" if actual == "" else "mismatch"
     if c.lower() in {"-", "—", "n/a", "(none)", ""} or \
             (c.lower() == "none" and not isinstance(actual, str)):
         return "match" if actual is None else "mismatch"
@@ -236,7 +252,7 @@ def main() -> int:
             continue
         text = md.read_text(errors="replace")
         rel = str(md.relative_to(args.wiki))
-        for section, header, cells in parse_tables(text):
+        for section, mentioned, header, cells in parse_tables(text, sections):
             ki = col_index(header, KEY_COLS)
             if ki is None or ki >= len(cells):
                 continue
@@ -260,23 +276,32 @@ def main() -> int:
                         break
             base = {"doc": rel, "section_claimed": section, "key": key}
             meta = None
-            # A row whose "key" is itself a top-level section -- the reserved
-            # keys table lists INCLUDES and input_version side by side -- is a
-            # claim about that section, not about a key inside the heading's
-            # section.
-            if key in sections and not (sec and key in by_section.get(sec, {})):
+
+            # Resolution order matters, and getting it wrong is silent. Some
+            # names are BOTH a top-level section and a key inside another
+            # section -- CONSTRAINT is a section and a key of PARTICLE
+            # DYNAMIC/INITIAL AND BOUNDARY CONDITIONS -- so the context the
+            # document supplies has to be exhausted before falling back to
+            # reading the name as a section, or a correct row gets compared
+            # against an unrelated group and reported as a wrong type.
+            if sec and key in by_section.get(sec, {}):
+                meta = by_section[sec][key]
+            if meta is None:
+                for s in mentioned:
+                    if key in by_section.get(s, {}):
+                        sec, meta = s, by_section[s][key]
+                        break
+            if meta is None and key in sections:
                 results.append({**base, "claim": "section exists",
                                 "verdict": "TRUE",
                                 "why": "top-level section in `4C -p`"})
                 sec = key
-                meta = pm.get(key)
-                if meta is None:
+                raw = pm.get(key)
+                if raw is None:
                     continue
-                meta = dict(meta)
+                meta = dict(raw)
                 meta["_path"] = key
-            elif sec and key in by_section.get(sec, {}):
-                meta = by_section[sec][key]
-            elif sec is None:
+            if meta is None:
                 hits = [s for s, d in by_section.items() if key in d]
                 if len(hits) == 1:
                     sec, meta = hits[0], by_section[hits[0]][key]
