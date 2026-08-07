@@ -1,0 +1,249 @@
+[
+  {
+    "backend": "fourc",
+    "roots": [
+      "/home/alexander/4C/src",
+      "/home/alexander/4C/tests"
+    ],
+    "notes": [],
+    "unresolved": [
+      {
+        "key": "APPEARS",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/electrochemistry.py",
+        "signal": "grep the .vtu for 'flux_domain_phi_1'; if it is not there the key was not set. Enable it b"
+      },
+      {
+        "key": "AREA0",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/arterial_network.py",
+        "signal": "adding AREA0 to the material fails to match section 'MATERIALS'. Getting DIAM wrong is wor"
+      },
+      {
+        "key": "BELOW",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/porous_media.py",
+        "signal": "\"Material 'MAT <id>' could not be found\" from mat/4C_mat_par_bundle.cpp, exit 1 while the "
+      },
+      {
+        "key": "CANNOT",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/shell.py",
+        "signal": "any attempt (e.g. 'DIR 0 0 1' on the element line) is rejected with \"After parsing, the li"
+      },
+      {
+        "key": "CLONED",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/sti.py",
+        "signal": "RESULT DESCRIPTION/THERMAL is a valid path, so a '- THERMAL:' block parses without complai"
+      },
+      {
+        "key": "COMPILED",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/thermo_transient_mms.py",
+        "signal": "overlapping conditions abort with 'more than one VolumeNeumann cond on one node' from 4C_t"
+      },
+      {
+        "key": "DGEMM",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/shell.py",
+        "signal": "with a real EAS vector but USE_ANS left at its default of false, a thin plate comes out or"
+      },
+      {
+        "key": "DIFFERENT",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/electrochemistry.py",
+        "signal": "repointing an element line at a MAT_ion aborts with 'Invalid material type!' from src/scat"
+      },
+      {
+        "key": "ELASTANCE_FUNCTION",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/cardiovascular0d.py",
+        "signal": "adding ELASTANCE_FUNCTION fails to match the SYS-PUL CIRCULATION PARAMETERS section; setti"
+      },
+      {
+        "key": "ENTIRE",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/fbi.py",
+        "signal": "none \u2014 a beam lying outside the fluid mesh raises no error. Both fields are built, no sear"
+      },
+      {
+        "key": "FIVE",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/fs3i.py",
+        "signal": "4C does police them, but never by naming the missing section. Deleting SCALAR TRANSPORT DY"
+      },
+      {
+        "key": "FLUCTUATION",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/brownian_dynamics.py",
+        "signal": "with KT absent the transverse displacement of a free filament node comes back at machine z"
+      },
+      {
+        "key": "HEX9",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/thermo.py",
+        "signal": "without TYPE, \"Required value 'TYPE' not found in input line\"; with it, an abort carrying "
+      },
+      {
+        "key": "HOMOGENISED",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/multiscale.py",
+        "signal": "opening the macro IO/RUNTIME VTK OUTPUT STRUCTURE VTU in ParaView shows smooth homogenised"
+      },
+      {
+        "key": "LOWERCASE",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/porous_media.py",
+        "signal": "\"Section 'POROFLUID DYNAMIC' is not a valid section name.\" from core/io/src/4C_io_input_fi"
+      },
+      {
+        "key": "MAGNITUDE",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/brownian_dynamics.py",
+        "signal": "with KT absent the transverse displacement of a free filament node comes back at machine z"
+      },
+      {
+        "key": "MANDATORY",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/particle_pd.py",
+        "signal": "without the section 4C aborts in ParticleInteractionSPH::set_initial_states with `negative"
+      },
+      {
+        "key": "MICRO_INPUT_FILE",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/multiscale.py",
+        "signal": "writing MICRO_SOLVER_ID (or MICRO_INPUT_FILE, or DENS) in MAT_Struct_Multiscale is a hard "
+      },
+      {
+        "key": "MICRO_SOLVER_ID",
+        "occurrences": 2,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/multiscale.py",
+        "signal": "writing MICRO_SOLVER_ID (or MICRO_INPUT_FILE, or DENS) in MAT_Struct_Multiscale is a hard "
+      },
+      {
+        "key": "MPI_ABORT",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/ehl.py",
+        "signal": "on a monolithic EHL a viscosity unit slip is not a 'silent scaling error' \u2014 it destroys th"
+      },
+      {
+        "key": "NEITHER",
+        "occurrences": 3,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/electrochemistry.py",
+        "signal": "grep the .vtu for 'flux_domain_phi_1'; if it is not there the key was not set. Enable it b"
+      },
+      {
+        "key": "NESTED",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/structural_dynamics.py",
+        "signal": "writing RHO_INF one level up is rejected at parse with 'Could not match this input' and th"
+      },
+      {
+        "key": "OUTPUT_SCATRA",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/scalar_transport.py",
+        "signal": "writing OUTPUT_SCATRA under IO/RUNTIME VTK OUTPUT is a hard abort, 'Could not match this i"
+      },
+      {
+        "key": "PLANE_ASSUMPTION",
+        "occurrences": 2,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/solid_mechanics.py",
+        "signal": "the element type this build does not register raises \"Unknown type 'WALL' of finite elemen"
+      },
+      {
+        "key": "REDAIRWAY",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/reduced_airways.py",
+        "signal": "the spelling REDAIRWAY is rejected by the ParObject factory with \"Unknown type 'REDAIRWAY'"
+      },
+      {
+        "key": "REJECTED",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/particle_dem.py",
+        "signal": "'invalid input parameter FRICT_COEFF_TANG for this kind of contact law!' from 4C_particle_"
+      },
+      {
+        "key": "SENTINEL",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/particle_dem.py",
+        "signal": "omitting a key produces a message describing the SENTINEL rather than the omission \u2014 'nega"
+      },
+      {
+        "key": "SIGABRT",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/ssti.py",
+        "signal": "omitting it kills the process inside Teuchos, not 4C -- 'Teuchos::Exceptions::InvalidParam"
+      },
+      {
+        "key": "SILENTLY",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/ssti.py",
+        "signal": "deliberately inconsistent per-field TIMESTEP and NUMSTEP values are accepted, produce no w"
+      },
+      {
+        "key": "SLIP_COEFF",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/fpsi.py",
+        "signal": "omitting ALPHABJ does NOT give no-slip; it defaults to 1.0, in the middle of the documente"
+      },
+      {
+        "key": "SMALLER",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/fs3i.py",
+        "signal": "making the coupling step equal to the field step does not merely drift \u2014 it can fail outri"
+      },
+      {
+        "key": "SPECIES",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/sti.py",
+        "signal": "set SORET to 0 and the SPECIES field moves, not just the temperature -- that is the test f"
+      },
+      {
+        "key": "STABLE",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/fluid_turbulence.py",
+        "signal": "an oversized step is therefore STABLE and silent. The run completes, produces no NaN, and "
+      },
+      {
+        "key": "STANDALONE",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/thermo_transient_mms.py",
+        "signal": "the run finishes rc=0 with no warning while the field converges (in dt) to the SOURCE-FREE"
+      },
+      {
+        "key": "THEN",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/sti.py",
+        "signal": "without ELCH CONTROL, 'Invalid type of closing equation for electric potential!' from scat"
+      },
+      {
+        "key": "THERE",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/multiscale.py",
+        "signal": "there is no diagnostic to grep for -- MicroStatic::static_homogenization returns its cmat "
+      },
+      {
+        "key": "UNDAMPED",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/structural_dynamics.py",
+        "signal": "if damping appears to do nothing, check DAMPING before checking the coefficients. The reve"
+      },
+      {
+        "key": "WORD",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/ssi.py",
+        "signal": "that second mistake surfaces much later and does not mention the section you forgot to wri"
+      },
+      {
+        "key": "XERBLA",
+        "occurrences": 1,
+        "first_seen": "/home/alexander/Schreibtisch/ofa-openwiki/src/backends/fourc/generators/shell.py",
+        "signal": "with a real EAS vector but USE_ANS left at its default of false, a thin plate comes out or"
+      }
+    ],
+    "checked": 615,
+    "entries": 284,
+    "status": "CANDIDATES"
+  }
+]
