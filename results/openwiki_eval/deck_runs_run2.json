@@ -1,0 +1,140 @@
+[
+ {
+  "deck": "examples/minimal-decks.md#1",
+  "outcome": "RAN",
+  "detail": ""
+ },
+ {
+  "deck": "examples/minimal-decks.md#2",
+  "outcome": "REJECTED",
+  "rc": 1,
+  "detail": "PROC 0 ERROR in /home/alexander/4C/src/scatra/4C_scatra_dyn.cpp, line 103:"
+ },
+ {
+  "deck": "examples/minimal-decks.md#3",
+  "outcome": "REJECTED",
+  "rc": -6,
+  "detail": "umfpack_solve has error code: -3"
+ },
+ {
+  "deck": "examples/minimal-decks.md#4",
+  "outcome": "REJECTED",
+  "rc": 1,
+  "detail": "PROC 0 ERROR in /home/alexander/4C/src/core/binstrategy/4C_binstrategy.cpp, line 185:"
+ },
+ {
+  "deck": "input/file-format.md#1",
+  "outcome": "REJECTED",
+  "rc": 1,
+  "detail": "PROC 0 ERROR in /home/alexander/4C/src/adapter/4C_adapter_fld_base_algorithm.cpp, line 197:"
+ },
+ {
+  "deck": "input/file-format.md#2",
+  "outcome": "REJECTED",
+  "rc": 1,
+  "detail": "PROC 0 ERROR in /home/alexander/4C/src/core/io/src/4C_io_input_file.cpp, line 241:"
+ },
+ {
+  "deck": "input/file-format.md#3",
+  "outcome": "FRAGMENT",
+  "detail": "no PROBLEM TYPE section"
+ },
+ {
+  "deck": "input/file-format.md#4",
+  "outcome": "FRAGMENT",
+  "detail": "no PROBLEM TYPE section"
+ },
+ {
+  "deck": "reference/common-sections.md#1",
+  "outcome": "FRAGMENT",
+  "detail": "no PROBLEM TYPE section"
+ },
+ {
+  "deck": "reference/conditions.md#1",
+  "outcome": "FRAGMENT",
+  "detail": "no PROBLEM TYPE section"
+ },
+ {
+  "deck": "reference/conditions.md#2",
+  "outcome": "FRAGMENT",
+  "detail": "no PROBLEM TYPE section"
+ },
+ {
+  "deck": "reference/conditions.md#3",
+  "outcome": "FRAGMENT",
+  "detail": "no PROBLEM TYPE section"
+ },
+ {
+  "deck": "reference/contact-dynamic.md#1",
+  "outcome": "FRAGMENT",
+  "detail": "no PROBLEM TYPE section"
+ },
+ {
+  "deck": "reference/fluid-dynamic.md#1",
+  "outcome": "REJECTED",
+  "rc": 1,
+  "detail": "PROC 0 ERROR in /home/alexander/4C/src/fluid/4C_fluid_implicit_integration.cpp, line 180:"
+ },
+ {
+  "deck": "reference/geometry-and-elements.md#1",
+  "outcome": "FRAGMENT",
+  "detail": "no PROBLEM TYPE section"
+ },
+ {
+  "deck": "reference/geometry-and-elements.md#2",
+  "outcome": "FRAGMENT",
+  "detail": "no PROBLEM TYPE section"
+ },
+ {
+  "deck": "reference/geometry-and-elements.md#3",
+  "outcome": "FRAGMENT",
+  "detail": "no PROBLEM TYPE section"
+ },
+ {
+  "deck": "reference/materials.md#1",
+  "outcome": "FRAGMENT",
+  "detail": "no PROBLEM TYPE section"
+ },
+ {
+  "deck": "reference/materials.md#2",
+  "outcome": "FRAGMENT",
+  "detail": "no PROBLEM TYPE section"
+ },
+ {
+  "deck": "reference/materials.md#3",
+  "outcome": "FRAGMENT",
+  "detail": "no PROBLEM TYPE section"
+ },
+ {
+  "deck": "reference/materials.md#4",
+  "outcome": "FRAGMENT",
+  "detail": "no PROBLEM TYPE section"
+ },
+ {
+  "deck": "reference/materials.md#5",
+  "outcome": "FRAGMENT",
+  "detail": "no PROBLEM TYPE section"
+ },
+ {
+  "deck": "reference/scalar-transport-dynamic.md#1",
+  "outcome": "REJECTED",
+  "rc": 1,
+  "detail": "PROC 0 ERROR in /home/alexander/4C/src/scatra/4C_scatra_dyn.cpp, line 103:"
+ },
+ {
+  "deck": "reference/solvers.md#1",
+  "outcome": "FRAGMENT",
+  "detail": "no PROBLEM TYPE section"
+ },
+ {
+  "deck": "reference/solvers.md#2",
+  "outcome": "FRAGMENT",
+  "detail": "no PROBLEM TYPE section"
+ },
+ {
+  "deck": "reference/structural-dynamic.md#1",
+  "outcome": "REJECTED",
+  "rc": -6,
+  "detail": "umfpack_solve has error code: -3"
+ }
+]

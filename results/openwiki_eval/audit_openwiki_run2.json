@@ -1,0 +1,3699 @@
+{
+ "label": "OpenWiki run 2 (input-format brief)",
+ "files": 28,
+ "rows": [
+  {
+   "key": "ADAPTCONV",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:45"
+  },
+  {
+   "key": "ADAPTCONV_BETTER",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:46"
+  },
+  {
+   "key": "ADAPTIVE_TIME_STEP_ESTIMATOR",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:116"
+  },
+  {
+   "key": "ADAPTSTEPMAX",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:99"
+  },
+  {
+   "key": "ADHESION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:18"
+  },
+  {
+   "key": "ADHESION_SURFACE_ENERGY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:110"
+  },
+  {
+   "key": "ADHESION_SURFACE_ENERGY_FACTOR",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:103"
+  },
+  {
+   "key": "AEXP",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:41"
+  },
+  {
+   "key": "AIRWAYS",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/geometry-and-elements.md:10"
+  },
+  {
+   "key": "ALLDOFCOUPLED",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:34"
+  },
+  {
+   "key": "ALPHA_F",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 7,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:63"
+  },
+  {
+   "key": "ALPHA_LS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:60"
+  },
+  {
+   "key": "ALPHA_M",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 7,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:62"
+  },
+  {
+   "key": "AMGNXN_TYPE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/solvers.md:44"
+  },
+  {
+   "key": "AMGNXN_XML_FILE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/solvers.md:45"
+  },
+  {
+   "key": "ANALYTICAL_DISPLACEMENT_FUNCTION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:115"
+  },
+  {
+   "key": "APARAM",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:40"
+  },
+  {
+   "key": "ARTERY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/geometry-and-elements.md:10"
+  },
+  {
+   "key": "ARTIFICIAL_VISCOSITY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:107"
+  },
+  {
+   "key": "AZCONV",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/solvers.md:34"
+  },
+  {
+   "key": "AZITER",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/solvers.md:32"
+  },
+  {
+   "key": "AZOUTPUT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/solvers.md:35"
+  },
+  {
+   "key": "AZPREC",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/solvers.md:30"
+  },
+  {
+   "key": "AZREUSE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/solvers.md:36"
+  },
+  {
+   "key": "AZSOLVE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/solvers.md:29"
+  },
+  {
+   "key": "AZSUB",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/solvers.md:38"
+  },
+  {
+   "key": "AZTOL",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/solvers.md:33"
+  },
+  {
+   "key": "BACKGROUNDPRESSURE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:107"
+  },
+  {
+   "key": "BASED",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:85"
+  },
+  {
+   "key": "BDF2",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 7,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:21"
+  },
+  {
+   "key": "BEAM3EB",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/theory/structural.md:48"
+  },
+  {
+   "key": "BEAM3R",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/geometry-and-elements.md:68"
+  },
+  {
+   "key": "BEAMS",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:60"
+  },
+  {
+   "key": "BELTRAMI",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:27"
+  },
+  {
+   "key": "BETA",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:108"
+  },
+  {
+   "key": "BINNING",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/architecture/module-map.md:29"
+  },
+  {
+   "key": "BLOCKMATRIX",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:44"
+  },
+  {
+   "key": "BODYFORCEFUNCNO",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:38"
+  },
+  {
+   "key": "BOUNDARY",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:45"
+  },
+  {
+   "key": "BOUNDARYPARTICLEFORMULATION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:72"
+  },
+  {
+   "key": "BOUNDARYPARTICLEINTERACTION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:73"
+  },
+  {
+   "key": "BOUNDINGBOX",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/geometry-and-elements.md:10"
+  },
+  {
+   "key": "BOUNDINGVOLUME",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/module-map.md:29"
+  },
+  {
+   "key": "BPARAM",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:40"
+  },
+  {
+   "key": "BULK_MODULUS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:107"
+  },
+  {
+   "key": "BULK_VISCOSITY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:107"
+  },
+  {
+   "key": "CALCERROR",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:35"
+  },
+  {
+   "key": "CALCERRORFUNCNO",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:36"
+  },
+  {
+   "key": "CALCERRORNO",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:34"
+  },
+  {
+   "key": "CALCFLUX_BOUNDARY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:37"
+  },
+  {
+   "key": "CALCFLUX_BOUNDARY_LUMPED",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:38"
+  },
+  {
+   "key": "CALCFLUX_DOMAIN",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:35"
+  },
+  {
+   "key": "CALCFLUX_DOMAIN_LUMPED",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:36"
+  },
+  {
+   "key": "CALC_ACC_ON_RESTART",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:28"
+  },
+  {
+   "key": "CFL_NUMBER",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:116"
+  },
+  {
+   "key": "CHARELELENGTH_PC",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:103"
+  },
+  {
+   "key": "CHARELELENGTH_U",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:102"
+  },
+  {
+   "key": "CLONING",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/input-registry.md:34"
+  },
+  {
+   "key": "COEFFDENSITY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:38"
+  },
+  {
+   "key": "COEFFVISCOSITY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:38"
+  },
+  {
+   "key": "COEFF_RESTITUTION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:99"
+  },
+  {
+   "key": "COMPRCOEFF",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:39"
+  },
+  {
+   "key": "COMPUTEINTEGRALS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:61"
+  },
+  {
+   "key": "COMPUTE_DIVU",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:49"
+  },
+  {
+   "key": "COMPUTE_EKIN",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:50"
+  },
+  {
+   "key": "CONDITIONS",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 18,
+   "first_seen": "4C-copy/openwiki/architecture/input-registry.md:45"
+  },
+  {
+   "key": "CONSTITUTIVE",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 5,
+   "first_seen": "4C-copy/openwiki/input/file-format.md:114"
+  },
+  {
+   "key": "CONSTRAINT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:56"
+  },
+  {
+   "key": "CONSTRAINT_DIRECTIONS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:39"
+  },
+  {
+   "key": "CONTACT",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 21,
+   "first_seen": "4C-copy/openwiki/architecture/input-registry.md:34"
+  },
+  {
+   "key": "CONTACTFORCE_ENDTIME",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:31"
+  },
+  {
+   "key": "CONTROL",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/module-map.md:25"
+  },
+  {
+   "key": "CONVCHECK",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:25"
+  },
+  {
+   "key": "CONVFORM",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:30"
+  },
+  {
+   "key": "CONVTOL_INNER",
+   "verdict": "ABSENT",
+   "why": "resolves nowhere in 4C",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:80"
+  },
+  {
+   "key": "CONVTOL_OUTER",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:78"
+  },
+  {
+   "key": "CONV_HEAT_TRANS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:47"
+  },
+  {
+   "key": "COORDS",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 6,
+   "first_seen": "4C-copy/openwiki/architecture/input-registry.md:34"
+  },
+  {
+   "key": "CORRTERMFUNCNO",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:37"
+  },
+  {
+   "key": "COUPLING",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/reference/conditions.md:95"
+  },
+  {
+   "key": "CPP_NORMALS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:44"
+  },
+  {
+   "key": "CRITICAL_STRETCH",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:111"
+  },
+  {
+   "key": "CROSSAREA",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:81"
+  },
+  {
+   "key": "DAMPING",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:34"
+  },
+  {
+   "key": "DAMP_REG_FAC",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:100"
+  },
+  {
+   "key": "DASHPOT",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/conditions.md:93"
+  },
+  {
+   "key": "DEFINITION_TAU",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/examples/minimal-decks.md:41"
+  },
+  {
+   "key": "DELTA",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:41"
+  },
+  {
+   "key": "DENS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 8,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:76"
+  },
+  {
+   "key": "DENSIFICATION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:58"
+  },
+  {
+   "key": "DENSITY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:36"
+  },
+  {
+   "key": "DENSITYCORRECTION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:71"
+  },
+  {
+   "key": "DENSITYEVALUATION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:70"
+  },
+  {
+   "key": "DESCRIPTION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/architecture/input-registry.md:34"
+  },
+  {
+   "key": "DESIGN",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 17,
+   "first_seen": "4C-copy/openwiki/architecture/input-registry.md:45"
+  },
+  {
+   "key": "DIFFUSIVITY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:58"
+  },
+  {
+   "key": "DIRECTION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/conditions.md:95"
+  },
+  {
+   "key": "DIRICH",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/input/file-format.md:129"
+  },
+  {
+   "key": "DIRICHLET_BOUNDARY_CONDITION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:54"
+  },
+  {
+   "key": "DISCRETISATION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/architecture/module-map.md:14"
+  },
+  {
+   "key": "DISPLOFFSET",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/conditions.md:95"
+  },
+  {
+   "key": "DISTRFUNCT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:59"
+  },
+  {
+   "key": "DIVERCONT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:56"
+  },
+  {
+   "key": "DLINE",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/reference/conditions.md:35"
+  },
+  {
+   "key": "DNODE",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 5,
+   "first_seen": "4C-copy/openwiki/examples/minimal-decks.md:135"
+  },
+  {
+   "key": "DNS_OR_RESVMM_LES",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:113"
+  },
+  {
+   "key": "DOMAIN",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 13,
+   "first_seen": "4C-copy/openwiki/architecture/module-map.md:14"
+  },
+  {
+   "key": "DSURF",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/conditions.md:116"
+  },
+  {
+   "key": "DSURFACE",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/conditions.md:35"
+  },
+  {
+   "key": "DVOL",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/reference/conditions.md:35"
+  },
+  {
+   "key": "DYNAMIC",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 64,
+   "first_seen": "4C-copy/openwiki/INSTRUCTIONS.md:11"
+  },
+  {
+   "key": "DYNAMICTYPE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 13,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:14"
+  },
+  {
+   "key": "DYNAMIC_VISCOSITY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:107"
+  },
+  {
+   "key": "DYNVISCOSITY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/input/file-format.md:124"
+  },
+  {
+   "key": "ELCH",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/module-map.md:25"
+  },
+  {
+   "key": "ELEMENTS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 19,
+   "first_seen": "4C-copy/openwiki/architecture/input-registry.md:34"
+  },
+  {
+   "key": "ELEMENT_BLOCKS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/geometry-and-elements.md:40"
+  },
+  {
+   "key": "ELEMENT_MAT_ID",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:46"
+  },
+  {
+   "key": "ENTITY_TYPE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 6,
+   "first_seen": "4C-copy/openwiki/quickstart.md:57"
+  },
+  {
+   "key": "EQUATIONOFSTATE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:68"
+  },
+  {
+   "key": "EQUILIBRATION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:55"
+  },
+  {
+   "key": "ETABAR",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:77"
+  },
+  {
+   "key": "EVALUATE_ERROR_ANALYTICAL_REFERENCE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:114"
+  },
+  {
+   "key": "EVALUATION",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:114"
+  },
+  {
+   "key": "EVALUATION_MAT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:105"
+  },
+  {
+   "key": "EVALUATION_TAU",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:104"
+  },
+  {
+   "key": "EXPLICIT",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:101"
+  },
+  {
+   "key": "EXPLPREDICT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:81"
+  },
+  {
+   "key": "EXPONENT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:107"
+  },
+  {
+   "key": "EXTERNAL",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:89"
+  },
+  {
+   "key": "EXTERNAL_FORCE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:89"
+  },
+  {
+   "key": "FDCHECK",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:58"
+  },
+  {
+   "key": "FDCHECKEPS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:59"
+  },
+  {
+   "key": "FDCHECKTOL",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:60"
+  },
+  {
+   "key": "FIELD",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 7,
+   "first_seen": "4C-copy/openwiki/input/file-format.md:103"
+  },
+  {
+   "key": "FIELDCOUPLING",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:52"
+  },
+  {
+   "key": "FILE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/geometry-and-elements.md:50"
+  },
+  {
+   "key": "FLAME_VORTEX_INTERACTION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:27"
+  },
+  {
+   "key": "FLOW",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:27"
+  },
+  {
+   "key": "FLUID",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 27,
+   "first_seen": "4C-copy/openwiki/INSTRUCTIONS.md:11"
+  },
+  {
+   "key": "FLUID_ELEDATA_EVERY_STEP",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:55"
+  },
+  {
+   "key": "FLUID_NODEDATA_FIRST_STEP",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:56"
+  },
+  {
+   "key": "FLUID_STRESS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:53"
+  },
+  {
+   "key": "FLUID_WALL_SHEAR_STRESS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:54"
+  },
+  {
+   "key": "FORCE",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:89"
+  },
+  {
+   "key": "FORCE_FUNCTION_ID",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:89"
+  },
+  {
+   "key": "FREEZE_ADAPTIVE_DT_AT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:116"
+  },
+  {
+   "key": "FRICTION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:19"
+  },
+  {
+   "key": "FRICT_COEFF_ROLL",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:110"
+  },
+  {
+   "key": "FRLESS_FIRST",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:20"
+  },
+  {
+   "key": "FSSUGRDIFF",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:50"
+  },
+  {
+   "key": "FSSUGRVISC",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:113"
+  },
+  {
+   "key": "FUNCT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 9,
+   "first_seen": "4C-copy/openwiki/architecture/input-registry.md:34"
+  },
+  {
+   "key": "FUNCT1",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/input/file-format.md:109"
+  },
+  {
+   "key": "FUNCT2",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/input/file-format.md:109"
+  },
+  {
+   "key": "FUNCTNONLINSTIFF",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/conditions.md:95"
+  },
+  {
+   "key": "GAMMA",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 10,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:64"
+  },
+  {
+   "key": "GENALPHA",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 9,
+   "first_seen": "4C-copy/openwiki/input/file-format.md:35"
+  },
+  {
+   "key": "GENAVG",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:107"
+  },
+  {
+   "key": "GEOMETRY",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 9,
+   "first_seen": "4C-copy/openwiki/INSTRUCTIONS.md:12"
+  },
+  {
+   "key": "GMSH_OUTPUT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:48"
+  },
+  {
+   "key": "GP_SLIP_INCR",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:21"
+  },
+  {
+   "key": "GRAD_DIV",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 5,
+   "first_seen": "4C-copy/openwiki/examples/minimal-decks.md:40"
+  },
+  {
+   "key": "GRAVITY_ACCELERATION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:28"
+  },
+  {
+   "key": "GRAVITY_RAMP_FUNCT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:29"
+  },
+  {
+   "key": "GRIDVEL",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:33"
+  },
+  {
+   "key": "HEATSOURCETYPE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:79"
+  },
+  {
+   "key": "HEATSOURCE_DIRECTION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:81"
+  },
+  {
+   "key": "HEATSOURCE_FUNCT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:80"
+  },
+  {
+   "key": "HEX8",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/examples/minimal-decks.md:70"
+  },
+  {
+   "key": "HYBRID_ANGLE_MAX",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:43"
+  },
+  {
+   "key": "HYBRID_ANGLE_MIN",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:42"
+  },
+  {
+   "key": "IFPACK_XML_FILE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/solvers.md:31"
+  },
+  {
+   "key": "IMPACTOR_VELOCITY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:115"
+  },
+  {
+   "key": "INCLUDES",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 8,
+   "first_seen": "4C-copy/openwiki/architecture/input-registry.md:72"
+  },
+  {
+   "key": "INCONSISTENT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:90"
+  },
+  {
+   "key": "INCONSISTENT_RESIDUAL",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:26"
+  },
+  {
+   "key": "INFNORMSCALING",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:47"
+  },
+  {
+   "key": "INITCONTACTBYGAP",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:33"
+  },
+  {
+   "key": "INITCONTACTGAPVALUE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:34"
+  },
+  {
+   "key": "INITDENSITY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 5,
+   "first_seen": "4C-copy/openwiki/examples/minimal-decks.md:155"
+  },
+  {
+   "key": "INITFUNCNO",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/conditions.md:99"
+  },
+  {
+   "key": "INITIAL",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:45"
+  },
+  {
+   "key": "INITIALDISP",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:77"
+  },
+  {
+   "key": "INITIALFIELD",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:27"
+  },
+  {
+   "key": "INITIALPARTICLESPACING",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:67"
+  },
+  {
+   "key": "INITIAL_ACCELERATION_FIELD",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:52"
+  },
+  {
+   "key": "INITIAL_ANGULAR_ACCELERATION_FIELD",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:53"
+  },
+  {
+   "key": "INITIAL_ANGULAR_VELOCITY_FIELD",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:51"
+  },
+  {
+   "key": "INITIAL_POSITION_AMPLITUDE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:34"
+  },
+  {
+   "key": "INITIAL_TEMP_FIELD",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:49"
+  },
+  {
+   "key": "INITIAL_VELOCITY_FIELD",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:50"
+  },
+  {
+   "key": "INITRADIUS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:107"
+  },
+  {
+   "key": "INITSTATITEMAX",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:59"
+  },
+  {
+   "key": "INTERACTION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 10,
+   "first_seen": "4C-copy/openwiki/input/problem-types.md:81"
+  },
+  {
+   "key": "INTRINSIC_MOBILITY_FUNCTION_ID",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:89"
+  },
+  {
+   "key": "INT_STRATEGY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 5,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:18"
+  },
+  {
+   "key": "ISOHARD",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:77"
+  },
+  {
+   "key": "IS_INTENSIVE_SCALAR",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:45"
+  },
+  {
+   "key": "ITEMAX",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:58"
+  },
+  {
+   "key": "ITEMAX_INNER",
+   "verdict": "ABSENT",
+   "why": "resolves nowhere in 4C",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:79"
+  },
+  {
+   "key": "ITEMAX_OUTER",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:77"
+  },
+  {
+   "key": "ITERNORM",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:55"
+  },
+  {
+   "key": "JOINT",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:101"
+  },
+  {
+   "key": "KERNEL",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:65"
+  },
+  {
+   "key": "KERNEL_SPACE_DIM",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:66"
+  },
+  {
+   "key": "KFAC",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:42"
+  },
+  {
+   "key": "KIND",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:86"
+  },
+  {
+   "key": "KINEM",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/geometry-and-elements.md:45"
+  },
+  {
+   "key": "KINHARD",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:78"
+  },
+  {
+   "key": "KNOTVECTORS",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/reference/geometry-and-elements.md:10"
+  },
+  {
+   "key": "K_DAMP",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:36"
+  },
+  {
+   "key": "L2_PROJ_LINEAR_SOLVER",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:54"
+  },
+  {
+   "key": "LAMBDA",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:40"
+  },
+  {
+   "key": "LAWS",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 13,
+   "first_seen": "4C-copy/openwiki/architecture/input-registry.md:34"
+  },
+  {
+   "key": "LIFTDRAG",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:29"
+  },
+  {
+   "key": "LINE2",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/geometry-and-elements.md:68"
+  },
+  {
+   "key": "LINEAR_SOLVER",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 34,
+   "first_seen": "4C-copy/openwiki/examples/minimal-decks.md:30"
+  },
+  {
+   "key": "LOADLIN",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:59"
+  },
+  {
+   "key": "LOCAL",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:61"
+  },
+  {
+   "key": "LOCERRNORM",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:97"
+  },
+  {
+   "key": "LOCERRTOL",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:98"
+  },
+  {
+   "key": "LOLIMSHEARRATE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:42"
+  },
+  {
+   "key": "LSMAXITER",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:59"
+  },
+  {
+   "key": "LUBRICATION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/geometry-and-elements.md:10"
+  },
+  {
+   "key": "LUMPMASS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:73"
+  },
+  {
+   "key": "MASSLIN",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:64"
+  },
+  {
+   "key": "MATERIALS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 21,
+   "first_seen": "4C-copy/openwiki/INSTRUCTIONS.md:15"
+  },
+  {
+   "key": "MATERIALTANGENT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:62"
+  },
+  {
+   "key": "MATERIAL_ITERATIVE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:21"
+  },
+  {
+   "key": "MATID",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:27"
+  },
+  {
+   "key": "MATIDS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:61"
+  },
+  {
+   "key": "MATLAB_STATE_OUTPUT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:44"
+  },
+  {
+   "key": "MATPARAMETER",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:37"
+  },
+  {
+   "key": "MATRIXTYPE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:56"
+  },
+  {
+   "key": "MAT_CNST_ART",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:115"
+  },
+  {
+   "key": "MAXDIVCONREFINEMENTLEVEL",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:57"
+  },
+  {
+   "key": "MAXITER",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:53"
+  },
+  {
+   "key": "MAXTIME",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 7,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:61"
+  },
+  {
+   "key": "MAX_RADIUS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:95"
+  },
+  {
+   "key": "MAX_VELOCITY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:96"
+  },
+  {
+   "key": "MCONS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:41"
+  },
+  {
+   "key": "MESHTYING",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:32"
+  },
+  {
+   "key": "MEXP",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:42"
+  },
+  {
+   "key": "MIDTIME_ENERGY_TYPE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:76"
+  },
+  {
+   "key": "MINITER",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:54"
+  },
+  {
+   "key": "MIN_RADIUS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:94"
+  },
+  {
+   "key": "MODEL",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:113"
+  },
+  {
+   "key": "MODIFIEDEXPLEULER",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:74"
+  },
+  {
+   "key": "MOIN",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:27"
+  },
+  {
+   "key": "MOMENTUMFORMULATION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:69"
+  },
+  {
+   "key": "MOMIN2",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/examples/minimal-decks.md:130"
+  },
+  {
+   "key": "MOMIN3",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/examples/minimal-decks.md:131"
+  },
+  {
+   "key": "MOMINPOL",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:81"
+  },
+  {
+   "key": "MUELU_XML_FILE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/solvers.md:41"
+  },
+  {
+   "key": "MULF",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:21"
+  },
+  {
+   "key": "M_DAMP",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:35"
+  },
+  {
+   "key": "NAME",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/solvers.md:19"
+  },
+  {
+   "key": "NATURAL_CONVECTION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:57"
+  },
+  {
+   "key": "NEGLECTINERTIA",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:65"
+  },
+  {
+   "key": "NEUMANNINFLOW",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:46"
+  },
+  {
+   "key": "NEW_OST",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 5,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:51"
+  },
+  {
+   "key": "NEXP",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:42"
+  },
+  {
+   "key": "NITSCHE_PENALTY_ADAPTIVE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:49"
+  },
+  {
+   "key": "NITSCHE_THETA",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:46"
+  },
+  {
+   "key": "NITSCHE_THETA_2",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:47"
+  },
+  {
+   "key": "NITSCHE_WEIGHTING",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:48"
+  },
+  {
+   "key": "NLNSOL",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:58"
+  },
+  {
+   "key": "NODE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 13,
+   "first_seen": "4C-copy/openwiki/architecture/input-registry.md:34"
+  },
+  {
+   "key": "NODES",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:18"
+  },
+  {
+   "key": "NODE_SET_NAME",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/quickstart.md:57"
+  },
+  {
+   "key": "NONLINEAR",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/quickstart.md:14"
+  },
+  {
+   "key": "NONLINEARBC",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:31"
+  },
+  {
+   "key": "NONLINITER",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:23"
+  },
+  {
+   "key": "NONSMOOTH_CONTACT_SURFACE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:41"
+  },
+  {
+   "key": "NONSMOOTH_GEOMETRIES",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:40"
+  },
+  {
+   "key": "NORMALCONTACTLAW",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:93"
+  },
+  {
+   "key": "NORMAL_DAMP",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:98"
+  },
+  {
+   "key": "NORMCOMBI_DISPLAGR",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:36"
+  },
+  {
+   "key": "NORMCOMBI_DISPPRES",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:45"
+  },
+  {
+   "key": "NORMCOMBI_RESFCONTCONSTR",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:35"
+  },
+  {
+   "key": "NORMCOMBI_RESFDISP",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:47"
+  },
+  {
+   "key": "NORMCOMBI_RESFINCO",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:46"
+  },
+  {
+   "key": "NORM_DISP",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:38"
+  },
+  {
+   "key": "NORM_INCO",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:44"
+  },
+  {
+   "key": "NORM_PRES",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:42"
+  },
+  {
+   "key": "NORM_RESF",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:40"
+  },
+  {
+   "key": "NPATCHES",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:19"
+  },
+  {
+   "key": "NULLSPACE_POINTBASED",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:69"
+  },
+  {
+   "key": "NUMAIRWAYSDIS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:32"
+  },
+  {
+   "key": "NUMALEDIS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:29"
+  },
+  {
+   "key": "NUMARTNETDIS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:30"
+  },
+  {
+   "key": "NUMDF",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:21"
+  },
+  {
+   "key": "NUMDOF",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 14,
+   "first_seen": "4C-copy/openwiki/examples/minimal-decks.md:166"
+  },
+  {
+   "key": "NUMFLUIDDIS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:27"
+  },
+  {
+   "key": "NUMMAT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 6,
+   "first_seen": "4C-copy/openwiki/examples/minimal-decks.md:166"
+  },
+  {
+   "key": "NUMSCAL",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 6,
+   "first_seen": "4C-copy/openwiki/examples/minimal-decks.md:166"
+  },
+  {
+   "key": "NUMSTASTEPS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:56"
+  },
+  {
+   "key": "NUMSTEP",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 8,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:54"
+  },
+  {
+   "key": "NUMSTRUCDIS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:28"
+  },
+  {
+   "key": "NUMTHERMDIS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:31"
+  },
+  {
+   "key": "NURBS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/reference/conditions.md:51"
+  },
+  {
+   "key": "NU_0",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:40"
+  },
+  {
+   "key": "NU_INF",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:40"
+  },
+  {
+   "key": "OFF_PROC_ASSEMBLY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:70"
+  },
+  {
+   "key": "ONESTEPTHETA",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:113"
+  },
+  {
+   "key": "ONOFF",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/reference/conditions.md:59"
+  },
+  {
+   "key": "OSEENFIELDFUNCNO",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:28"
+  },
+  {
+   "key": "OST_CONT_PRESS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:22"
+  },
+  {
+   "key": "OUTENEPERIOD",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:89"
+  },
+  {
+   "key": "OUTINTEGRREAC",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:42"
+  },
+  {
+   "key": "OUTPUTLINSOLVERSTATS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:67"
+  },
+  {
+   "key": "OUTPUTNONLINSOLVERSTATS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:68"
+  },
+  {
+   "key": "OUTPUTSCALARS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:40"
+  },
+  {
+   "key": "OUTPUTSCALARSMEANGRAD",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:41"
+  },
+  {
+   "key": "OUTPUT_BIN",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:45"
+  },
+  {
+   "key": "OUTPUT_GMSH",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:42"
+  },
+  {
+   "key": "OUTPUT_ROT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:43"
+  },
+  {
+   "key": "OUTPUT_SPRING",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:44"
+  },
+  {
+   "key": "OUTPUT_STEP_OFFSET",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:29"
+  },
+  {
+   "key": "OUTRESTPERIOD",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:90"
+  },
+  {
+   "key": "OUTSIZEEVERY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:91"
+  },
+  {
+   "key": "OUTSTRPERIOD",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:88"
+  },
+  {
+   "key": "OUTSYSPERIOD",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:87"
+  },
+  {
+   "key": "PADAPTDEGREEMAX",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:65"
+  },
+  {
+   "key": "PADAPTERRORBASE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:64"
+  },
+  {
+   "key": "PADAPTERRORTOL",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:63"
+  },
+  {
+   "key": "PADAPTIVITY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:62"
+  },
+  {
+   "key": "PARTICLE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 16,
+   "first_seen": "4C-copy/openwiki/architecture/module-map.md:21"
+  },
+  {
+   "key": "PARTICLES",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 6,
+   "first_seen": "4C-copy/openwiki/architecture/module-map.md:21"
+  },
+  {
+   "key": "PARTICLE_WALL_LOADED",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:38"
+  },
+  {
+   "key": "PARTICLE_WALL_MAT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:36"
+  },
+  {
+   "key": "PARTICLE_WALL_MOVING",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:37"
+  },
+  {
+   "key": "PARTICLE_WALL_SOURCE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:35"
+  },
+  {
+   "key": "PD_BODY_INTERACTION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:14"
+  },
+  {
+   "key": "PENALTYPARAM",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:24"
+  },
+  {
+   "key": "PENALTYPARAMTAN",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:25"
+  },
+  {
+   "key": "PERIDYNAMIC_GRID_SPACING",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:111"
+  },
+  {
+   "key": "PERIODIC",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/geometry-and-elements.md:10"
+  },
+  {
+   "key": "PHASE_TO_DYNLOADBALFAC",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:32"
+  },
+  {
+   "key": "PHASE_TO_MATERIAL_ID",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:33"
+  },
+  {
+   "key": "PHYSICAL_MODEL",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:113"
+  },
+  {
+   "key": "PHYSICAL_TYPE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 7,
+   "first_seen": "4C-copy/openwiki/examples/minimal-decks.md:29"
+  },
+  {
+   "key": "POINT",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/reference/conditions.md:25"
+  },
+  {
+   "key": "POISSON_RATIO",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:84"
+  },
+  {
+   "key": "POLYCONVEX",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:79"
+  },
+  {
+   "key": "PORO",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/conditions.md:51"
+  },
+  {
+   "key": "POROELASTICITY",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/module-map.md:24"
+  },
+  {
+   "key": "PREDICT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:66"
+  },
+  {
+   "key": "PREDICTOR",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:24"
+  },
+  {
+   "key": "PRESSAVGBC",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:42"
+  },
+  {
+   "key": "PRESTRESS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:21"
+  },
+  {
+   "key": "PRESTRESSMINLOADSTEPS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:24"
+  },
+  {
+   "key": "PRESTRESSTIME",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:22"
+  },
+  {
+   "key": "PRESTRESSTOLDISP",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:23"
+  },
+  {
+   "key": "PRE_CRACKS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:114"
+  },
+  {
+   "key": "PROBLEM",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 15,
+   "first_seen": "4C-copy/openwiki/INSTRUCTIONS.md:11"
+  },
+  {
+   "key": "PROBLEMTYPE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 17,
+   "first_seen": "4C-copy/openwiki/INSTRUCTIONS.md:8"
+  },
+  {
+   "key": "PSPG",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:94"
+  },
+  {
+   "key": "PTCDT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:50"
+  },
+  {
+   "key": "RANDSEED",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/input/problem-types.md:19"
+  },
+  {
+   "key": "RAYTAYMIXFRAC",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:30"
+  },
+  {
+   "key": "REACCOEFF",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:59"
+  },
+  {
+   "key": "REACOEFF",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:58"
+  },
+  {
+   "key": "REACSCALE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:60"
+  },
+  {
+   "key": "REACSTART",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:59"
+  },
+  {
+   "key": "REACTS_TO_EXTERNAL_FORCE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:58"
+  },
+  {
+   "key": "REDUCED",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/geometry-and-elements.md:10"
+  },
+  {
+   "key": "REDUCED_DIMENSION_SCALE_FACTOR",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:76"
+  },
+  {
+   "key": "REFBULKMODULUS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:37"
+  },
+  {
+   "key": "REFDENSITY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:37"
+  },
+  {
+   "key": "REFMACH",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:43"
+  },
+  {
+   "key": "REFPRESSURE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:37"
+  },
+  {
+   "key": "REFVISCOSITY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:38"
+  },
+  {
+   "key": "REGULARIZATION_STIFFNESS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:52"
+  },
+  {
+   "key": "REGULARIZATION_THICKNESS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:51"
+  },
+  {
+   "key": "REGULARIZED_NORMAL_CONTACT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:50"
+  },
+  {
+   "key": "REL_PENETRATION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:97"
+  },
+  {
+   "key": "RESEVERYERGY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:26"
+  },
+  {
+   "key": "RESIDUAL",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:85"
+  },
+  {
+   "key": "RESTART",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/input/problem-types.md:18"
+  },
+  {
+   "key": "RESTARTEVERY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 6,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:53"
+  },
+  {
+   "key": "RESTART_WITH_CONTACT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:17"
+  },
+  {
+   "key": "RESULT",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/architecture/input-registry.md:34"
+  },
+  {
+   "key": "RESULTSEVERY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 6,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:52"
+  },
+  {
+   "key": "REUSE_STALL_ITER",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/solvers.md:37"
+  },
+  {
+   "key": "REYNOLDS",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:100"
+  },
+  {
+   "key": "RHO_INF",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:112"
+  },
+  {
+   "key": "RIGID_BODY_MOTION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:39"
+  },
+  {
+   "key": "RIGID_BODY_PHASECHANGE_RADIUS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:40"
+  },
+  {
+   "key": "ROBIN",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/conditions.md:93"
+  },
+  {
+   "key": "ROLE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:59"
+  },
+  {
+   "key": "RSTAB",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:98"
+  },
+  {
+   "key": "RUNTIME",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:60"
+  },
+  {
+   "key": "SCALAR",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 12,
+   "first_seen": "4C-copy/openwiki/architecture/module-map.md:19"
+  },
+  {
+   "key": "SCNUM",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:58"
+  },
+  {
+   "key": "SEARCH",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/module-map.md:29"
+  },
+  {
+   "key": "SEMIIMPLICIT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:66"
+  },
+  {
+   "key": "SEMI_SMOOTH_CN",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:29"
+  },
+  {
+   "key": "SEMI_SMOOTH_CT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:30"
+  },
+  {
+   "key": "SEMI_SMOOTH_NEWTON",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:28"
+  },
+  {
+   "key": "SHAPEFCT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/input/problem-types.md:17"
+  },
+  {
+   "key": "SHEARCORR",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:81"
+  },
+  {
+   "key": "SHEARMOD",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:81"
+  },
+  {
+   "key": "SHOW_INFO",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/geometry-and-elements.md:39"
+  },
+  {
+   "key": "SIDE",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/examples/minimal-decks.md:62"
+  },
+  {
+   "key": "SIGMA_LS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:61"
+  },
+  {
+   "key": "SIMPLER_SOLVER",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:18"
+  },
+  {
+   "key": "SIZE",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/architecture/module-map.md:14"
+  },
+  {
+   "key": "SIZERATIOMAX",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:94"
+  },
+  {
+   "key": "SIZERATIOMIN",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:95"
+  },
+  {
+   "key": "SIZERATIOSCALE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:96"
+  },
+  {
+   "key": "SKIPINITDER",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:48"
+  },
+  {
+   "key": "SOLID",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/theory/structural.md:47"
+  },
+  {
+   "key": "SOLVER",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 34,
+   "first_seen": "4C-copy/openwiki/architecture/module-map.md:16"
+  },
+  {
+   "key": "SOLVERTYPE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:16"
+  },
+  {
+   "key": "SOLVER_XML_FILE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/solvers.md:40"
+  },
+  {
+   "key": "SPHERICALCOORDS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:32"
+  },
+  {
+   "key": "SPRING",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/conditions.md:93"
+  },
+  {
+   "key": "SSTI",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/module-map.md:26"
+  },
+  {
+   "key": "STABILIZATION",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:85"
+  },
+  {
+   "key": "STABTYPE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:89"
+  },
+  {
+   "key": "STAB_DEN_REF",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:39"
+  },
+  {
+   "key": "STAB_MOM_REF",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:40"
+  },
+  {
+   "key": "STARTFUNCNO",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/input/file-format.md:147"
+  },
+  {
+   "key": "START_THETA",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:66"
+  },
+  {
+   "key": "STC_LAYER",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:49"
+  },
+  {
+   "key": "STC_SCALING",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:48"
+  },
+  {
+   "key": "STEADYSTEP",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:55"
+  },
+  {
+   "key": "STEPSIZEMAX",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:92"
+  },
+  {
+   "key": "STEPSIZEMIN",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:93"
+  },
+  {
+   "key": "STIFF",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/conditions.md:95"
+  },
+  {
+   "key": "STIFFNESS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:83"
+  },
+  {
+   "key": "STOICH",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:59"
+  },
+  {
+   "key": "STRATEGY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 5,
+   "first_seen": "4C-copy/openwiki/architecture/module-map.md:29"
+  },
+  {
+   "key": "STRESS",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:99"
+  },
+  {
+   "key": "STRONG_REDD_3D_COUPLING_TYPE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:67"
+  },
+  {
+   "key": "STRUCTURAL",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 25,
+   "first_seen": "4C-copy/openwiki/INSTRUCTIONS.md:11"
+  },
+  {
+   "key": "STRUCTURE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 9,
+   "first_seen": "4C-copy/openwiki/architecture/input-registry.md:34"
+  },
+  {
+   "key": "STRUCT_CONDITION_NUMBER",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:52"
+  },
+  {
+   "key": "STRUCT_JACOBIAN_MATLAB",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:51"
+  },
+  {
+   "key": "STRUCT_PLASTIC_STRAIN",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:49"
+  },
+  {
+   "key": "STRUCT_STRAIN",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:48"
+  },
+  {
+   "key": "STRUCT_STRESS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:47"
+  },
+  {
+   "key": "STRUCT_SURFACTANT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:50"
+  },
+  {
+   "key": "SUPG",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:95"
+  },
+  {
+   "key": "SURF",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/input/file-format.md:129"
+  },
+  {
+   "key": "SYMBOLIC_FUNCTION_OF_TIME",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/conditions.md:88"
+  },
+  {
+   "key": "SYSTEM",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:23"
+  },
+  {
+   "key": "TANG",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:77"
+  },
+  {
+   "key": "TAU_0",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:42"
+  },
+  {
+   "key": "TEKO_XML_FILE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/solvers.md:42"
+  },
+  {
+   "key": "TEMPERATUREEVALUATION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:77"
+  },
+  {
+   "key": "TEMPERATUREGRADIENT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:78"
+  },
+  {
+   "key": "TEMPERATURE_BOUNDARY_CONDITION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:55"
+  },
+  {
+   "key": "THERMALABSORPTIVITY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:107"
+  },
+  {
+   "key": "THERMALCONDUCTIVITY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:107"
+  },
+  {
+   "key": "THERMO",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/architecture/module-map.md:26"
+  },
+  {
+   "key": "THERM_HEATFLUX",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:57"
+  },
+  {
+   "key": "THERM_TEMPGRAD",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/common-sections.md:58"
+  },
+  {
+   "key": "THETA",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 10,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:65"
+  },
+  {
+   "key": "THICKNESS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:84"
+  },
+  {
+   "key": "THROW_IF_UNCONVERGED",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/solvers.md:39"
+  },
+  {
+   "key": "TIMEADAPTIVITY",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 5,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:116"
+  },
+  {
+   "key": "TIMEFUNCTDISPLOFFSET",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/conditions.md:95"
+  },
+  {
+   "key": "TIMEFUNCTSTIFF",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/conditions.md:95"
+  },
+  {
+   "key": "TIMEFUNCTVISCO",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/conditions.md:95"
+  },
+  {
+   "key": "TIMEINIT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:32"
+  },
+  {
+   "key": "TIMEINTEGR",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 11,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:21"
+  },
+  {
+   "key": "TIMESTEP",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 13,
+   "first_seen": "4C-copy/openwiki/INSTRUCTIONS.md:25"
+  },
+  {
+   "key": "TIME_ADAPTIVITY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:19"
+  },
+  {
+   "key": "TIMING_DETAILS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:45"
+  },
+  {
+   "key": "TITLE",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/input/file-format.md:23"
+  },
+  {
+   "key": "TOLCONSTR",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:51"
+  },
+  {
+   "key": "TOLCONSTRINCR",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:52"
+  },
+  {
+   "key": "TOLCONTCONSTR",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:37"
+  },
+  {
+   "key": "TOLDISP",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:37"
+  },
+  {
+   "key": "TOLERANCES",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 5,
+   "first_seen": "4C-copy/openwiki/input/file-format.md:35"
+  },
+  {
+   "key": "TOLINCO",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:43"
+  },
+  {
+   "key": "TOLLAGR",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:38"
+  },
+  {
+   "key": "TOLPRE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:41"
+  },
+  {
+   "key": "TOLRES",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:39"
+  },
+  {
+   "key": "TOL_PRES_INC",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/examples/minimal-decks.md:37"
+  },
+  {
+   "key": "TOL_PRES_RES",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/examples/minimal-decks.md:36"
+  },
+  {
+   "key": "TOL_VEL_INC",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/examples/minimal-decks.md:35"
+  },
+  {
+   "key": "TOL_VEL_RES",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/examples/minimal-decks.md:34"
+  },
+  {
+   "key": "TOPOLOGY",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 9,
+   "first_seen": "4C-copy/openwiki/examples/minimal-decks.md:135"
+  },
+  {
+   "key": "TRANSFER_EVERY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:31"
+  },
+  {
+   "key": "TRANSIENT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:93"
+  },
+  {
+   "key": "TRANSPORT",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 11,
+   "first_seen": "4C-copy/openwiki/examples/minimal-decks.md:97"
+  },
+  {
+   "key": "TRANSPORT2",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/geometry-and-elements.md:10"
+  },
+  {
+   "key": "TRANSPORTVELOCITYFORMULATION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:75"
+  },
+  {
+   "key": "TREE",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/module-map.md:29"
+  },
+  {
+   "key": "TURBULENCE_APPROACH",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:113"
+  },
+  {
+   "key": "TYPE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 11,
+   "first_seen": "4C-copy/openwiki/INSTRUCTIONS.md:11"
+  },
+  {
+   "key": "UPLIMSHEARRATE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:42"
+  },
+  {
+   "key": "USE_FAD",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/geometry-and-elements.md:68"
+  },
+  {
+   "key": "UZAWA",
+   "verdict": "ABSENT",
+   "why": "resolves nowhere in 4C",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:81"
+  },
+  {
+   "key": "UZAWAALGO",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:70"
+  },
+  {
+   "key": "UZAWACONSTRTOL",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:27"
+  },
+  {
+   "key": "UZAWAMAXITER",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:69"
+  },
+  {
+   "key": "UZAWAMAXSTEPS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:26"
+  },
+  {
+   "key": "UZAWAPARAM",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:67"
+  },
+  {
+   "key": "UZAWATOL",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/structural-dynamic.md:68"
+  },
+  {
+   "key": "VARVISCFUNCNO",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:41"
+  },
+  {
+   "key": "VELFUNCNO",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/input/file-format.md:147"
+  },
+  {
+   "key": "VELGRAD_PROJ_METHOD",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:69"
+  },
+  {
+   "key": "VELGRAD_PROJ_SOLVER",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:68"
+  },
+  {
+   "key": "VELOCITYFIELD",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:28"
+  },
+  {
+   "key": "VELOCITY_UPDATE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/contact-dynamic.md:32"
+  },
+  {
+   "key": "VISCO",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/conditions.md:95"
+  },
+  {
+   "key": "VISCOSITY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:114"
+  },
+  {
+   "key": "VISCOUS_DAMPING",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:30"
+  },
+  {
+   "key": "VSTAB",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:97"
+  },
+  {
+   "key": "WALL",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:115"
+  },
+  {
+   "key": "WALLFORMULATION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:74"
+  },
+  {
+   "key": "WRITEFLUX_IDS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/scalar-transport-dynamic.md:39"
+  },
+  {
+   "key": "WRITE_GHOSTED_PARTICLES",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:24"
+  },
+  {
+   "key": "WRITE_PARTICLE_ENERGY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:91"
+  },
+  {
+   "key": "WRITE_PARTICLE_WALL_INTERACTION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/reference/particle-dynamic.md:64"
+  },
+  {
+   "key": "WSS_ML_AGR_SOLVER",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:20"
+  },
+  {
+   "key": "WSS_TYPE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:19"
+  },
+  {
+   "key": "XFEM",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/module-map.md:29"
+  },
+  {
+   "key": "X_WALL",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/fluid-dynamic.md:115"
+  },
+  {
+   "key": "YIELD",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:78"
+  },
+  {
+   "key": "YOUNG",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 8,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:76"
+  },
+  {
+   "key": "YOUNG_MODULUS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/reference/materials.md:84"
+  }
+ ],
+ "counts": {
+  "RESOLVED": 524,
+  "ABSENT": 3
+ }
+}

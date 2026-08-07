@@ -210,12 +210,19 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("wiki", type=Path)
     ap.add_argument("--index", type=Path, required=True)
+    ap.add_argument("--corpus", type=Path, required=True,
+                    help="token corpus; needed to tell a mis-scoped real key "
+                         "from an invented one")
     ap.add_argument("--out", type=Path)
     args = ap.parse_args()
 
     idx = json.load(args.index.open())
     pm = idx["path_meta"]
     sections = set(idx["sections"])
+    all_keys = set(idx["keys"]) | set(idx["enum_values"])
+    corpus = json.load(args.corpus.open())
+    corpus_src = set(corpus["src_tokens"])
+    corpus_deck = set(corpus["deck_tokens"])
 
     # 4C section names contain slashes of their own -- "FLUID DYNAMIC/NONLINEAR
     # SOLVER TOLERANCES" is one top-level section, not a section and a
@@ -291,6 +298,20 @@ def main() -> int:
                     if key in by_section.get(s, {}):
                         sec, meta = s, by_section[s][key]
                         break
+            # ... and against the whole family a mentioned section belongs to,
+            # since "DESIGN LINE NEUMANN CONDITIONS" and "DESIGN SURF NEUMANN
+            # CONDITIONS" are one family in the prose and separate sections in
+            # the dump.
+            if meta is None:
+                for s in mentioned:
+                    stem = re.sub(r"^DESIGN\s+\S+\s+", "", s)
+                    for other in by_section:
+                        if other != s and other.endswith(stem) \
+                                and key in by_section[other]:
+                            sec, meta = other, by_section[other][key]
+                            break
+                    if meta is not None:
+                        break
             if meta is None and key in sections:
                 results.append({**base, "claim": "section exists",
                                 "verdict": "TRUE",
@@ -307,15 +328,54 @@ def main() -> int:
                     sec, meta = hits[0], by_section[hits[0]][key]
 
             if meta is None:
-                if sec and sec in by_section:
+                # THE CASE THIS WHOLE EVALUATION IS ABOUT. An invented key is
+                # invented precisely because it resolves in no section, so
+                # every branch above fails and `sec` is still None -- and the
+                # first version of this code called that "cannot locate the
+                # owning section" and dropped it into UNRESOLVED. It filed
+                # ITEMAX_INNER and CONVTOL_INNER, listed beside the real
+                # ITEMAX_OUTER and CONVTOL_OUTER and present in zero files of
+                # 4C, as unmeasurable. A checker that turns the failure it
+                # exists to detect into a shrug is worse than no checker.
+                #
+                # The document does say which section its table describes, in
+                # the heading or in the "Section: `...`" line above it, and
+                # that is a locatable owner.
+                # Absence has to hold against every section the page names,
+                # not just the most recent one. A conditions page walks
+                # Dirichlet then Neumann families under one heading, and
+                # `TYPE` is a real Neumann key; blaming the nearest mention
+                # would have reported it invented.
+                owner = sec if sec in by_section else (
+                    mentioned[0] if mentioned and mentioned[0] in by_section
+                    else None)
+                # Two very different wrongs, and merging them would destroy
+                # the only number that matters. A key that 4C accepts
+                # SOMEWHERE, put under the wrong section, is a mis-scoped
+                # statement: the identifier is real and an agent can find it.
+                # A key that resolves in no section, no source file and no
+                # deck is invented -- the SOUNDSPEED case.
+                elsewhere = (key in all_keys or key in corpus_src
+                             or key in corpus_deck)
+                if owner and elsewhere:
+                    results.append({**base, "claim": "key exists in section",
+                                    "verdict": "MISSCOPED",
+                                    "section_resolved": owner,
+                                    "why": f"{key} is real in 4C but not a key "
+                                           f"of {owner}"})
+                elif owner:
                     results.append({**base, "claim": "key exists in section",
                                     "verdict": "FALSE",
-                                    "why": f"`4C -p` has no key {key} anywhere "
-                                           f"under {sec}"})
+                                    "section_resolved": owner,
+                                    "why": f"{key} resolves in no 4C section, "
+                                           f"no source file and no shipped "
+                                           f"deck"})
                 else:
                     results.append({**base, "claim": "key exists",
                                     "verdict": "UNRESOLVED",
-                                    "why": "cannot locate the owning section"})
+                                    "why": "the page names no section for this "
+                                           "table, so the key has no owner to "
+                                           "be absent from"})
                 continue
 
             if meta.get("_path") != key:
@@ -423,12 +483,15 @@ def main() -> int:
     counts = Counter(r["verdict"] for r in results)
     total = len(results)
     print(f"table cells checked : {total}")
-    for v in ("TRUE", "FALSE", "UNRESOLVED"):
+    for v in ("TRUE", "FALSE", "MISSCOPED", "UNRESOLVED"):
         print(f"  {v:11s} {counts[v]:5d}  ({100*counts[v]/max(total,1):.1f}%)")
-    decidable = counts["TRUE"] + counts["FALSE"]
-    print(f"\nfalse rate over decidable cells: "
+    decidable = counts["TRUE"] + counts["FALSE"] + counts["MISSCOPED"]
+    print(f"\nwrong-cell rate over decidable cells: "
+          f"{counts['FALSE'] + counts['MISSCOPED']}/{decidable} = "
+          f"{100*(counts['FALSE']+counts['MISSCOPED'])/max(decidable,1):.1f}%")
+    print(f"of which invented identifiers (the SOUNDSPEED case): "
           f"{counts['FALSE']}/{decidable} = "
-          f"{100*counts['FALSE']/max(decidable,1):.1f}%")
+          f"{100*counts['FALSE']/max(decidable,1):.2f}%")
     by_claim = Counter(r["claim"].split(" =")[0].split(" include")[0]
                        for r in results if r["verdict"] == "FALSE")
     if by_claim:
@@ -436,12 +499,13 @@ def main() -> int:
               ", ".join(f"{k} {v}" for k, v in by_claim.most_common()))
     sev = Counter(r.get("severity", "") for r in results
                   if r["verdict"] == "FALSE")
-    print("\n--- FALSE ---")
-    for r in results:
-        if r["verdict"] == "FALSE":
-            s = f"  [{r['severity']}]" if r.get("severity") else ""
-            print(f"  {r['doc']} [{r['section_claimed']}] {r['key']}: "
-                  f"{r['claim']}  <- {r['why']}{s}")
+    for bucket in ("FALSE", "MISSCOPED"):
+        print(f"\n--- {bucket} ---")
+        for r in results:
+            if r["verdict"] == bucket:
+                s = f"  [{r['severity']}]" if r.get("severity") else ""
+                print(f"  {r['doc']} [{r['section_claimed']}] {r['key']}: "
+                      f"{r['claim']}  <- {r['why']}{s}")
     if any(sev):
         print("\nseverity of the wrong defaults: " +
               ", ".join(f"{k or 'n/a'}: {v}" for k, v in sev.most_common()))
