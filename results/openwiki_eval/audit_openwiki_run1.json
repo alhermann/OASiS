@@ -1,0 +1,583 @@
+{
+ "label": "OpenWiki run 1 (default) on 4C",
+ "files": 27,
+ "rows": [
+  {
+   "key": "ARTERY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/core/io-input-output.md:31"
+  },
+  {
+   "key": "BDF2",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/physics/fluid-and-ale.md:33"
+  },
+  {
+   "key": "CLI11",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/architecture/application-lifecycle.md:51"
+  },
+  {
+   "key": "CLONING",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/architecture/input-schema-global-problem.md:62"
+  },
+  {
+   "key": "CMAKE_EXPORT_COMPILE_COMMANDS",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/build-and-runtime.md:55"
+  },
+  {
+   "key": "CONSTITUTIVE",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/architecture/input-schema-global-problem.md:61"
+  },
+  {
+   "key": "CONSTITUTIVELAW",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/physics/materials.md:54"
+  },
+  {
+   "key": "CONTACT",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 7,
+   "first_seen": "4C-copy/openwiki/architecture/input-schema-global-problem.md:61"
+  },
+  {
+   "key": "COORDS",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/core/io-input-output.md:31"
+  },
+  {
+   "key": "COUPALGO",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/physics/coupled-multiphysics.md:21"
+  },
+  {
+   "key": "COUPLING",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/physics/coupled-multiphysics.md:91"
+  },
+  {
+   "key": "DEBUG",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/build-and-runtime.md:56"
+  },
+  {
+   "key": "DESCRIPTION",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 5,
+   "first_seen": "4C-copy/openwiki/architecture/input-schema-global-problem.md:63"
+  },
+  {
+   "key": "DLINE",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/core/io-input-output.md:31"
+  },
+  {
+   "key": "DNODE",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/core/io-input-output.md:31"
+  },
+  {
+   "key": "DSURF",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/core/io-input-output.md:31"
+  },
+  {
+   "key": "DVOL",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/core/io-input-output.md:31"
+  },
+  {
+   "key": "DYNAMICTYPE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/physics/structure-and-solid-elements.md:17"
+  },
+  {
+   "key": "ELEMENTS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 7,
+   "first_seen": "4C-copy/openwiki/core/io-input-output.md:31"
+  },
+  {
+   "key": "EXCLUDE_FROM_ALL",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/build-and-runtime.md:28"
+  },
+  {
+   "key": "EXPECT_THROW",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/core/core-platform.md:42"
+  },
+  {
+   "key": "FE_MATRIX",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/core/linalg-solvers.md:40"
+  },
+  {
+   "key": "FFTW",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/build-and-runtime.md:49"
+  },
+  {
+   "key": "FIELDCOUPLING",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/physics/scalar-transport-electrochemistry.md:16"
+  },
+  {
+   "key": "FILE_SET",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/build-and-runtime.md:41"
+  },
+  {
+   "key": "FLUID",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/core/io-input-output.md:31"
+  },
+  {
+   "key": "FOUR_C_ASSERT",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/core/core-platform.md:42"
+  },
+  {
+   "key": "FOUR_C_BUILD_SHARED_LIBS",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/tools/apps-postprocessing.md:62"
+  },
+  {
+   "key": "FOUR_C_ENABLE_DOXYGEN",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/architecture/build-and-runtime.md:74"
+  },
+  {
+   "key": "FOUR_C_ENABLE_FE_TRAPPING",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/application-lifecycle.md:62"
+  },
+  {
+   "key": "FOUR_C_ENABLE_PYTHON_BINDINGS",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/architecture/build-and-runtime.md:49"
+  },
+  {
+   "key": "FOUR_C_EXECUTABLE_NAME",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/build-and-runtime.md:65"
+  },
+  {
+   "key": "FOUR_C_LIBRARY_NAME",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/build-and-runtime.md:39"
+  },
+  {
+   "key": "FOUR_C_MPIEXEC_ARGS_FOR_TESTING",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/architecture/build-and-runtime.md:57"
+  },
+  {
+   "key": "FOUR_C_TEST_TIMEOUT_SCALE",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/testing-validation.md:25"
+  },
+  {
+   "key": "FOUR_C_THROW",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/architecture/testing-validation.md:37"
+  },
+  {
+   "key": "FOUR_C_WITH_DEAL_II",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/architecture/build-and-runtime.md:49"
+  },
+  {
+   "key": "FOUR_C_WITH_GOOGLETEST",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/testing-validation.md:25"
+  },
+  {
+   "key": "FOUR_C_WITH_GOOGLE_BENCHMARK",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/architecture/build-and-runtime.md:79"
+  },
+  {
+   "key": "FOUR_C_WITH_PYBIND11",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/tools/apps-postprocessing.md:63"
+  },
+  {
+   "key": "FUNCT",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/architecture/input-schema-global-problem.md:65"
+  },
+  {
+   "key": "HEADERS",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/build-and-runtime.md:41"
+  },
+  {
+   "key": "INCLUDES",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/architecture/input-schema-global-problem.md:25"
+  },
+  {
+   "key": "INPUT_VERSION",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/build-and-runtime.md:13"
+  },
+  {
+   "key": "INT_STRATEGY",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/physics/structure-and-solid-elements.md:21"
+  },
+  {
+   "key": "LAWS",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/architecture/input-schema-global-problem.md:61"
+  },
+  {
+   "key": "LSAN_OPTIONS",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/testing-validation.md:27"
+  },
+  {
+   "key": "MATERIAL",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/input-schema-global-problem.md:62"
+  },
+  {
+   "key": "MATERIALS",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/input-schema-global-problem.md:64"
+  },
+  {
+   "key": "MIRCO",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/build-and-runtime.md:49"
+  },
+  {
+   "key": "MPIEXEC_EXECUTABLE",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/testing-validation.md:42"
+  },
+  {
+   "key": "NODE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/core/io-input-output.md:31"
+  },
+  {
+   "key": "NO_CYCLES",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/architecture/build-and-runtime.md:39"
+  },
+  {
+   "key": "NUMINFLOWSTEP",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/physics/fluid-and-ale.md:16"
+  },
+  {
+   "key": "OMP_NUM_THREADS",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/testing-validation.md:42"
+  },
+  {
+   "key": "PARTICLES",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/core/io-input-output.md:31"
+  },
+  {
+   "key": "PARTITIONING",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/input-schema-global-problem.md:86"
+  },
+  {
+   "key": "PROCESSORS",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/architecture/testing-validation.md:42"
+  },
+  {
+   "key": "PYBIND11_MODULE",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/tools/apps-postprocessing.md:67"
+  },
+  {
+   "key": "README",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/tools/apps-postprocessing.md:36"
+  },
+  {
+   "key": "REDUCED",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/core/io-input-output.md:31"
+  },
+  {
+   "key": "RELEASE",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/build-and-runtime.md:56"
+  },
+  {
+   "key": "RELWITHDEBINFO",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/build-and-runtime.md:56"
+  },
+  {
+   "key": "RESULT",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 5,
+   "first_seen": "4C-copy/openwiki/architecture/input-schema-global-problem.md:63"
+  },
+  {
+   "key": "SOURCE",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/testing-validation.md:38"
+  },
+  {
+   "key": "STRUCTURE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/core/io-input-output.md:31"
+  },
+  {
+   "key": "THERMO",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/core/io-input-output.md:31"
+  },
+  {
+   "key": "THREADS",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/testing-validation.md:42"
+  },
+  {
+   "key": "TIMEOUT",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 2,
+   "first_seen": "4C-copy/openwiki/architecture/testing-validation.md:42"
+  },
+  {
+   "key": "TITLE",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/input-schema-global-problem.md:40"
+  },
+  {
+   "key": "TOPOLOGY",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 4,
+   "first_seen": "4C-copy/openwiki/core/io-input-output.md:31"
+  },
+  {
+   "key": "TRANSPORT",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/core/io-input-output.md:31"
+  },
+  {
+   "key": "TURBULENT",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/physics/fluid-and-ale.md:16"
+  },
+  {
+   "key": "TURBULENTINFLOW",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/physics/fluid-and-ale.md:16"
+  },
+  {
+   "key": "VELOCITYFIELD",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/physics/scalar-transport-electrochemistry.md:17"
+  },
+  {
+   "key": "VERSION",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/build-and-runtime.md:13"
+  },
+  {
+   "key": "VOLMORTAR",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/physics/coupled-multiphysics.md:91"
+  },
+  {
+   "key": "WRITE_FINAL_STATE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/physics/coupled-multiphysics.md:26"
+  },
+  {
+   "key": "WRITE_INITIAL_STATE",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 3,
+   "first_seen": "4C-copy/openwiki/physics/coupled-multiphysics.md:26"
+  },
+  {
+   "key": "XFEM",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 10,
+   "first_seen": "4C-copy/openwiki/physics/cut-xfem-geometry.md:3"
+  },
+  {
+   "key": "XFLUIDFLUID",
+   "verdict": "RESOLVED",
+   "why": "accepted by 4C (`4C -p`)",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/physics/fluid-and-ale.md:27"
+  },
+  {
+   "key": "ZLIB",
+   "verdict": "RESOLVED",
+   "why": "occurs in 4C source",
+   "occurrences": 1,
+   "first_seen": "4C-copy/openwiki/architecture/build-and-runtime.md:47"
+  }
+ ],
+ "counts": {
+  "RESOLVED": 82
+ }
+}
