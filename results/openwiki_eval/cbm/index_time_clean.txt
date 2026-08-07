@@ -1,0 +1,3 @@
+level=info msg=mem.init budget_mb=64327 total_ram_mb=128654
+level=info msg=index.supervisor.reap outcome=clean exit_code=0 signal=0
+WALL 21.75 s | MAXRSS 5014208 KB | CPU 1242%

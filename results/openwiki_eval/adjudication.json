@@ -1,0 +1,88 @@
+{
+ "what_this_is": "Every identifier the automated census marked ABSENT, checked by hand with `grep -r -a -F` over /home/alexander/4C and against `4C -p`. A machine verdict that survives this is a finding; one that does not is withdrawn and named here, because an evaluation that only records the accusations it kept is not an audit.",
+ "corpus": {
+  "grammar": "4C -p on build commit 89519cfe76251fc668617c4ab1a70b94fd86ec52, version 2026.2.0-dev; 478 sections, 4558 grammar identifiers, 1297 enum values",
+  "index_validated_by": "1974 shipped decks: 132496 of 132497 key uses resolve; the one miss (IO :: VTK) is in a working-tree file the user added, not upstream. Section uses resolve except TITLE and FUNCT<n>.",
+  "source": "4158 files / 78.2 MB read as bytes (the in-Python equivalent of grep -a), 2171 files / 501.3 MB of decks"
+ },
+
+ "run1_default_brief": {
+  "distinct_checkable_identifiers": 992,
+  "upheld_false": [
+   {"token": "src/core/fem/geometry", "doc": "architecture/testing-validation.md", "evidence": "no such directory; the real ones are src/core/fem/src/geometry and src/core/fem/tests/geometry"},
+   {"token": "Linearsystem", "doc": "core/linalg-solvers.md", "evidence": "0 files contain it; LinearSystem occurs in 72"},
+   {"token": "create_pyramid5_sides", "doc": "physics/cut-xfem-geometry.md", "evidence": "0 occurrences; src/cut has create_pyramid5 and create_pyramid5_cell"},
+   {"token": "ScaTraFluidCloneStrategy", "doc": "physics/scalar-transport-electrochemistry.md", "evidence": "0 occurrences; the class is ScatraFluidCloneStrategy"},
+   {"token": "Post::WriterBase", "doc": "tools/apps-postprocessing.md", "evidence": "no namespace Post exists (the namespaces in that tree are FourC, Core, Discret, Elements, Nurbs); the class is PostWriterBase"},
+   {"token": "Post::FilterBase", "doc": "tools/apps-postprocessing.md", "evidence": "same; the class is PostFilterBase"}
+  ],
+  "withdrawn": [
+   {"token": "Adapter::Structure*", "why": "real -- Adapter::Structure occurs in 46 files; the checker treated the pointer star as part of the name"},
+   {"token": "FSI-XFEM", "occurrences": 2, "why": "prose shorthand in a sentence about which modules serve which problems, not a claimed identifier; the literal enum value is Fluid_Structure_Interaction_XFEM"},
+   {"token": "FSI-ALE", "occurrences": 1, "why": "same"}
+  ],
+  "upheld": 6,
+  "decidable": 849,
+  "false_rate_over_decidable": 0.0071
+ },
+
+ "run2_input_format_brief": {
+  "distinct_checkable_identifiers": 1769,
+  "upheld_false": [
+   {"token": "ITEMAX_INNER", "doc": "reference/scalar-transport-dynamic.md:79", "claimed_as": "int key of SCALAR TRANSPORT DYNAMIC/NONLINEAR, beside the real ITEMAX_OUTER", "evidence": "absent from 4C -p, from all 4158 source files, and from all 2171 decks"},
+   {"token": "CONVTOL_INNER", "doc": "reference/scalar-transport-dynamic.md:80", "claimed_as": "double key of SCALAR TRANSPORT DYNAMIC/NONLINEAR, beside the real CONVTOL_OUTER", "evidence": "absent from 4C -p, from all 4158 source files, and from all 2171 decks"}
+  ],
+  "withdrawn": [
+   {"token": ".4C.yaml", "occurrences": 5, "why": "a filename suffix written in backticks, not a path the docs claim exists"},
+   {"token": "FUNCTn", "occurrences": 2, "why": "placeholder notation for the FUNCT1..FUNCT24 family, which the grammar itself writes FUNCT<n>"},
+   {"token": "MAT_Fluid", "occurrences": 1, "why": "named in order to say it FAILS -- 'Using MAT_Fluid instead of MAT_fluid ... fails before the solver starts'. Correct knowledge about a non-existent name, the same shape as OASiS's own corrected SOUNDSPEED entry."},
+   {"token": "REDUCED D AIRWAYS", "occurrences": 1, "why": "prefix of real sections REDUCED D AIRWAYS DOMAIN / GEOMETRY / KNOTVECTORS, used as a family name in prose"},
+   {"token": "UZAWA", "occurrences": 2, "why": "the page writes UZAWA*, a wildcard over the real UZAWAALGO, UZAWACONSTRTOL, UZAWAMAXITER, UZAWAMAXSTEPS, UZAWAPARAM, UZAWATOL; the tokeniser dropped the star"}
+  ],
+  "upheld": 2,
+  "decidable": 1441,
+  "false_rate_over_decidable": 0.0014
+ },
+
+ "run2_parameter_tables": {
+  "cells_checked": 1204,
+  "true": 1177,
+  "false": 14,
+  "misscoped": 2,
+  "unresolved": 11,
+  "false_rate_over_decidable": 0.0117,
+  "misscoped_detail": [
+   {"key": "TYPE", "note": "real key of 20 NEUMANN condition sections; the page names its Neumann families in prose rather than in backticks, so the checker could only attribute it to the last Dirichlet section named"},
+   {"key": "MAT", "note": "real 4C key, but not a key of PARTICLE DYNAMIC/PD, where the page's table places it"}
+  ],
+  "wrong_defaults_severity": {
+   "value_4C_would_reject": [
+    {"key": "SHAPEFCT", "claimed": "polynomial", "actual": "Polynomial", "note": "PROBLEM TYPE/SHAPEFCT accepts only HDG, Nurbs, Polynomial; the lowercase form is not among them, so a deck written from this cell is refused"}
+   ],
+   "accepted_value_wrong_default": [
+    {"key": "STRUCT_STRESS", "claimed": "No", "actual": "NO"},
+    {"key": "STRUCT_STRAIN", "claimed": "No", "actual": "NO"},
+    {"key": "STRUCT_PLASTIC_STRAIN", "claimed": "No", "actual": "NO"},
+    {"key": "THERM_HEATFLUX", "claimed": "None", "actual": "NO"},
+    {"key": "THERM_TEMPGRAD", "claimed": "None", "actual": "NO"},
+    {"key": "PRESTRESS", "claimed": "none", "actual": "NONE"},
+    {"key": "STRATEGY", "claimed": "LagrangianMultipliers", "actual": "Lagrange"}
+   ],
+   "other": [
+    {"key": "E", "claim": "required = yes", "actual": "required = False in all 251 DESIGN ... CONDITIONS sections", "note": "wrong, but in the safe direction: it tells an agent to write a key that is in fact optional"},
+    {"key": "EVALUATION_TAU", "claim": "type = string", "actual": "enum over element_center / integration_point"},
+    {"key": "EVALUATION_MAT", "claim": "type = string", "actual": "enum over element_center / integration_point"}
+   ]
+  }
+ },
+
+ "checker_defects_found_and_fixed": [
+  "4C section names contain slashes ('FLUID DYNAMIC/NONLINEAR SOLVER TOLERANCES' is one section), so splitting a path on '/' filed every key of a slash-named section under the wrong owner",
+  "tables carrying both a Section and a Key column had the section read as the key",
+  "a cell reading 'optional string matching `major.minor.patch`' lost the word that carried the type when only the backticked span was kept",
+  "CONSTRAINT is both a top-level section and a key of PARTICLE DYNAMIC/INITIAL AND BOUNDARY CONDITIONS; reading the name as a section before using the page's own context condemned a correct row",
+  "an invented key resolves in no section, so every attribution branch failed and the first version dropped ITEMAX_INNER and CONVTOL_INNER into UNRESOLVED -- the checker was silently discarding the exact failure it was built to find",
+  "the corpus originally skipped repo-root files and presets/, which made real CMake variables look absent",
+  "path components were not tokenised, so directory names like 'fem' looked like missing symbols"
+ ]
+}
