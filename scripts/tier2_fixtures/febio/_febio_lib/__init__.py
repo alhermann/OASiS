@@ -378,8 +378,41 @@ def template(name: str, **params) -> str:
     multiphasic, polar fluid) are only reachable this way without
     re-authoring several hundred lines of correct XML per fixture.
     """
-    repo = Path(__file__).resolve().parents[3]
-    src = repo / "src"
+    # WHERE THE REPO IS.
+    #
+    # This walked up `parents[3]`, which is `<repo>/scripts`, so the path it
+    # put on sys.path was `<repo>/scripts/src` — a directory that does not
+    # exist. `import backends.febio.generators` then resolved against whatever
+    # else happened to be importable, and `template()` returned a deck from
+    # somewhere other than this checkout. Every fixture that then swapped a
+    # fragment into it died with "deck does not contain ... the mutation this
+    # fixture depends on did not apply", which reads like a broken fixture and
+    # is in fact a broken import path. It also cannot work at all once a
+    # fixture is STAGED into a scratch directory, where walking up from
+    # __file__ leaves the checkout entirely.
+    #
+    # OASIS_REPO is exported by scripts/run_tier2_fixtures.py for exactly this
+    # reason. Prefer it, fall back to the corrected parents[4], and refuse to
+    # guess: importing the wrong generator silently is what produced the
+    # symptom this comment exists to explain.
+    cands = []
+    env_repo = os.environ.get("OASIS_REPO")
+    if env_repo:
+        cands.append(Path(env_repo))
+    cands.append(Path(__file__).resolve().parents[4])
+
+    src = None
+    for c in cands:
+        if (c / "src" / "backends" / "febio" / "generators").exists():
+            src = c / "src"
+            break
+    if src is None:
+        die("cannot locate this checkout's src/backends/febio/generators. "
+            "Tried: " + ", ".join(str(c) for c in cands) +
+            ". Set OASIS_REPO to the checkout root. Refusing to import a "
+            "generator from an unknown tree — that returns a deck this "
+            "fixture was not written against and fails as if the fixture "
+            "were wrong.")
     if str(src) not in sys.path:
         sys.path.insert(0, str(src))
     from backends.febio.generators import GENERATORS  # noqa: E402
