@@ -1031,7 +1031,17 @@ def _fit_json_block(payload: dict, limit: int, fetch_hint: str = "") -> tuple[st
         bits.append("shortened: " + "; ".join(thinned))
     note = ""
     if bits:
-        note = ("\n\n[Trimmed to fit — " + " | ".join(bits)
+        # Say WHAT HAPPENED before saying what is gone. The reader of this note
+        # is an agent deciding whether the block it just parsed is the whole
+        # record; "Trimmed to fit" alone told it the payload was edited but not
+        # that the copy in hand is INCOMPLETE, and a small model reads a JSON
+        # object that parses as the complete answer. The phrase is fixed
+        # wording, not decoration: tests/test_payload_stays_parseable.py scans
+        # the served text for it to prove no section is dropped silently.
+        head = ("this payload was too large to serve whole"
+                if dropped else "this payload was trimmed to fit")
+        note = ("\n\n[INCOMPLETE — " + head + ", so what follows the fence is "
+                "not the full record: " + " | ".join(bits)
                 + (f". Fetch the full record with {fetch_hint}" if fetch_hint else "")
                 + "]")
     if len(text) > limit:
