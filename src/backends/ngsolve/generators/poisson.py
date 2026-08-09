@@ -147,11 +147,13 @@ KNOWLEDGE = {
             "0.750000 vs 0.748606). Use Integrate/gfu(mesh(x,y)) "
             "sampling for a true L_inf. (Verified empirically "
             "2026-08-03 on NGSolve 6.2.2604 — counterexample "
-            "supplied; the prior 'stronger counterexample needed' "
-            "caveat is resolved. Order-2 numbers and the "
+            "supplied; the prior caveat that a stronger "
+            "counterexample was needed is resolved. Order-2 "
+            "numbers and the "
             "'from order 2 upward' bound re-measured in the "
             "2026-08-03 adversarial re-audit, which falsified the "
-            "'on order 1-2 the two still coincide' claim.)",
+            "claim that on orders 1 and 2 the two still "
+            "coincide.)",
             "[API] Dirichlet inhomogeneous values on NGSolve: "
             "construct gfu = GridFunction(fes); call gfu.Set("
             "boundary_cf, definedon=mesh.Boundaries(name)) to "
@@ -195,7 +197,7 @@ KNOWLEDGE = {
             "reading the element text gives an empty array and "
             "assuming an 8-byte prefix gives garbage. (Verified "
             "empirically 2026-08-03, extended 2026-08-06 on "
-            "NGSolve 6.2.2604 — the 'all linear triangles' "
+            "NGSolve 6.2.2604 — the all-linear-triangles "
             "wording holds only at subdivision 0.)",
             "[API] subdivision=2 on VTKOutput is the recommended "
             "default for any order >= 2 FESpace. Cells per element "

@@ -142,8 +142,9 @@ KNOWLEDGE = {
             "type(X.TnT()[0]) is list of length 2 with each "
             "entry a ProxyFunction; the (u, p), (v, q) unpack "
             "succeeds without error. (Verified empirically "
-            "2026-06-01 — catalog text 'returns nested tuples' "
-            "is slightly loose; the actual types are tuple of "
+            "2026-06-01 — the catalog text saying TnT returns "
+            "nested tuples is slightly loose; the actual types "
+            "are tuple of "
             "lists, not tuple of tuples, but unpacking works "
             "either way.)",
             "[Physics] Enclosed-flow Stokes admits the constant "
