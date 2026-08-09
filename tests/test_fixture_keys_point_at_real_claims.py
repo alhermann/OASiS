@@ -139,11 +139,27 @@ def _fixture_keys(backend: str) -> list[tuple[str, str, list[str]]]:
             continue
         covers = spec.get("covers")
         if isinstance(covers, list) and covers:
-            out.append((d.name, "covers", [str(c) for c in covers]))
+            out.append((d.name, "covers", [_canon(c) for c in covers]))
         elif spec.get("physics") is not None and spec.get("pitfall_index") is not None:
             out.append((d.name, "physics/pitfall_index",
-                        [f"{spec['physics']}:{spec['pitfall_index']}"]))
+                        [_canon(f"{spec['physics']}:{spec['pitfall_index']}")]))
     return out
+
+
+def _canon(key: str) -> str:
+    """One spelling for one claim.
+
+    `covers` entries are written `dem::13` and the physics/pitfall_index
+    fallback builds `dem:13`. Compared raw, a covers-keyed fixture and an
+    index-keyed fixture NEVER collide even when they name the same claim — so
+    the clash check silently passed over `kratos::dem::13`, which really is
+    claimed by two fixtures. The leading underscore is stripped for the same
+    reason it is stripped elsewhere in this file: `_auxiliary_overview` is the
+    catalog key and `auxiliary_overview` is how it is exposed.
+    """
+    s = str(key).strip().replace("::", ":")
+    physics, _, idx = s.rpartition(":")
+    return f"{physics.lstrip('_')}:{idx}" if physics else s.lstrip("_")
 
 
 BACKENDS = sorted(p.name for p in BACKENDS_DIR.iterdir()
@@ -203,13 +219,53 @@ def test_every_fixture_key_names_an_existing_claim(backend):
           "quoting the old index.")
 
 
+def _co_defends(backend: str, fixture: str) -> set[str]:
+    """Fixtures this one declares it deliberately shares a claim with."""
+    f = FIXTURES / backend / fixture / "fixture.json"
+    try:
+        spec = json.loads(f.read_text())
+    except (json.JSONDecodeError, OSError):
+        return set()
+    return {str(x) for x in (spec.get("co_defends") or [])}
+
+
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_no_two_fixtures_claim_the_same_key(backend):
-    """Double-counting one claim inflates coverage and hides an uncovered one.
+def test_no_two_fixtures_ACCIDENTALLY_claim_the_same_key(backend):
+    """An UNDECLARED clash means one fixture is keyed to a claim it does not
+    test, so the claim it should defend has nothing.
 
     Exactly how FEBio's count was wrong: the self-consistency gate sat on
     index 0 alongside the real fixture for it, so one claim was credited twice
     while another had nothing.
+
+    WHY THIS NO LONGER FORBIDS SHARING OUTRIGHT
+    -------------------------------------------
+    It used to, on the stated grounds that sharing "credits them twice and
+    leaves others uncounted". The first half is not true of this tree:
+    `scripts/report_tier2_claim_coverage.py` collapses to DISTINCT claim texts
+    before counting and reports duplicates separately, so two fixtures on one
+    claim inflate nothing. The second half is the real risk, and it is a
+    property of MIS-KEYING, not of sharing.
+
+    And sharing is sometimes correct. Two live examples, both checked against
+    the claim text rather than assumed:
+
+      * `kratos::dem::13` is a COMPOUND claim — "Kratos DEM is NOT 3D-only …
+        there is no SphericParticle2D" — and two fixtures establish its two
+        halves: that CylinderParticle2D constructs, and that SphericParticle2D
+        is not registered.
+      * `coupling::precice_coupled_run::18` is one verdict attacked from three
+        angles: that only 2 of 7 backends' "CAN — proven by a real coupled
+        run" was ever proven, the strong two-participant run through the
+        registered tool, and the SPARTA run that settles a contradiction.
+
+    Re-keying any of those to a free index would make it assert it tests
+    something it does not — the exact defect this file exists to catch.
+
+    So the rule is now: sharing must be DECLARED and MUTUAL. Each fixture in a
+    clash lists the others in `co_defends`. An accidental clash — the FEBio
+    case — still fails, because a mis-keyed fixture does not know who it
+    collided with.
     """
     keys = _fixture_keys(backend)
     if not keys:
@@ -219,13 +275,33 @@ def test_no_two_fixtures_claim_the_same_key(backend):
     for name, _src, ks in keys:
         for k in ks:
             owners.setdefault(k, []).append(name)
-    clashes = {k: v for k, v in owners.items() if len(v) > 1}
 
-    assert not clashes, (
-        f"{backend}: {len(clashes)} claims are keyed by more than one fixture, "
-        f"which credits them twice and leaves others uncounted:\n  "
-        + "\n  ".join(f"{k}: {', '.join(v)}" for k, v in
-                      list(clashes.items())[:12]))
+    undeclared = {}
+    for k, names in owners.items():
+        if len(names) < 2:
+            continue
+        group = set(names)
+        # Mutual: every member must name every other member.
+        if all(_co_defends(backend, n) >= (group - {n}) for n in names):
+            continue
+        missing = [n for n in names
+                   if not _co_defends(backend, n) >= (group - {n})]
+        undeclared[k] = (names, missing)
+
+    assert not undeclared, (
+        f"{backend}: {len(undeclared)} claim(s) are keyed by more than one "
+        f"fixture without the sharing being declared, so at least one of them "
+        f"is keyed to a claim it does not test and the claim it should defend "
+        f"has nothing:\n  "
+        + "\n  ".join(
+            f"{k}: {', '.join(v[0])}  (not declaring co_defends: "
+            f"{', '.join(v[1])})" for k, v in list(undeclared.items())[:12])
+        + "\n\nIf the sharing is deliberate — a compound claim whose halves "
+          "each have a fixture, or one claim with several independent pieces "
+          "of evidence — add a mutual `co_defends` list naming the other "
+          "fixtures, and say in `_comment` which part each establishes. Do "
+          "NOT move one to a free index: that makes it assert it tests "
+          "something it does not.")
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
