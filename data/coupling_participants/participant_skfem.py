@@ -100,8 +100,16 @@ def proj_rhs(v, w):
     return (-K * S) * w["uh"].grad[0] * v
 
 
-A = stiffness.assemble(basis)
-b = source.assemble(basis)
+@LinearForm
+def unit_load(v, w):
+    return 1.0 * v          # w_i = int_Gamma phi_i ds
+
+
+A = stiffness.assemble(basis)          # UNCONSTRAINED: condense() below does
+b = source.assemble(basis)             # not modify A or b in place
+fbasis = FacetBasis(mesh, elem,
+                    facets=mesh.facets_satisfying(
+                        lambda p: np.abs(p[0] - IFACE_X) < TOL))
 
 sol = basis.zeros()
 sol[outer_dofs] = T_OUTER
@@ -115,22 +123,62 @@ else:
     q_if = sample(imp, "normal_fluxes", Q_INIT, y_if)
     gnod = basis.zeros()                   # P1 trace of the partner's samples
     gnod[iface_dofs] = q_if
-    fbasis = FacetBasis(mesh, elem,
-                        facets=mesh.facets_satisfying(
-                            lambda p: np.abs(p[0] - IFACE_X) < TOL))
     b = b + flux_load.assemble(fbasis, g=fbasis.interpolate(gnod))
     # APPLY the partner's number unchanged (+ integral(g*v) ds_interface)
 
 sol = solve(*condense(A, b, x=sol, D=D))
 
-# outward normal flux density q_out = -k * S * dT/dx, L2-projected to P1
-qh = solve(mass.assemble(basis),
-           proj_rhs.assemble(basis, uh=basis.interpolate(sol)))
+# Outward normal flux density q = -(k grad T).n on the interface.
+#
+# WHY NOT AN L2 PROJECTION OF THE GRADIENT. That is what this file used to do:
+# project -k dT/dx over the whole subdomain and sample it at the interface. The
+# gradient of a P1 solution is only O(h) accurate ON the boundary — the
+# superconvergence points are interior — and the boundary trace is exactly what
+# the coupling reads. Measured against a manufactured solution with a known
+# exact interface flux, the projection converges at order ~1 while the
+# consistent flux below converges at ~2, so the recovery, not the physics and
+# not the partner, was setting the answer.
+#
+# THE CONSISTENT (REACTION) FLUX. From
+#     a(u,v) - (f,v) = int_dOmega (k grad u . n) v ds = -int_Gamma qn v ds
+# it follows that for every basis function phi_i on the interface
+#     int_Gamma qn phi_i ds = -r_i,   r = A u_h - b
+# with r the UNCONSTRAINED residual: A and b above are assembled with NO
+# boundary condition applied and skfem's condense() returns copies, so the
+# constrained rows of A still carry the reaction. Dividing by
+# w_i = int_Gamma phi_i ds turns the functional into a density the partner can
+# interpolate pointwise.
+if SIDE == "dirichlet":
+    r = A @ sol - b                        # r = A u_h - b, no bc applied
+    wgt = unit_load.assemble(fbasis)       # w_i = int_Gamma phi_i ds
+
+    Q = np.zeros(len(iface_dofs))
+    ok = np.abs(wgt[iface_dofs]) > 1e-14
+    Q[ok] = -r[iface_dofs][ok] / wgt[iface_dofs][ok]
+
+    # An interface node that ALSO lies on the outer Dirichlet boundary carries
+    # the OUTER reaction as well, so its residual is not this interface's flux.
+    # Take the nearest interior interface node rather than exporting a corner
+    # value that is physically a different quantity.
+    suspect = np.isin(iface_dofs, outer_dofs) | ~ok
+    good = np.where(~suspect)[0]
+    if len(good):
+        for i in np.where(suspect)[0]:
+            Q[i] = Q[good[np.argmin(np.abs(good - i))]]
+else:
+    # NEUMANN SIDE: the reaction formula MUST NOT be used here. These interface
+    # dofs are free, the discrete equations hold on them, so r is ~0 and the
+    # expression would silently export ZERO flux with no error raised. This
+    # side's flux export is not what the partner consumes in any case — the
+    # Dirichlet partner reads its `values`.
+    qh = solve(mass.assemble(basis),
+               proj_rhs.assemble(basis, uh=basis.interpolate(sol)))
+    Q = qh[iface_dofs]
 
 Path("exports.json").write_text(json.dumps({
     "field_name": "temperature",
     "n_points": int(len(iface_dofs)),
     "coordinates": [[float(IFACE_X), float(yy)] for yy in y_if],
     "values": [float(t) for t in sol[iface_dofs]],
-    "normal_fluxes": [float(q) for q in qh[iface_dofs]],
+    "normal_fluxes": [float(q) for q in Q],
 }, indent=2))

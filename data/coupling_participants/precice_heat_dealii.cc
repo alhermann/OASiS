@@ -26,11 +26,13 @@
  * All problem numbers come from the input file — nothing is hardcoded.
  */
 #include <deal.II/base/function.h>
+#include <deal.II/base/index_set.h>
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_tools.h>
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_values.h>
+#include <deal.II/fe/mapping_q1.h>
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/tria.h>
 #include <deal.II/lac/affine_constraints.h>
@@ -194,6 +196,18 @@ public:
     Vector<double>       solution(dof_handler_.n_dofs());
     Vector<double>       rhs(dof_handler_.n_dofs());
 
+    /* A SECOND, UNCONSTRAINED copy of the same system.  The consistent
+     * interface flux below is the residual of the discrete equations on the
+     * CONSTRAINED rows, and constraints.distribute_local_to_global() destroys
+     * exactly those rows.  So the reaction has to be read off a matrix
+     * assembled with NO constraints at all. */
+    DynamicSparsityPattern dsp_free(dof_handler_.n_dofs());
+    DoFTools::make_sparsity_pattern(dof_handler_, dsp_free);
+    SparsityPattern sparsity_free;
+    sparsity_free.copy_from(dsp_free);
+    SparseMatrix<double> free_matrix(sparsity_free);
+    Vector<double>       free_rhs(dof_handler_.n_dofs());
+
     FEValues<2>     fe_values(fe_, quadrature_,
                               update_values | update_gradients |
                                 update_JxW_values);
@@ -239,6 +253,12 @@ public:
               }
 
         cell->get_dof_indices(local_dofs);
+        for (unsigned int i = 0; i < dofs_per_cell; ++i)
+          {
+            for (unsigned int j = 0; j < dofs_per_cell; ++j)
+              free_matrix.add(local_dofs[i], local_dofs[j], cell_matrix(i, j));
+            free_rhs(local_dofs[i]) += cell_rhs(i);
+          }
         constraints.distribute_local_to_global(cell_matrix, cell_rhs,
                                                local_dofs, system_matrix, rhs);
       }
@@ -250,8 +270,33 @@ public:
     solver.solve(system_matrix, solution, rhs, precond);
     constraints.distribute(solution);
 
-    /* Interface temperature and outward normal flux at the interface support
-     * points, averaged over the adjacent cells and keyed by y. */
+    /* Interface temperature and outward normal flux density q = -(k grad T).n.
+     *
+     * WHY NOT THE GRADIENT OF THE SOLUTION. That is what this file used to do:
+     * evaluate grad T at the FE support points of the interface faces and
+     * average over the adjacent cells. The gradient of a P1/Q1 solution is only
+     * O(h) accurate ON the boundary — the superconvergence points are interior
+     * — and the boundary trace is exactly what preCICE ships to the partner.
+     * Measured against a manufactured solution with a known exact interface
+     * flux, that recovery converges at order ~1 while the consistent flux below
+     * converges at ~2, so the recovery, not the physics and not the partner,
+     * was setting the answer.
+     *
+     * THE CONSISTENT (REACTION) FLUX. From
+     *   a(u,v) - (f,v) = \int_{dOmega} (k grad u . n) v ds = -\int_Gamma qn v ds
+     * it follows that for every basis function phi_i on the interface
+     *   \int_Gamma qn phi_i ds = -r_i,   r = A u_h - b
+     * with r the UNCONSTRAINED residual (free_matrix / free_rhs above: no
+     * constraint applied, constrained rows NOT zeroed, because on the Dirichlet
+     * side those rows ARE the reaction).  Dividing by w_i = \int_Gamma phi_i ds
+     * turns the functional into a density the partner can interpolate.  The
+     * outward normal is already in the identity, so no s_out_ factor appears.
+     *
+     * ONLY WHEN side_ == 0.  On the Neumann side the interface dofs are free,
+     * the discrete equations hold there, so r is ~0 and this expression would
+     * silently ship ZERO flux with no error raised.  That side keeps the
+     * gradient recovery; its flux is not what the partner consumes anyway.
+     */
     const Quadrature<1> face_support(fe_.get_unit_face_support_points());
     FEFaceValues<2>     fe_face(fe_, face_support,
                                 update_values | update_gradients |
@@ -277,13 +322,71 @@ public:
               }
           }
 
+    std::map<double, double> q_cons;
+    if (side_ == 0)
+      {
+        Vector<double> residual(dof_handler_.n_dofs());
+        free_matrix.vmult(residual, solution);
+        residual -= free_rhs; // r = A u_h - b
+
+        Vector<double>  weight(dof_handler_.n_dofs()); // \int_Gamma phi_i ds
+        FEFaceValues<2> fe_face_w(fe_, face_quadrature_,
+                                  update_values | update_JxW_values);
+        for (const auto &cell : dof_handler_.active_cell_iterators())
+          for (const unsigned int f : cell->face_indices())
+            if (cell->face(f)->at_boundary() &&
+                cell->face(f)->boundary_id() == iface_id_)
+              {
+                fe_face_w.reinit(cell, f);
+                cell->get_dof_indices(local_dofs);
+                for (unsigned int qp = 0; qp < face_quadrature_.size(); ++qp)
+                  for (unsigned int i = 0; i < dofs_per_cell; ++i)
+                    weight(local_dofs[i]) +=
+                      fe_face_w.shape_value(i, qp) * fe_face_w.JxW(qp);
+              }
+
+        std::vector<Point<2>> support_points(dof_handler_.n_dofs());
+        DoFTools::map_dofs_to_support_points(MappingQ1<2>(), dof_handler_,
+                                             support_points);
+        /* An interface node that ALSO lies on the outer Dirichlet boundary
+         * carries the OUTER reaction as well, so its residual is not this
+         * interface's flux. */
+        const IndexSet outer_dofs = DoFTools::extract_boundary_dofs(
+          dof_handler_, ComponentMask(),
+          {static_cast<types::boundary_id>(outer_id_)});
+
+        std::map<double, double> suspect;
+        for (types::global_dof_index i = 0; i < dof_handler_.n_dofs(); ++i)
+          if (std::abs(weight(i)) > 1e-14)
+            {
+              const double kk = key(support_points[i][1]);
+              q_cons[kk]      = -residual(i) / weight(i);
+              suspect[kk]     = outer_dofs.is_element(i) ? 1.0 : 0.0;
+            }
+        /* Replace a suspect node's flux by the nearest interior interface
+         * value: iface_y_ is sorted, so nearest in index is nearest in y. */
+        for (std::size_t i = 0; i < iface_y_.size(); ++i)
+          if (suspect.at(iface_y_[i]) != 0.0)
+            {
+              std::size_t best = iface_y_.size();
+              for (std::size_t j = 0; j < iface_y_.size(); ++j)
+                if (suspect.at(iface_y_[j]) == 0.0 &&
+                    (best == iface_y_.size() ||
+                     std::abs(static_cast<long>(j) - static_cast<long>(i)) <
+                       std::abs(static_cast<long>(best) - static_cast<long>(i))))
+                  best = j;
+              if (best < iface_y_.size())
+                q_cons[iface_y_[i]] = q_cons[iface_y_[best]];
+            }
+      }
+
     T.assign(iface_y_.size(), 0.0);
     q.assign(iface_y_.size(), 0.0);
     for (std::size_t i = 0; i < iface_y_.size(); ++i)
       {
         const auto &e = acc.at(iface_y_[i]);
         T[i]          = e[0] / e[2];
-        q[i]          = e[1] / e[2];
+        q[i]          = side_ == 0 ? q_cons.at(iface_y_[i]) : e[1] / e[2];
       }
   }
 

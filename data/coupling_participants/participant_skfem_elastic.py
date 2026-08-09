@@ -187,8 +187,18 @@ def proj_rhs(v, w):
     return (-S) * (sxx * v[0] + sxy * v[1])
 
 
-A = stiffness.assemble(basis)
-b = basis.zeros()
+@LinearForm
+def unit_load(v, w):
+    """w_i = int_Gamma phi_i ds.  The test vector (1,1) makes the SAME scalar
+    nodal weight come out on both components."""
+    return 1.0 * v[0] + 1.0 * v[1]
+
+
+A = stiffness.assemble(basis)          # UNCONSTRAINED: condense() below does
+b = basis.zeros()                      # not modify A or b in place
+fbi = FacetBasis(mesh, elem,
+                 facets=mesh.facets_satisfying(
+                     lambda p: np.abs(p[0] - IFACE_X) < TOL))
 
 sol = basis.zeros()
 ux_d, uy_d = u_dirichlet(px[outer_n], py[outer_n])
@@ -207,21 +217,63 @@ else:
     gnod = basis.zeros()                   # P1 trace of the partner's samples
     gnod[nd[0, iface_n]] = t_if[:, 0]
     gnod[nd[1, iface_n]] = t_if[:, 1]
-    fbi = FacetBasis(mesh, elem,
-                     facets=mesh.facets_satisfying(
-                         lambda p: np.abs(p[0] - IFACE_X) < TOL))
     # APPLY the partner's numbers UNCHANGED (+ integral(g . v) ds_interface)
     b = b + asm(traction, fbi, t=fbi.interpolate(gnod))
 
 sol = solve(*condense(A, b, x=sol, D=D))
 
-qh = solve(mass.assemble(basis),
-           proj_rhs.assemble(basis, uh=basis.interpolate(sol)))
+# Interface traction export q_out = -(sigma . n_own).
+#
+# WHY NOT AN L2 PROJECTION OF THE STRESS. That is what this file used to do:
+# project -(sigma(u_h) . n_own) over the whole subdomain and sample it at the
+# interface. The gradient of a P1 solution — and therefore the stress — is only
+# O(h) accurate ON the boundary; the superconvergence points are interior, and
+# the boundary trace is exactly what the coupling reads. Measured against a
+# manufactured solution with a known exact interface traction, the projection
+# converges at order ~1 while the consistent traction below converges at ~2, so
+# the recovery, not the physics and not the partner, was setting the answer.
+#
+# THE CONSISTENT (REACTION) TRACTION. From
+#     a(u,v) - (f,v) = int_dOmega (sigma(u) . n) . v ds = -int_Gamma q_out . v ds
+# (the second equality is this file's sign convention, q_out = -(sigma . n_own))
+# it follows that for every vector basis function phi_i on the interface
+#     int_Gamma q_out . phi_i ds = -r_i,   r = A u_h - b
+# with r the UNCONSTRAINED residual: A and b above are assembled with NO
+# boundary condition applied and skfem's condense() returns copies, so the
+# constrained rows of A still carry the reaction.
+if SIDE == "dirichlet":
+    r = A @ sol - b                        # r = A u_h - b, no bc applied
+    wgt = unit_load.assemble(fbi)          # w_i = int_Gamma phi_i ds
+
+    idx = np.column_stack([nd[0, iface_n], nd[1, iface_n]])
+    wi = wgt[idx]
+    Q = np.zeros_like(wi)
+    ok = np.abs(wi) > 1e-14
+    Q[ok] = -r[idx][ok] / wi[ok]
+
+    # THE TWO INTERFACE CORNERS ARE ON THE OUTER DIRICHLET BOUNDARY (a y-face),
+    # so their rows carry the OUTER reaction too and their residual is not this
+    # interface's traction. Take the nearest interior interface node rather than
+    # exporting a corner value that is physically a different quantity.
+    suspect = np.isin(iface_n, outer_n) | ~ok.all(axis=1)
+    good = np.where(~suspect)[0]
+    if len(good):
+        for i in np.where(suspect)[0]:
+            Q[i] = Q[good[np.argmin(np.abs(good - i))]]
+else:
+    # NEUMANN SIDE: the reaction formula MUST NOT be used here. These interface
+    # dofs are free, the discrete equations hold on them, so r is ~0 and the
+    # expression would silently export ZERO traction with no error raised. This
+    # side's export is not what the partner consumes in any case — the Dirichlet
+    # partner reads its `values`.
+    qh = solve(mass.assemble(basis),
+               proj_rhs.assemble(basis, uh=basis.interpolate(sol)))
+    Q = np.column_stack([qh[nd[0, iface_n]], qh[nd[1, iface_n]]])
 
 Path("exports.json").write_text(json.dumps({
     "field_name": "displacement",
     "n_points": int(len(iface_n)),
     "coordinates": [[float(IFACE_X), float(yy)] for yy in y_if],
     "values": [[float(sol[nd[0, i]]), float(sol[nd[1, i]])] for i in iface_n],
-    "normal_fluxes": [[float(qh[nd[0, i]]), float(qh[nd[1, i]])] for i in iface_n],
+    "normal_fluxes": [[float(q0), float(q1)] for q0, q1 in Q],
 }, indent=2))
