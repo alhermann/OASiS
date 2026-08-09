@@ -25,7 +25,7 @@ KNOWLEDGE = {
         "solver_types": ["potential_flow_solver (linear/nonlinear)"],
         "pitfalls": [
             "[Numerical] Far-field BC: use PotentialWallCondition for solid walls Signal: CreateNewCondition with the bare name raises RuntimeError 'The Condition \"PotentialWallCondition\" is not registered!'; the registered spellings carry a dimension-and-node-count suffix (PotentialWallCondition2D2N / 3D3N).",
-            "[Physics] Freestream conditions are set through FREE_STREAM_VELOCITY, FREE_STREAM_MACH and FREE_STREAM_DENSITY, which are attributes of CompressiblePotentialFlowApplication. The names FREESTREAM_VELOCITY and MACH_INFINITY (one word, and 'infinity' spelled out) do not exist anywhere in Kratos \u2014 an earlier version of this entry prescribed them. Signal: dotting either non-existent name off the application or off core raises AttributeError at attribute access, before any value is assigned; the FREE_STREAM_* spellings resolve.",
+            "[Physics] Freestream conditions are set through FREE_STREAM_VELOCITY, FREE_STREAM_MACH and FREE_STREAM_DENSITY, which are attributes of CompressiblePotentialFlowApplication. There is no FREESTREAM_VELOCITY (one word) and no MACH_INFINITY ('infinity' spelled out): neither name exists anywhere in Kratos, including its 48-application C++ source, and an earlier version of this entry prescribed both. Signal: dotting either non-existent name off the application or off core raises AttributeError at attribute access, before any value is assigned; the FREE_STREAM_* spellings resolve.",
         ],
         "guidance": [
             "[Numerical] Transonic: requires shock-capturing stabilization",

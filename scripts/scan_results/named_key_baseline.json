@@ -13,38 +13,21 @@
   ],
   "baseline": {
     "fourc": [],
-    "fenics": [
-      "CANNOT",
-      "COLLAPSED",
-      "SUPG"
-    ],
-    "dealii": [
-      "EPS_TARGET_REAL"
-    ],
-    "ngsolve": [
-      "ALSO"
-    ],
-    "skfem": [
-      "BDF2"
-    ],
-    "dune": [
-      "COUPLED",
-      "DIRK22",
-      "SDIRK22"
-    ],
-    "febio": [
-      "FEBIO_BINARY",
-      "NEGATIVELY",
-      "UPPERCASE",
-      "VERIFIED"
-    ],
+    "fenics": [],
+    "dealii": [],
+    "ngsolve": [],
+    "skfem": [],
+    "kratos": [],
+    "dune": [],
+    "febio": [],
     "sparta": []
   },
-  "_no_verdict": {
-    "kratos": "Was PARTIAL_CORPUS when this baseline was first taken against the repo venv's 3-application wheel. On the consolidated tree the audit reaches the 28-application source build at /mnt/kratos-tier2/kv and returns CANDIDATES \u2014 172 distinct keys checked across 188 entries, 18 unresolved. That is a verdict, so kratos is no longer exempt, and its 18 are among the 121 left untriaged above."
-  },
+  "_no_verdict": {},
   "notes": {
-    "fourc": "Emptied 2026-08-07. All 14 entries resolved: 26 fourc knowledge strings had ALL-CAPS prose emphasis lowercased (the gate cannot tell FLUCTUATION from an identifier), 4 external symbols (MPI_ABORT, SIGABRT, DGEMM, XERBLA) joined the stopword list, and 9 were correct negatives whose rejection phrasing the absence matcher did not recognise. audit reports 0 unresolved for fourc, with the deck FILES now inside the gate's reach."
+    "fourc": "Emptied 2026-08-07. All 14 entries resolved: 26 fourc knowledge strings had ALL-CAPS prose emphasis lowercased (the gate cannot tell FLUCTUATION from an identifier), 4 external symbols (MPI_ABORT, SIGABRT, DGEMM, XERBLA) joined the stopword list, and 9 were correct negatives whose rejection phrasing the absence matcher did not recognise. audit reports 0 unresolved for fourc, with the deck FILES now inside the gate's reach.",
+    "all": "Empty for all nine backends as of 2026-08-09. An empty baseline is the intended end state, not a suspicious one -- but it is only meaningful together with tests/test_named_key_gate_still_bites.py, which re-injects SOUNDSPEED, SMOOTHING_LENGTH, AREA0, FLUID_DYNAMIC, PARTICLE_FRICTION, FREESTREAM_VELOCITY and DYN_VISCOSITY and requires the gate to flag every one, while requiring it NOT to flag SDIRK22, KSP_DIVERGED_PC_FAILED, EPS_TARGET_REAL, KRATOS_ERROR_IF and STATIC_FRICTION. Zero and blind report the same number; that test is what tells them apart."
   },
-  "_pruned_2026_08_08": "Re-taken after feature/fenics-diagnostics was merged. That branch taught search_roots to reach a CONDA package's real library through DT_NEEDED (linked_libraries) and to include libpython (cpython_runtime); audit_named_input_keys imports the same search_roots, so PETSc's DIVERGED_* enum names \u2014 which live in libpetsc.so and not in the dolfinx wrapper the audit could previously see \u2014 now resolve. fenics: DIVERGED_BREAKDOWN, DIVERGED_FNORM_NAN, DIVERGED_INDEFINITE_PC, DIVERGED_LINE_SEARCH, KSP_DIVERGED_BREAKDOWN, REMOVED; ngsolve: DIVERGED_BREAKDOWN. Removed as test_baseline_only_shrinks requires: an entry that stays after its key resolves silently re-permits the same fabrication."
+  "_pruned_2026_08_08": "Re-taken after feature/fenics-diagnostics was merged. That branch taught search_roots to reach a CONDA package's real library through DT_NEEDED (linked_libraries) and to include libpython (cpython_runtime); audit_named_input_keys imports the same search_roots, so PETSc's DIVERGED_* enum names \u2014 which live in libpetsc.so and not in the dolfinx wrapper the audit could previously see \u2014 now resolve. fenics: DIVERGED_BREAKDOWN, DIVERGED_FNORM_NAN, DIVERGED_INDEFINITE_PC, DIVERGED_LINE_SEARCH, KSP_DIVERGED_BREAKDOWN, REMOVED; ngsolve: DIVERGED_BREAKDOWN. Removed as test_baseline_only_shrinks requires: an entry that stays after its key resolves silently re-permits the same fabrication.",
+  "_pruned_2026_08_09": "Emptied. The 91 candidates standing on this branch were triaged one by one and every one is now resolved at its source, so nothing is recorded here and the gate fails on anything at all. Four kinds of thing, and the split matters because only one of them was a defect in the knowledge: (a) 61 were ORDINARY ENGLISH shouted for emphasis -- ENTIRE, WIDESPREAD, WRONG, CHILDREN, case-SENSITIVE -- and are now covered by 60 distinct words in _PROSE_STOPWORDS, each screened against 4C's 2026 `4C -p` names, Kratos's 2675 variable macros and FEBio's 2437 registered strings, and held there by tests/test_named_key_stopwords.py. (b) 18 were REAL NAMES THE CORPUS COULD NOT SEE: Kratos's C++ source was missing (macros do not survive compilation, so KRATOS_ERROR and friends could never resolve against an install, and PFEM2/YIELD_SHEAR live in applications this host does not build), and the C headers under three Python bindings were missing (PETSc's KSP_DIVERGED_*, SLEPc's EPSWhich enumerators, dune-fem's Runge-Kutta names -- a C enum's NAME exists only in the header). Corpus paths fixed, never the assertion. (c) 7 were CORRECT NEGATIVES the absence matcher did not recognise, or identifiers belonging to OASiS rather than to a backend: PARTICLE_FRICTION and FREESTREAM_VELOCITY quoted the solver's own 'is unknown' / 'not defined' verdict, KRATOS_KNOWLEDGE quoted CPython's 'cannot import name', GENERATORS/KNOWLEDGE came from a module DOCSTRING that is not knowledge at all, and FEBIO_BINARY is our own environment variable. (d) 3 were REAL DEFECTS IN THE KNOWLEDGE, fixed in the text: dune's DIRK22 (no such scheme -- dune-fem accepts ImplicitEuler, CrankNicolson, DIRK23, DIRK34, SDIRK22, timestepcontrol.hh:154), febio's EROSION (the registered type string is lower-case `erosion`, FEAMR.cpp:49), ngsolve's BDM_1 (maths notation, not an NGSolve name; the space is HDiv(order=1, RT=False)), plus DYN_VISCOSITY, which is not one of the 91 because it was not in the knowledge at all but in THIS GATE'S OWN DOCSTRING, cited as the example of a real 4C parameter. 4C's MAT_ParticleSPHFluid spells it DYNAMIC_VISCOSITY and DYN_VISCOSITY appears in zero files of src/, apps/ and tests/. Two more, SUPG and BDF2, are English-in-caps that could NOT be stopworded because both are real 4C identifiers; those two entries were reworded instead. 61 + 18 + 7 + 3 + 2 = 91, nothing unclassified.",
+  "_open_defect_2026_08_09": "key_present matches SUBSTRINGS, so a fabricated key that sits inside a real identifier resolves and is never reported. Measured: DIRK22 resolves against the letters of SDIRK22, which is why the dune fabrication above was found by reading the header and not by this gate. `grep -w` fixes it and is already implemented -- key_present tries whole-word FIRST and reports every substring-only resolution in the `substring_only` field on every run. It is not yet the pass/fail rule because switching it on surfaces 63 further candidates across all nine backends INCLUDING 4C (fourc 16, febio 11, dealii 8, fenics 7, ngsolve 7, sparta 7, skfem 3, kratos 3, dune 1), and shipping 63 untriaged reds -- or parking them in this file -- would be worse than shipping a named limitation. They are printed by name on every run, so the next pass starts from a list."
 }

@@ -6,9 +6,13 @@ the key is wrong or their problem is. Two of these were live in the corpus when
 this gate was written:
 
   * `SOUNDSPEED` and `SMOOTHING_LENGTH`, served as required 4C SPH material
-    parameters beside the real `DYN_VISCOSITY` and `BULK_MODULUS`, one of them
+    parameters beside `DYN_VISCOSITY` and the real `BULK_MODULUS`, one of them
     carrying the numeric tuning rule "c >= 10 * v_max". Neither appears in any
-    file of 4C's source or in any of its 2171 input decks.
+    file of 4C's source or in any of its 2171 input decks — and neither does
+    `DYN_VISCOSITY`, which this docstring called real until 2026-08-09. 4C's
+    MAT_ParticleSPHFluid spells it `DYNAMIC_VISCOSITY` (`4C -p`). Three
+    fabrications in one sentence, two of them named as the honest company the
+    third kept.
   * `AREA0`, in the arterial-network DECK TEMPLATE — the YAML actually written
     into the input file. 4C's `MAT_CNST_ART` has no such parameter; the
     reference geometry comes from `DIAM`. The same generator already carried a
@@ -104,6 +108,15 @@ def test_baseline_only_shrinks() -> None:
 
     stale: list[str] = []
     for backend, keys in _baseline().items():
+        if not keys:
+            # Nothing recorded for this backend, so there is nothing that could
+            # have gone stale. Skipping the audit is exact, not an optimisation
+            # that trades away a check: the inner loop below iterates over
+            # `keys` and does nothing when it is empty, whatever the audit says.
+            # It matters now that the baseline is empty for all nine — without
+            # this the file's nine empty lists cost a second full pass over
+            # every corpus, doubling the suite's slowest test to say nothing.
+            continue
         res = audit(backend)
         if res["status"] not in ("OK", "CANDIDATES"):
             continue

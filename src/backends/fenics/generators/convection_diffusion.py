@@ -21,7 +21,8 @@ KNOWLEDGE = {
     "function_space": "Lagrange order 1",
     "solver": {"ksp_type": "preonly", "pc_type": "lu"},
     "pitfalls": [
-        "[Numerical] SUPG stabilisation parameter is "
+        "[Numerical] Streamline-upwind Petrov-Galerkin (SUPG) "
+        "stabilisation needs "
         "tau = h/(2|b|) * (coth(Pe) - 1/Pe), where the local Peclet "
         "number is Pe = |b|*h/(2*eps). Signal: using a constant tau "
         "(e.g. tau = 0.1) in the dolfinx BilinearForm produces "
