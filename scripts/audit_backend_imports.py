@@ -34,6 +34,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -48,17 +49,72 @@ HOME = Path.home()
 # for that backend × physics.
 # ───────────────────────────────────────────────────────────────
 
-PYTHON_PATHS = {
-    "venv":        str(REPO_ROOT / ".venv" / "bin" / "python"),
-    "ofa-fenicsx": str(HOME / "miniconda3" / "envs" / "ofa-fenicsx" / "bin" / "python"),
-    "ofa-dealii":  str(HOME / "miniconda3" / "envs" / "ofa-dealii" / "bin" / "python"),
-    "ofa-dune":    str(HOME / "miniconda3" / "envs" / "ofa-dune" / "bin" / "python"),
-    "system":      sys.executable,
+# RESOLVED, NOT ASSUMED.
+#
+# These used to be fixed paths: the repo's own `.venv`, and conda envs named
+# `ofa-fenicsx` / `ofa-dune` / `ofa-dealii`. Every one of them is wrong on at
+# least one host this runs on. A git worktree has no `.venv`, and the dolfinx
+# env here is called `fenics` while the DUNE one is `dune-fem-env`. The audit
+# then recorded `core_importable: false` with `core_error: "interpreter not
+# found at <path>"` — for backends that import perfectly well through the
+# interpreter the rest of the tree already knows about. Kratos was reported
+# unavailable on a host where it imports with 28 applications.
+#
+# That is not a wrong path, it is a wrong KIND of answer: an instrument that
+# could not look, filing a negative that reads exactly like a measurement.
+# Same defect as a fixture runner recording `skipped` because an env var was
+# unset, and as an auditor that examines nothing and prints a pass.
+#
+# Resolution order matches scripts/run_tier2_fixtures.py, so the two agree
+# about what a backend's interpreter IS: explicit env var, then plausible
+# locations, then the running interpreter.
+_ENV_VAR = {
+    "venv":        "OASIS_PYTHON",
+    "kratos":      "KRATOS_PYTHON",
+    "ofa-fenicsx": "FENICS_PYTHON",
+    "ofa-dune":    "DUNE_PYTHON",
 }
+_CANDIDATES = {
+    "venv": [
+        str(REPO_ROOT / ".venv" / "bin" / "python"),
+        str(HOME / "Schreibtisch" / "open-fem-agent" / ".venv" / "bin" / "python"),
+    ],
+    "ofa-fenicsx": [str(HOME / "miniconda3" / "envs" / n / "bin" / "python")
+                    for n in ("fenics", "ofa-fenicsx", "fenicsx", "dolfinx")],
+    "ofa-dune": [str(HOME / "miniconda3" / "envs" / n / "bin" / "python")
+                 for n in ("dune-fem-env", "ofa-dune", "dune311")],
+    "ofa-dealii": [str(HOME / "miniconda3" / "envs" / n / "bin" / "python")
+                   for n in ("ofa-dealii", "dealii")],
+    # Kratos gets its OWN slot. It used to share the repo venv, whose Kratos
+    # wheel fails on this host with `GLIBC_2.32 not found` — so the audit
+    # reported Kratos unavailable while the interpreter the rest of the tree
+    # uses for it imports 28 applications happily.
+    "kratos": ["/mnt/kratos-tier2/kv/bin/python",
+               str(REPO_ROOT / ".venv" / "bin" / "python"),
+               str(HOME / "Schreibtisch" / "open-fem-agent" / ".venv" / "bin" / "python")],
+}
+
+
+def _resolve(slot: str) -> str | None:
+    """The interpreter for a slot, or None when this host has none."""
+    var = _ENV_VAR.get(slot)
+    if var and os.environ.get(var) and Path(os.environ[var]).is_file():
+        return os.environ[var]
+    for cand in _CANDIDATES.get(slot, []):
+        if Path(cand).is_file():
+            return cand
+    if slot == "system":
+        return sys.executable
+    return None
+
+
+PYTHON_PATHS = {slot: _resolve(slot)
+                for slot in ("venv", "kratos", "ofa-fenicsx", "ofa-dealii",
+                             "ofa-dune", "system")}
 
 # Which python interpreter to use for each backend.
 BACKEND_PYTHON = {
-    "kratos":  "venv",
+    "kratos":  "kratos",
     "skfem":   "venv",
     "ngsolve": "venv",
     "fenics":  "ofa-fenicsx",
@@ -107,9 +163,22 @@ KRATOS_PHYSICS_APP = {
 }
 
 # Special checks for non-python backends.
+# Candidate lists, not single guesses, for the same reason as PYTHON_PATHS:
+# the old single paths (`Schreibtisch/dealii-debug`, `Schreibtisch/4C-src`)
+# exist on no host this has ever run on, so both backends were recorded absent
+# while both are installed and in daily use.
 NONPYTHON_CHECKS = {
-    "dealii": HOME / "Schreibtisch" / "dealii-debug" / "lib" / "libdeal_II.g.so",
-    "fourc":  HOME / "Schreibtisch" / "4C-src" / "4C" / "build" / "4C",
+    "dealii": [
+        Path(os.environ["DEALII_DIR"]) / "lib" / "libdeal_II.so"
+        if os.environ.get("DEALII_DIR") else None,
+        HOME / "dealii" / "build" / "lib" / "libdeal_II.so",
+        HOME / "Schreibtisch" / "dealii-debug" / "lib" / "libdeal_II.g.so",
+    ],
+    "fourc": [
+        Path(os.environ["FOURC_BINARY"]) if os.environ.get("FOURC_BINARY") else None,
+        HOME / "4C" / "build" / "4C",
+        HOME / "Schreibtisch" / "4C-src" / "4C" / "build" / "4C",
+    ],
 }
 
 
@@ -119,8 +188,15 @@ def _can_run(python_path: str, import_stmt: str, timeout: int = 30) -> tuple[boo
     Returns (ok, diagnostic). diagnostic is empty on success and the
     first ~200 chars of the import error otherwise.
     """
-    if not Path(python_path).is_file():
-        return False, f"interpreter not found at {python_path}"
+    # NOT CHECKED is not the same answer as NOT IMPORTABLE. Returning False
+    # here made "this host has no interpreter mapped for that backend" and
+    # "that library is broken" the same record, and a reader cannot tell them
+    # apart. None means the question was never put to the library.
+    if not python_path or not Path(python_path).is_file():
+        return None, (f"NOT CHECKED: no interpreter at "
+                      f"{python_path or '<unmapped>'} — set the backend's "
+                      f"*_PYTHON environment variable. This is not evidence "
+                      f"that the library is unavailable.")
     try:
         r = subprocess.run(
             [python_path, "-c", import_stmt],
@@ -141,13 +217,17 @@ def _can_run(python_path: str, import_stmt: str, timeout: int = 30) -> tuple[boo
 
 def audit_kratos() -> dict:
     """Kratos: core import + each physics app."""
-    py = PYTHON_PATHS["venv"]
+    py = PYTHON_PATHS["kratos"]
     core_ok, core_err = _can_run(py, "import KratosMultiphysics")
-    if not core_ok:
+    if core_ok is not True:
+        # core_ok is None when there is no interpreter to ask. That is NOT the
+        # same record as "Kratos is broken here", and collapsing the two is how
+        # this file previously reported a working install as unavailable.
         return {
             "interpreter": py,
-            "core_importable": False,
+            "core_importable": core_ok,          # None = not checked
             "core_error": core_err,
+            "checked": core_ok is not None,
             "physics_available": [],
             "physics_unreachable": [],
         }
@@ -190,14 +270,22 @@ def audit_simple_backend(name: str, import_stmt: str) -> dict:
 
 
 def audit_nonpython_backend(name: str) -> dict:
-    target = NONPYTHON_CHECKS.get(name)
-    if target is None:
+    cands = [c for c in (NONPYTHON_CHECKS.get(name) or []) if c is not None]
+    if not cands:
         return {"backend": name, "target": None, "available": None,
                 "error": "no nonpython check configured"}
-    available = target.exists()
-    return {"backend": name, "target": str(target),
-            "available": available,
-            "error": "" if available else f"file not found: {target}"}
+    for c in cands:
+        if Path(c).exists():
+            return {"backend": name, "target": str(c),
+                    "available": True, "error": ""}
+    # Every candidate missing is a real negative — the search DID happen — but
+    # say where it looked, so a reader can tell "not installed" from "installed
+    # somewhere this list does not know about".
+    return {"backend": name, "target": None, "available": False,
+            "searched": [str(c) for c in cands],
+            "error": (f"not found in any of {len(cands)} candidate paths; set "
+                      f"{'DEALII_DIR' if name == 'dealii' else 'FOURC_BINARY'} "
+                      f"if it lives elsewhere")}
 
 
 def main():
