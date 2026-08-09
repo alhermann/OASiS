@@ -442,13 +442,36 @@ class FourcBackend(SolverBackend):
 
         if data_entry and gen_entry:
             # Merge: data_entry wins for shared keys (its
-            # description / methods / variants are richer);
-            # gen_entry's pitfalls list is preserved unless
-            # data_entry has its own.
+            # description / methods / variants are richer).
             merged = dict(data_entry)
-            if not data_entry.get("pitfalls") and gen_entry.get(
-                    "pitfalls"):
-                merged["pitfalls"] = gen_entry["pitfalls"]
+            # PITFALLS ARE UNIONED, NOT CHOSEN BETWEEN. The 2026-06-01
+            # fix only fell back to the generator's list when the data
+            # file had none, so wherever BOTH carried pitfalls the
+            # generator's were still discarded — 49 verified entries
+            # across contact (8), fsi (13), tsi (9), scalar_transport
+            # (7), fluid (6) and thermal (6). The two lists are
+            # complementary, not competing: the data file's contact
+            # entries are section-and-key facts read off `4C -p`, the
+            # generator's are the interface/penalty/KINEM behaviours
+            # met while building a deck. Neither is a superset.
+            #
+            # It stayed invisible because the shadowing key and the
+            # visible key are the same one. It surfaced only through the
+            # ALIASES, which have no data-file entry of their own:
+            # `get_knowledge('mortar')` and `get_knowledge('penalty_contact')`
+            # returned the generator's 8 contact pitfalls, and those 8
+            # texts appeared under NO enumerated area — an agent could
+            # reach them only by guessing the alias.
+            merged_pitfalls = list(data_entry.get("pitfalls") or [])
+            seen = {p for p in merged_pitfalls if isinstance(p, str)}
+            for p in (gen_entry.get("pitfalls") or []):
+                if isinstance(p, str) and p in seen:
+                    continue      # identical text, not a second entry
+                merged_pitfalls.append(p)
+                if isinstance(p, str):
+                    seen.add(p)
+            if merged_pitfalls:
+                merged["pitfalls"] = merged_pitfalls
             # Carry over any other gen-only keys.
             for k, v in gen_entry.items():
                 if k not in merged:

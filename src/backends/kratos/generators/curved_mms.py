@@ -329,7 +329,28 @@ KNOWLEDGE = {
             "approaches the theoretical value above once the isoparametric "
             "elements resolve the curved boundary. Measure it on your own "
             "sequence — a plateau below the theoretical order is the signal "
-            "that the geometry, not the solver, is limiting you."),
+            "that the geometry, not the solver, is limiting you. "
+            "REPRODUCED 2026-08-03 on Kratos 10.4.0, and again 2026-08-09: "
+            "this family is DETERMINISTIC — re-running the same parameter "
+            "draw at the same mesh_size returns an identical L2_ERROR to "
+            "every printed digit (checked by repeating a run in place and by "
+            "repeating it in a fresh working directory), because the Gmsh OCC "
+            "geometry is rebuilt from the same construction each time. So a "
+            "series that differs between two of your runs means the draw, the "
+            "mesh size or the interpreter changed — it is never run-to-run "
+            "noise, and there is nothing to gain by averaging repeats. "
+            "The SAME check is how the draw trap was found, and it is the "
+            "reason no error table is quoted above: the parameter draw used "
+            "while this family was developed (r_inner=0.6, r_outer=1.7, "
+            "coeff_a=0.7, coeff_b=-1.3, coeff_c=0.8, coeff_d=0.35, mode_m=3, "
+            "radial_p=3, conductivity=2.5) is NOT the template default draw "
+            "(r_inner=0.5, r_outer=1.0, coeff_a..d=1, mode_m=2, radial_p=3, "
+            "conductivity=1), and the two produce visibly different error "
+            "CONSTANTS while sharing the same theoretical order. Reference "
+            "errors quoted for one draw therefore say nothing about the "
+            "other: re-derive your own reference for the draw you actually "
+            "run, and never grade a run against a number that came from a "
+            "different parameter set."),
         "pitfalls": [
             '[Environment] Kratos 10.4 on this host works ONLY under the system '
             '/usr/bin/python3 (Python 3.8). The pip Kratos wheel inside the repo .venv '
