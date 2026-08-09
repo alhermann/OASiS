@@ -31,6 +31,20 @@ from core.registry import register_backend
 logger = logging.getLogger("oasis.dealii")
 
 
+class DealiiRootOverrideError(RuntimeError):
+    """DEAL_II_DIR / DEALII_ROOT names something that is not deal.II.
+
+    Raised rather than ignored, for the same reason FEBIO_BINARY raises:
+    silently searching elsewhere means the install OASiS reports is not
+    the install the user named. `DEAL_II_DIR=/tmp` used to log a warning
+    and CONTINUE discovery, so the backend reported
+    `available — deal.II 9.8.0-pre at /home/alexander/dealii/build` while
+    the variable pointed at /tmp. Every surface then agreed the backend
+    was fine, and the only place the wrong path would surface was the
+    compile error, much later, naming neither variable.
+    """
+
+
 # Cache of verification verdicts, keyed by resolved path. A verdict is
 # True (proven deal.II), False (proven not), or None (could not look).
 _VERIFY_CACHE: dict[str, tuple[Optional[bool], str]] = {}
@@ -185,23 +199,42 @@ def _find_dealii() -> Optional[Path]:
     #    can satisfy is worse than no check: it turns a clear
     #    "not installed" into template generation that fails much
     #    later, at compile time, with an unrelated error.
+    #
+    #    Verifying is only half of it. The first fix WARNED and then
+    #    continued discovery, which restored the same false verdict by
+    #    a longer route: `DEAL_II_DIR=/tmp` fell through to the real
+    #    build tree and the backend reported AVAILABLE again — now with
+    #    an accurate-looking version string, from an install the user
+    #    had not named. An explicit override that resolves elsewhere is
+    #    how you debug the install you are not running, so a set-but-
+    #    wrong override is an ERROR, not a hint.
     for env_var in ("DEAL_II_DIR", "DEALII_ROOT"):
         env_dir = os.environ.get(env_var)
         if not env_dir:
             continue
         cand = Path(env_dir)
         if not cand.is_dir():
-            logger.warning("%s=%s is not a directory; ignoring",
-                           env_var, env_dir)
-            continue
+            raise DealiiRootOverrideError(
+                f"{env_var} is set to {env_dir!r}, which is not a "
+                f"directory. Refusing to fall back to a different "
+                f"install: point it at a prefix containing "
+                f"include/deal.II/base/config.h (or at the build "
+                f"directory of a source checkout), or unset it.")
         resolved = resolve_dealii_root(cand)
         if resolved is None:
-            logger.warning(
-                "%s=%s does not look like a deal.II install; ignoring "
-                "it and continuing discovery. Point it at a prefix "
-                "with include/deal.II/base/config.h, or at the build "
-                "directory of a source checkout.", env_var, env_dir)
-            continue
+            # resolve_dealii_root already fails OPEN on a path it could
+            # not inspect (it returns the unreadable candidate), so None
+            # means we DID look and deal.II's own version evidence is
+            # absent. Fail closed.
+            raise DealiiRootOverrideError(
+                f"{env_var} is set to {env_dir!r}, which does not look "
+                f"like a deal.II install: neither "
+                f"include/deal.II/base/config.h nor "
+                f"lib/cmake/deal.II/deal.IIConfigVersion.cmake is there, "
+                f"under it, or under its build/ or install/ subdirectory. "
+                f"Refusing to fall back to a different install and report "
+                f"that one as available. Fix the path or unset the "
+                f"variable.")
         # Proven, or unreadable -> fail OPEN and trust the override.
         return resolved
 
@@ -291,7 +324,17 @@ class DealiiBackend(SolverBackend):
             return BackendStatus.NOT_INSTALLED, "CMake not found"
 
         # Check for deal.II headers/library
-        dealii = _find_dealii()
+        try:
+            dealii = _find_dealii()
+        except DealiiRootOverrideError as exc:
+            # Report as MISCONFIGURED rather than propagating: `discover`
+            # must keep working and list the other backends, but this one
+            # must not read as available, and must not read as simply
+            # absent either — the user set a variable and it is wrong.
+            # NOT `_check_via_compile()`: find_package(deal.II) consults
+            # DEAL_II_DIR itself, so probing would answer for whatever
+            # CMake finds next and re-hide the bad override.
+            return BackendStatus.MISCONFIGURED, str(exc)
         if not dealii:
             # Try a test compile
             return self._check_via_compile()
@@ -352,7 +395,12 @@ class DealiiBackend(SolverBackend):
         return InputFormat.CPP
 
     def get_version(self) -> Optional[str]:
-        dealii = _find_dealii()
+        try:
+            dealii = _find_dealii()
+        except DealiiRootOverrideError:
+            # No version to report for an override that is not deal.II;
+            # check_availability is the surface that explains why.
+            return None
         if not dealii:
             return None
         # Try to read version from cmake config

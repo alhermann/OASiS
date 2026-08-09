@@ -292,8 +292,20 @@ def discover_backends() -> list[ProbeResult]:
         # a newer 9.3.2 one and the saved discovered_config.json
         # then pinned every compile to the old headers.
         try:
-            from backends.dealii.backend import _find_dealii
-            root = _find_dealii()
+            from backends.dealii.backend import (
+                DealiiRootOverrideError, _find_dealii)
+            try:
+                root = _find_dealii()
+            except DealiiRootOverrideError as exc:
+                # DEAL_II_DIR / DEALII_ROOT is set and is not deal.II.
+                # Do NOT fall back to some other install and record it as
+                # discovered — that is exactly the substitution the
+                # resolver now refuses. Report not-found with the reason.
+                root = None
+                dealii_result = ProbeResult(
+                    backend="dealii", found=False,
+                    confidence="definite", location="",
+                    details={"source": "resolver", "error": str(exc)})
             if root is not None:
                 dealii_result = ProbeResult(
                     backend="dealii", found=True,

@@ -188,7 +188,29 @@ KNOWLEDGE = {
             "forward_euler": "theta=0.0, conditionally stable (dt < h^2/(2*kappa))",
         },
         "pitfalls": [
-            "[Numerical] Backward Euler: factor (M + dt*K) once and reuse each step Signal: a loop that claims backward Euler but carries the Dirichlet columns on the old step only picks up a per-step increment that does NOT vanish as dt shrinks. For pure diffusion with no source the discrete maximum principle then breaks: the peak temperature rises above the largest prescribed boundary value, and refining the time step makes it worse instead of converging.",
+            "[Numerical] Backward Euler: factor (M + dt*K) once and reuse each "
+            "step — and subtract the Dirichlet columns at the NEW step, not the "
+            "old one. The template shipped under this physics assembles K and M "
+            "with numpy/scipy (its own first line says 'Kratos (manual "
+            "assembly)'), so no Kratos element, scheme or Check() ever sees the "
+            "time loop and nothing inside Kratos can catch this: the loop "
+            "carries the Dirichlet columns on the old step only, which leaves a "
+            "per-step increment that does NOT vanish as dt shrinks. "
+            "Signal: run it as pure diffusion — zero source, Dirichlet walls "
+            "only — and read max_value out of the results_summary.json the "
+            "script writes; it is the same number as the max(T)= field on the "
+            "'Transient heat:' line it prints and as the top of the "
+            "'temperature' point-data range in result.vtu. For pure diffusion "
+            "max_value can never exceed the largest prescribed wall value, and "
+            "here it does; worse, REFINING dt raises max_value further instead "
+            "of converging, while a correct backward Euler holds it at the wall "
+            "maximum for every dt. That makes this checkable with nothing "
+            "external — no reference solution, no mesh study — because the run "
+            "breaks a bound its own boundary data sets. Fix it by subtracting "
+            "the new-step Dirichlet contribution each step, or by not "
+            "hand-rolling the loop at all and letting "
+            "ConvectionDiffusionApplication own the time stepping with "
+            "TEMPERATURE on the ModelPart.",
             "[Numerical] Crank-Nicolson: (M + 0.5*dt*K)*T_new = (M - 0.5*dt*K)*T_old Signal: implemented correctly the scheme is second order in time \u2014 halving dt cuts the error by about a factor of four. A first-order rate on the same mesh means the theta weighting or the Dirichlet elimination is wrong, not that the mesh is too coarse.",
             "[Numerical] Consistent mass matrix gives better accuracy than lumped Signal: the consistent element mass carries non-zero off-diagonal entries while its row-sum lumping is exactly diagonal with identical row sums; swapping in the lumped form raises the time-discretisation error at fixed dt without changing the total heat capacity.",
         ],
