@@ -40,6 +40,7 @@
  * All problem numbers come from the input file — nothing is hardcoded.
  */
 #include <deal.II/base/function.h>
+#include <deal.II/base/index_set.h>
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/symmetric_tensor.h>
 #include <deal.II/dofs/dof_handler.h>
@@ -47,6 +48,7 @@
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_system.h>
 #include <deal.II/fe/fe_values.h>
+#include <deal.II/fe/mapping_q1.h>
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/tria.h>
 #include <deal.II/lac/affine_constraints.h>
@@ -222,6 +224,18 @@ int main(int argc, char *argv[])
   Vector<double>       solution(dof_handler.n_dofs());
   Vector<double>       rhs(dof_handler.n_dofs());
 
+  /* A SECOND, UNCONSTRAINED copy of the same system.  The consistent interface
+   * traction below is the residual of the discrete equations on the CONSTRAINED
+   * rows, and constraints.distribute_local_to_global() destroys exactly those
+   * rows.  So the reaction has to be read off a matrix assembled with NO
+   * constraints at all; its sparsity pattern must keep those couplings too. */
+  DynamicSparsityPattern dsp_free(dof_handler.n_dofs());
+  DoFTools::make_sparsity_pattern(dof_handler, dsp_free);
+  SparsityPattern sparsity_free;
+  sparsity_free.copy_from(dsp_free);
+  SparseMatrix<double> free_matrix(sparsity_free);
+  Vector<double>       free_rhs(dof_handler.n_dofs());
+
   const QGauss<2> quadrature(degree + 1);
   FEValues<2>     fe_values(fe, quadrature,
                             update_values | update_gradients | update_JxW_values);
@@ -282,6 +296,12 @@ int main(int argc, char *argv[])
             }
 
       cell->get_dof_indices(local_dofs);
+      for (unsigned int i = 0; i < dofs_per_cell; ++i)
+        {
+          for (unsigned int j = 0; j < dofs_per_cell; ++j)
+            free_matrix.add(local_dofs[i], local_dofs[j], cell_matrix(i, j));
+          free_rhs(local_dofs[i]) += cell_rhs(i);
+        }
       constraints.distribute_local_to_global(cell_matrix, cell_rhs, local_dofs,
                                              system_matrix, rhs);
     }
@@ -293,48 +313,162 @@ int main(int argc, char *argv[])
   solver.solve(system_matrix, solution, rhs, precond);
   constraints.distribute(solution);
 
-  /* Interface displacement and outward traction export at the FE support
-   * points of the interface faces, averaged over the adjacent cells and keyed
-   * by y. Same recovery as heat_iface_dealii.cc, one component at a time. */
-  const Quadrature<1> face_support(base.get_unit_face_support_points());
-  FEFaceValues<2>     fe_face(fe, face_support,
-                              update_values | update_gradients |
-                                update_quadrature_points);
-  std::vector<Vector<double>> face_u(face_support.size(), Vector<double>(2));
-  std::vector<std::vector<Tensor<1, 2>>> face_grad(
-    face_support.size(), std::vector<Tensor<1, 2>>(2));
-  std::map<double, std::array<double, 5>> iface; // y -> (ux, uy, qx, qy, count)
+  /* Interface displacement and outward traction export, one value per interface
+   * node, sorted by y.
+   *
+   * WHY NOT THE STRESS OF THE SOLUTION. That is what this file used to do:
+   * evaluate sigma(u_h) at the FE support points of the interface faces and
+   * average over the adjacent cells. The gradient of a Q1 solution — and
+   * therefore the stress — is only O(h) accurate ON the boundary; the
+   * superconvergence points are interior, and the boundary trace is exactly
+   * what the coupling reads. Measured against a manufactured solution with a
+   * known exact interface traction, that recovery converges at order ~1 while
+   * the consistent traction below converges at ~2, so the recovery, not the
+   * physics and not the partner, was setting the answer.
+   *
+   * THE CONSISTENT (REACTION) TRACTION. From
+   *     a(u,v) - (f,v) = \int_{dOmega} (sigma(u).n).v ds = -\int_Gamma q_out.v ds
+   * (the second equality is this file's sign convention, q_out = -(sigma.n_own))
+   * it follows that for every vector basis function phi_i on the interface
+   *     \int_Gamma q_out . phi_i ds = -r_i,   r = A u_h - b
+   * with r the UNCONSTRAINED residual (free_matrix / free_rhs above).  Dividing
+   * by w_i = \int_Gamma phi_i ds turns the functional into a density the
+   * partner can interpolate pointwise.  The outward normal is already in the
+   * identity, so no s_out factor appears.
+   *
+   * ONLY ON THE DIRICHLET SIDE.  On the Neumann side the interface dofs are
+   * free, the discrete equations hold there, so r is ~0 and this expression
+   * would silently export ZERO traction with no error raised.  That side keeps
+   * the stress recovery; its export is not what the partner consumes anyway.
+   */
+  struct IfaceNode
+  {
+    double y, u[2], q[2];
+    bool   suspect;
+  };
+  std::vector<IfaceNode> nodes;
 
-  for (const auto &cell : dof_handler.active_cell_iterators())
-    for (const unsigned int f : cell->face_indices())
-      if (cell->face(f)->at_boundary() &&
-          cell->face(f)->boundary_id() == iface_id)
+  if (side == 0)
+    {
+      Vector<double> residual(dof_handler.n_dofs());
+      free_matrix.vmult(residual, solution);
+      residual -= free_rhs; // r = A u_h - b
+
+      /* w_i = \int_Gamma phi_i ds.  FESystem(FE_Q, 2) is primitive, so
+       * shape_value(i, q) is the value of dof i's single non-zero component. */
+      Vector<double>  weight(dof_handler.n_dofs());
+      FEFaceValues<2> fe_face_w(fe, face_quadrature,
+                                update_values | update_JxW_values);
+      std::vector<unsigned int> dof_comp(dof_handler.n_dofs(), 0);
+      for (const auto &cell : dof_handler.active_cell_iterators())
         {
-          fe_face.reinit(cell, f);
-          fe_face.get_function_values(solution, face_u);
-          fe_face.get_function_gradients(solution, face_grad);
-          for (unsigned int q = 0; q < face_support.size(); ++q)
-            {
-              const double y   = fe_face.quadrature_point(q)[1];
-              const double key = std::round(y * 1e10) / 1e10;
-              const double exx = face_grad[q][0][0];
-              const double eyy = face_grad[q][1][1];
-              const double exy = 0.5 * (face_grad[q][0][1] + face_grad[q][1][0]);
-              const double sxx = 2.0 * mu * exx + lambda * (exx + eyy);
-              const double sxy = 2.0 * mu * exy;
-              auto        &e   = iface[key];
-              e[0] += face_u[q][0];
-              e[1] += face_u[q][1];
-              e[2] += -s_out * sxx;
-              e[3] += -s_out * sxy;
-              e[4] += 1.0;
-            }
+          cell->get_dof_indices(local_dofs);
+          for (unsigned int i = 0; i < dofs_per_cell; ++i)
+            dof_comp[local_dofs[i]] = fe.system_to_component_index(i).first;
+          for (const unsigned int f : cell->face_indices())
+            if (cell->face(f)->at_boundary() &&
+                cell->face(f)->boundary_id() == iface_id)
+              {
+                fe_face_w.reinit(cell, f);
+                for (unsigned int q = 0; q < face_quadrature.size(); ++q)
+                  for (unsigned int i = 0; i < dofs_per_cell; ++i)
+                    weight(local_dofs[i]) +=
+                      fe_face_w.shape_value(i, q) * fe_face_w.JxW(q);
+              }
         }
+
+      std::vector<Point<2>> support_points(dof_handler.n_dofs());
+      DoFTools::map_dofs_to_support_points(MappingQ1<2>(), dof_handler,
+                                           support_points);
+      /* THE TWO INTERFACE CORNERS ARE ON THE OUTER DIRICHLET BOUNDARY (a
+       * y-face), so their rows carry the OUTER reaction too and their residual
+       * is not this interface's traction. */
+      const IndexSet outer_dofs = DoFTools::extract_boundary_dofs(
+        dof_handler, ComponentMask(),
+        {static_cast<types::boundary_id>(outer_id),
+         static_cast<types::boundary_id>(2), static_cast<types::boundary_id>(3)});
+
+      std::map<double, IfaceNode> by_y;
+      for (types::global_dof_index i = 0; i < dof_handler.n_dofs(); ++i)
+        if (std::abs(weight(i)) > 1e-14)
+          {
+            const double key = std::round(support_points[i][1] * 1e10) / 1e10;
+            auto        &e   = by_y[key];
+            e.y              = support_points[i][1];
+            e.u[dof_comp[i]] = solution(i);
+            e.q[dof_comp[i]] = -residual(i) / weight(i);
+            e.suspect        = e.suspect || outer_dofs.is_element(i);
+          }
+      for (const auto &kv : by_y)
+        nodes.push_back(kv.second); // std::map is already sorted by y
+
+      /* Replace a suspect node's traction by the nearest interior interface
+       * value.  Non-suspect entries are never written, so in-place is safe. */
+      for (std::size_t i = 0; i < nodes.size(); ++i)
+        if (nodes[i].suspect)
+          {
+            std::size_t best = nodes.size();
+            for (std::size_t j = 0; j < nodes.size(); ++j)
+              if (!nodes[j].suspect &&
+                  (best == nodes.size() ||
+                   std::abs(static_cast<long>(j) - static_cast<long>(i)) <
+                     std::abs(static_cast<long>(best) - static_cast<long>(i))))
+                best = j;
+            if (best < nodes.size())
+              {
+                nodes[i].q[0] = nodes[best].q[0];
+                nodes[i].q[1] = nodes[best].q[1];
+              }
+          }
+    }
+  else
+    {
+      const Quadrature<1> face_support(base.get_unit_face_support_points());
+      FEFaceValues<2>     fe_face(fe, face_support,
+                                  update_values | update_gradients |
+                                    update_quadrature_points);
+      std::vector<Vector<double>> face_u(face_support.size(), Vector<double>(2));
+      std::vector<std::vector<Tensor<1, 2>>> face_grad(
+        face_support.size(), std::vector<Tensor<1, 2>>(2));
+      std::map<double, std::array<double, 5>> iface; // y -> (ux,uy,qx,qy,count)
+
+      for (const auto &cell : dof_handler.active_cell_iterators())
+        for (const unsigned int f : cell->face_indices())
+          if (cell->face(f)->at_boundary() &&
+              cell->face(f)->boundary_id() == iface_id)
+            {
+              fe_face.reinit(cell, f);
+              fe_face.get_function_values(solution, face_u);
+              fe_face.get_function_gradients(solution, face_grad);
+              for (unsigned int q = 0; q < face_support.size(); ++q)
+                {
+                  const double y   = fe_face.quadrature_point(q)[1];
+                  const double key = std::round(y * 1e10) / 1e10;
+                  const double exx = face_grad[q][0][0];
+                  const double eyy = face_grad[q][1][1];
+                  const double exy =
+                    0.5 * (face_grad[q][0][1] + face_grad[q][1][0]);
+                  const double sxx = 2.0 * mu * exx + lambda * (exx + eyy);
+                  const double sxy = 2.0 * mu * exy;
+                  auto        &e   = iface[key];
+                  e[0] += face_u[q][0];
+                  e[1] += face_u[q][1];
+                  e[2] += -s_out * sxx;
+                  e[3] += -s_out * sxy;
+                  e[4] += 1.0;
+                }
+            }
+      for (const auto &[y, e] : iface)
+        nodes.push_back({y,
+                         {e[0] / e[4], e[1] / e[4]},
+                         {e[2] / e[4], e[3] / e[4]},
+                         false});
+    }
 
   std::ofstream out(argv[2]);
   out.precision(16);
-  for (const auto &[y, e] : iface)
-    out << y << " " << e[0] / e[4] << " " << e[1] / e[4] << " " << e[2] / e[4]
-        << " " << e[3] / e[4] << "\n";
+  for (const auto &n : nodes)
+    out << n.y << " " << n.u[0] << " " << n.u[1] << " " << n.q[0] << " "
+        << n.q[1] << "\n";
   return 0;
 }
