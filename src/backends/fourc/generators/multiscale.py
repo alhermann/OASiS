@@ -248,8 +248,9 @@ class MultiscaleGenerator(BaseGenerator):
                     "RUNTIMEOUTPUT_GP. (Verified by execution "
                     "2026-08-07 on sohex8_multiscale_macro; the "
                     "earlier `MICRO_SOLVER_ID X not found among macro "
-                    "SOLVER definitions` and `null pointer to micro "
-                    "Belos solver` strings are not in the binary.)"
+                    "SOLVER definitions` does not exist in 4C, and "
+                    "neither does `null pointer to micro Belos "
+                    "solver`.)"
                 ),
                 (
                     "[Input] Every RVE boundary surface must be listed "
@@ -379,8 +380,8 @@ class MultiscaleGenerator(BaseGenerator):
                     "named tangent_stiffness_tensor_cmat. "
                     "(Source-verified 2026-08-07 in "
                     "stru_multi/4C_stru_multi_microstatic.cpp; "
-                    "the earlier 'MULTISCALE micro-output "
-                    "writer' named no real setting.)"
+                    "the earlier wording about a MULTISCALE "
+                    "micro-output writer named no real setting.)"
                 ),
             ],
             "typical_experiments": [

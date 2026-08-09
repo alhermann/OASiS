@@ -208,8 +208,9 @@ class LowMachGenerator(BaseGenerator):
                     'nicety, because density is evaluated from the ideal gas law '
                     'and a zero initial temperature divides by zero. Signal: '
                     'INITIALFIELD: zero_field terminates the process with SIGFPE, '
-                    "so the log ends with 'Signal: Floating point exception (8)' "
-                    "and 'Floating point divide-by-zero (3)' and carries no PROC 0 "
+                    'so the log ends with the MPI runtime\'s signal block -- the '
+                    'floating point exception, signal 8, with signal code '
+                    'floating-point divide-by-zero, 3 -- and carries no PROC 0 '
                     'ERROR block, no residual table and no result test. (Audit '
                     '2026-06-02; corrected by execution 2026-08-06.)'
                 ),

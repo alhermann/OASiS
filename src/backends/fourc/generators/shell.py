@@ -60,7 +60,7 @@ class ShellGenerator(BaseGenerator):
                     "element factory with \"Unknown type '<what you wrote>' of "
                     "finite element\" from core/comm/src/"
                     "4C_comm_parobjectfactory.cpp — including 'DKT' and "
-                    "'SHELL_KL_NURBS'. Writing 'SHELL KIRCHHOFF QUAD4' is read "
+                    "'SHELL_KL_NURBS'. Writing SHELL KIRCHHOFF QUAD4 is read "
                     "as element type SHELL with cell type KIRCHHOFF and dies "
                     "on 'Unknown celltype KIRCHHOFF'. Worst of the set: "
                     "pairing the CORRECT type name with a non-NURBS9 cell "

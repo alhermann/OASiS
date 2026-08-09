@@ -174,8 +174,8 @@ class STIGenerator(BaseGenerator):
                     "and still spells the section in the "
                     "retired --SECTION dat form. (Verified by "
                     "execution 2026-08-06; 'cannot clone "
-                    "material for thermo' is not in the "
-                    "binary.)"
+                    "material for thermo' does not exist in "
+                    "4C.)"
                 ),
                 (
                     "[Input] The thermo -> scatra half of the "
@@ -285,8 +285,10 @@ class STIGenerator(BaseGenerator):
                     "With SCATRATIMINTTYPE left at its default "
                     "'Standard', the run parses, builds both "
                     "fields, writes its t=0 output and then "
-                    "dies on a raw 'Signal: Floating point "
-                    "exception (8)' while constructing "
+                    "dies on a raw SIGFPE -- the MPI runtime "
+                    "names the floating point exception, "
+                    "signal 8, and 4C names nothing -- while "
+                    "constructing "
                     "ScaTraEleCalcElchElectrodeSTIThermo -- no "
                     "PROC 0 ERROR banner, no source file, and "
                     "SCATRATIMINTTYPE is never mentioned. "

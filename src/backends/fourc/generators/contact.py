@@ -213,12 +213,26 @@ class ContactGenerator(BaseGenerator):
             },
             "pitfalls": [
                 (
-                    "[Input] Both MORTAR COUPLING and CONTACT DYNAMIC sections are REQUIRED. "
-                    "Missing either one causes 4C to crash or silently ignore the contact "
-                    "conditions. Signal: input parser aborts with `MORTAR COUPLING section "
-                    "required for contact` / `CONTACT DYNAMIC section missing`, OR the run "
-                    "completes but two bodies pass through each other (zero contact pressure, "
-                    "identical displacement to no-contact reference). (Audit 2026-06-02.) "
+                    "[Input] Both MORTAR COUPLING and CONTACT DYNAMIC sections are REQUIRED, "
+                    "and each one aborts in a different place, neither of them the input "
+                    "parser. Signal: dropping CONTACT DYNAMIC gets to the solver factory "
+                    "before it fails -- 'no linear solver defined for meshtying/contact "
+                    "problem. Please set LINEAR_SOLVER in CONTACT DYNAMIC to a valid "
+                    "number!' from structure_new/src/linear_solver/"
+                    "4C_structure_new_solver_factory.cpp, exit 1. Dropping MORTAR COUPLING "
+                    "lets its defaults stand and they contradict a penalty strategy, so the "
+                    "contact strategy factory stops instead, on the consistent-dual-shape "
+                    "check. Its greppable core is 'Consistent dual shape functions in "
+                    "boundary elements only for Lagrange'; the source splits the literal "
+                    "there and the printed sentence continues with the words multiplier "
+                    "strategy. It comes from "
+                    "contact/src/4C_contact_strategy_factory.cpp, exit 1. Neither "
+                    "message names the missing SECTION, and neither run silently ignores "
+                    "the contact conditions. (Audit 2026-06-02; the quoted 'MORTAR COUPLING "
+                    "section required for contact' does not exist in 4C, and neither does "
+                    "'CONTACT DYNAMIC section missing' -- both falsified by execution "
+                    "2026-08-09 on the shipped contact_penalty_3d deck, dropping each "
+                    "section in turn.) "
                 ),
                 (
                     "[Input] Each contact interface needs BOTH a Slave and a Master surface "
@@ -227,9 +241,10 @@ class ContactGenerator(BaseGenerator):
                     "4C_contact_utils.cpp, while listing only ONE surface gives 'Not enough "
                     "contact conditions in discretization' -- which never names a side, so it "
                     "reads like a missing-section problem rather than a missing-partner one. "
-                    "The log lines 'no master partner found for interface X' and "
-                    "'MortarInterface: InterfaceID X has 0 master elements' quoted earlier "
-                    "are in no 4C source file. (Executed 2026-08-06.) "
+                    "The log line 'no master partner found for interface X' quoted earlier "
+                    "does not exist in 4C, and neither does "
+                    "'MortarInterface: InterfaceID X has 0 master elements'. "
+                    "(Executed 2026-08-06.) "
                 ),
                 (
                     "[Numerical] PENALTYPARAM tuning is critical, and both ends fail "

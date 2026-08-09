@@ -134,9 +134,10 @@ class LevelSetGenerator(BaseGenerator):
                     'section is LEVEL-SET CONTROL with the sub-section LEVEL-SET '
                     'CONTROL/REINITIALIZATION, holding REINITIALIZATION, '
                     'REINIT_INITIAL, REINITINTERVAL, REINITBAND and '
-                    "REINITBANDWIDTH. Signal: 'LEVELSET CONTROL' without the hyphen "
-                    'is rejected as not a valid section name, and the enum is '
-                    "case-sensitive: 'signed_distance_function' fails with "
+                    'REINITBANDWIDTH. Signal: writing LEVELSET CONTROL without the '
+                    'hyphen is rejected as not a valid section name, and the enum '
+                    'is case-sensitive: the lower-case spelling '
+                    'signed_distance_function fails with '
                     "'possible values: "
                     "EllipticEq|None|Signed_Distance_Function|Sussman'. Use "
                     'Signed_Distance_Function or EllipticEq exactly as spelled. '

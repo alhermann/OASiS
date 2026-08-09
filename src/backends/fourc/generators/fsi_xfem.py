@@ -278,9 +278,10 @@ class FSIXFEMGenerator(BaseGenerator):
                     "with 'Cannot find state dispnp in discretization fluid' from "
                     '4C_fem_discretization.hpp. The message names neither XFEM nor '
                     'ALE nor the NA keyword that was mis-set, so it is easy to '
-                    'misread as an output or restart problem; there is no '
-                    "4C_fluid_xfem_factory.cpp and no 'kinematic type incompatible' "
-                    'string in 4C. (Audit 2026-06-02; corrected by execution '
+                    'misread as an output or restart problem. The quoted '
+                    "'kinematic type incompatible' does not exist in 4C, and "
+                    'neither does the file it was attributed to, '
+                    '4C_fluid_xfem_factory.cpp. (Audit 2026-06-02; corrected by execution '
                     '2026-08-06.)'
                 ),
             ],
