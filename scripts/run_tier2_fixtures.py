@@ -108,6 +108,24 @@ def _needle_present(needle: str, low_out: str) -> bool:
             return True
         start = i + 1
 
+def backends_with_no_verdict(results: dict) -> list[str]:
+    """Backends where EVERY fixture skipped, so the run says nothing about them.
+
+    Split out from main() so it can be tested without an hour-long whole-tree
+    run: the guard that uses it refuses to persist such a snapshot, and a guard
+    nobody has watched fire is not a guard.
+    """
+    tally: dict[str, dict] = {}
+    for key, row in results.items():
+        be = row.get("backend") or str(key).split("::")[0]
+        st = tally.setdefault(be, {"skipped": 0, "total": 0})
+        st["total"] += 1
+        if row.get("status") == "skipped":
+            st["skipped"] += 1
+    return sorted(be for be, st in tally.items()
+                  if st["total"] and st["skipped"] == st["total"])
+
+
 def fixture_inventory_fingerprint() -> str:
     """Identity of the fixture set: which fixtures exist and what they contain.
 
@@ -851,6 +869,10 @@ def run(backend: str | None = None, fixture: str | None = None) -> dict:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument(
+        "--allow-unrun", action="store_true",
+        help=("permit --write-results when a backend was skipped in its "
+              "entirety, recording in the file that this host cannot run it"))
+    ap.add_argument(
         "--write-results", action="store_true",
         help="persist results to scan_results/tier2_results.json")
     ap.add_argument(
@@ -905,6 +927,37 @@ def main():
               f"untouched.")
         return
 
+    # A WHOLE BACKEND SKIPPED FOR WANT OF AN INTERPRETER IS NOT A RESULT.
+    #
+    # Running this without KRATOS_PYTHON set made the runner probe the repo
+    # venv, whose Kratos wheel fails here with `GLIBC_2.32 not found`, and
+    # record ~130 Kratos fixtures as `skipped`. Skips went 15 -> 145 and 149
+    # previously-passing rows would have been downgraded to a non-result. It
+    # was caught by diffing against the committed file before committing, not
+    # by anything in this tool.
+    #
+    # A reader of the snapshot cannot tell "skipped because that backend is not
+    # installed here" from "skipped because the caller forgot an env var". So
+    # refuse, and name the variable that would fix it. --allow-unrun is the
+    # explicit override for a host that genuinely lacks a backend; it records
+    # the fact IN the file so the two stay distinguishable.
+    blind = backends_with_no_verdict(results)
+    if blind and not args.allow_unrun:
+        hint = {"kratos": "KRATOS_PYTHON", "fenics": "FENICS_PYTHON",
+                "dune": "DUNE_PYTHON", "febio": "FEBIO_BINARY",
+                "cross_backend": "OASIS_PYTHON"}
+        print("\nREFUSING TO WRITE. These backends were skipped in their "
+              "entirety, so this run cannot say anything about them:")
+        for be in blind:
+            v = hint.get(be)
+            print(f"    {be}: {wholly_skipped[be]['total']} fixtures, all "
+                  f"skipped" + (f" — set {v}" if v else ""))
+        print("  Writing this would replace measured verdicts with a "
+              "non-result that reads exactly like one. Set the interpreter, "
+              "or pass --allow-unrun to record deliberately that this host "
+              "cannot run them.")
+        return
+
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(json.dumps({
         "summary": summary,
@@ -917,6 +970,10 @@ def main():
         # theirs. Comparing this fingerprint catches the fixture set having moved
         # underneath a stale summary.
         "fixture_fingerprint": fixture_inventory_fingerprint(),
+        # Present only when --allow-unrun was needed: these backends produced
+        # no verdict at all on this host. Recorded so "not measured here"
+        # never reads as "measured and skipped".
+        **({"backends_not_run_here": blind} if blind else {}),
         "results": results,
     }, indent=2))
     print(f"results written to "
