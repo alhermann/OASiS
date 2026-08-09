@@ -1679,7 +1679,7 @@ KNOWLEDGE = {
             ),
             (
                 "[Numerical] For stiff systems (reaction-"
-                "dominated): backward Euler or BDF2 preferred. "
+                "dominated): backward Euler or BDF-2 preferred. "
                 "Explicit (theta=0) or near-explicit "
                 "(theta<0.5) stepping requires dt < "
                 "2/lambda_max with lambda_max the largest "
@@ -1703,7 +1703,7 @@ KNOWLEDGE = {
                 "compare 2/lambda_max against the time you need "
                 "to integrate; that ratio, not Da, tells you "
                 "whether explicit stepping is affordable. Switch "
-                "to a BE/BDF2 implicit asm + spsolve loop when "
+                "to a BE/BDF-2 implicit asm + spsolve loop when "
                 "it is not. (Verified 2026-08-06 on skfem 12.0.1 "
                 "— the bound confirmed sharp, the Da > 100 rule "
                 "of thumb falsified as non-universal.)"

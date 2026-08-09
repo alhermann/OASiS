@@ -10,9 +10,18 @@ The 4C particle pass found this being served as knowledge:
 
 `SOUNDSPEED` appears in **zero** files of 4C's source and zero of its 2171
 input decks. So does `SMOOTHING_LENGTH`. Both were listed beside real material
-parameters (`DYN_VISCOSITY`, `BULK_MODULUS`) as things an SPH deck must set, and
-one of them carried a numeric tuning rule. An agent following that advice writes
-a deck 4C refuses to parse, and the rule of thumb is advice about nothing.
+parameters (`DYNAMIC_VISCOSITY`, `BULK_MODULUS`) as things an SPH deck must set,
+and one of them carried a numeric tuning rule. An agent following that advice
+writes a deck 4C refuses to parse, and the rule of thumb is advice about nothing.
+
+A footnote that is really the same lesson twice. THIS FILE used to write that
+pair as `DYN_VISCOSITY`, and that spelling does not exist either: `4C -p` gives
+MAT_ParticleSPHFluid the parameters INITRADIUS, INITDENSITY, REFDENSFAC,
+EXPONENT, BACKGROUNDPRESSURE, BULK_MODULUS, DYNAMIC_VISCOSITY, BULK_VISCOSITY,
+ARTIFICIAL_VISCOSITY, INITTEMPERATURE, THERMALCAPACITY — and `DYN_VISCOSITY`
+appears in zero files of src/, apps/ and tests/. The gate's own documentation
+was citing an invented key as the example of a real one, for the same reason the
+knowledge did: it is a plausible abbreviation sitting next to a true name.
 
 Nothing caught it. The quoted-diagnostics auditor screens error strings the
 knowledge puts in quotes; an invented *input key* is not a quoted diagnostic, so
@@ -98,6 +107,61 @@ _STOPWORDS = {
     "2D", "1D", "PASS", "FAIL", "SKIP", "THE", "IS", "IT", "IF", "ON", "OFF",
 }
 
+# ── ORDINARY ENGLISH, CAPITALISED FOR EMPHASIS ──────────────────────────────
+# Kept as its own set, not merged into the block above, so the screen in
+# tests/test_named_key_stopwords.py has something exact to hold to a hard rule.
+#
+# Running that screen over the ORIGINAL block finds 25 words in it that are real
+# identifiers of some backend — ALE, CG, SPH, FSI, MUMPS, UMFPACK, GMRES and
+# INTEGRATION are 4C names, BC / DOF / MIN / MAX / ERROR are FEBio ones, RHS is
+# both a Kratos variable and a FEBio string. Most are enum VALUES or three-letter
+# abbreviations rather than keys anyone would invent, which is presumably why
+# they were admitted; the point is that nobody had measured it. That set is
+# recorded and frozen by the test rather than quietly cleaned up here, because
+# removing a stopword changes what the gate reports and belongs in its own pass.
+# What the split buys is that the boundary is now visible: everything below has
+# been screened, and the list cannot grow past the screen.
+_PROSE_STOPWORDS = {
+    # The corpus shouts. "it costs you the ENTIRE field", "TWO WIDESPREAD MYTHS
+    # ABOUT THIS ENTRY", "WRONG: ... RIGHT: ...", "case-SENSITIVE" — 60 of the
+    # 91 candidates in the first full run were words of this kind, and they
+    # reached candidacy because some marker word (`parameter`, `set`, `field`,
+    # `written`) happened to sit inside the 60-character window beside them.
+    #
+    # ADMISSION IS NOT BY EYE. A word may only be listed if it is not an input
+    # key of ANY backend, and that was measured, not assumed, against three
+    # key grammars read from the software itself:
+    #
+    #   4C      2026 single-token key and enum names, from `4C -p` — the
+    #           binary's own dump of everything it accepts
+    #   Kratos  2675 variable names, from the KRATOS_DEFINE_VARIABLE /
+    #           KRATOS_CREATE_VARIABLE macro calls in the 48-application source
+    #   FEBio   2437 registered strings, from ADD_PARAMETER / ADD_PROPERTY /
+    #           REGISTER_FECORE_CLASS in febio-src, compared case-insensitively
+    #
+    # All 60 below are absent from all three, exactly and case-insensitively.
+    # The screen is not vacuous: run on the words it REJECTED it rejects them
+    # for cause. SUPG and BDF2 read exactly as English-in-caps in a FEniCSx and
+    # a scikit-fem entry, and both are real 4C identifiers (`- name: SUPG`,
+    # `- name: "BDF2"`), so neither is here; those two entries were reworded
+    # instead. COUPLED and CURVED occur in 4C only inside multi-word section
+    # titles ("DESIGN LINE SLIP SUPPLEMENTAL CURVED BOUNDARY CONDITIONS"),
+    # never as a key, and are admitted. tests/test_named_key_stopwords.py
+    # re-runs the screen so this list cannot quietly acquire a real key.
+    "ABORTS", "ABOVE", "ACCURATE", "ALSO", "APPENDED", "BARE", "BEFORE",
+    "BOTH", "CANNOT", "CAVEAT", "CHILD", "CHILDREN", "COLLAPSED",
+    "CONNECTIVITY", "CORRECTIONS", "COUPLED", "CREATES", "CURVED", "DELETES",
+    "DIRECTLY", "DISCARDED", "DRAINAGE", "EARLIER", "ENTIRE", "EVERY",
+    "FALSIFIES", "FEEDBACK", "FREQUENCY", "HARD", "IDENTICAL", "INSENSITIVE",
+    "ITSELF", "LATER", "LOWEST", "MAGNITUDE", "MEASURED", "MISSING", "MYTHS",
+    "NEGATIVELY", "NONSENSE", "NOTHING", "OVERRIDDEN", "PERCENTAGE",
+    "REFERENCED", "REFUTED", "REWRITES", "SAMPLE", "SECOND", "SENSITIVE",
+    "STILL", "THAT", "THREE", "UNASSIGNED", "UNVERIFIED", "UPPERCASE",
+    "VERIFIED", "WHERE", "WHICH", "WIDESPREAD", "WRONG",
+}
+
+_STOPWORDS |= _PROSE_STOPWORDS
+
 
 # A key can be named in order to say it DOES NOT EXIST — which is the corrected
 # form of exactly the entry this gate was built to catch:
@@ -144,6 +208,46 @@ _ABSENCE_AFTER_REJECT = re.compile(
     r"|is\s+not\s+accepted"
     r"|is\s+refused)", re.I)
 
+# THE SOLVER'S OWN VERDICT, quoted verbatim. When a code answers a name with
+# "is unknown" or "not defined", that is not an entry making a claim about the
+# name — it is the software being asked and saying no, which is the strongest
+# possible evidence the identifier does not exist and the best thing an entry
+# can put in a Signal clause.
+#
+# The two that forced this are Kratos's, inside the CORRECTED PARTICLE_FRICTION
+# entry. Its opening sentence ("PARTICLE_FRICTION is not a Kratos variable at
+# all — it appears in zero files") the matcher already understood, while the two
+# quoted proofs further down went on being reported as fresh fabrications:
+#
+#     'Error: Value type for "PARTICLE_FRICTION" not defined'
+#     'Kernel.GetVariable() ERROR: Variable PARTICLE_FRICTION is unknown.'
+#
+# Anchored HARD — the denial must begin at the token, past nothing but a closing
+# quote. No `[^.;]{0,40}?` run-up, so there is no window in which an unrelated
+# clause can drift in and silence a neighbouring token, which is the failure the
+# and/or guard above exists to prevent.
+#
+# Two deliberate narrowings, because "not defined" is the one phrase here that
+# has an innocent reading:
+#
+#   * bare `not defined` fires only through a CLOSING QUOTE, so it has to be
+#     inside a quoted message. "SOUNDSPEED not defined in the template" means
+#     the deck omitted it, not that the key does not exist, and must stay
+#     flaggable.
+#   * `is not defined` is not accepted at all, for the same reason — "the
+#     parameter is not defined by default" is about a value, not a name.
+#
+# Measured before narrowing: exactly five occurrences in the whole corpus depend
+# on this rule, all Kratos, all inside quoted solver output, and all still
+# silenced afterwards except INCLUDE_TRIANGLE — whose denial is a CMake message
+# with no closing quote, and which resolves in the corpus anyway (6 files), so
+# it is checked rather than excused and the verdict is identical.
+_ABSENCE_AFTER_SOLVER = re.compile(
+    r"^(?:[\"'\x60]\s*not\s+defined"
+    r"|[\"'\x60]?\s*is\s+unknown"
+    r"|[\"'\x60]?\s*is\s+not\s+(?:known|registered|recognised|recognized))",
+    re.I)
+
 # "... is NOT a SLIP_COEFF component of ...", "never takes THICKNESS or
 # PLANE_ASSUMPTION", "writing OUTPUT_SCATRA ... is a hard abort" put the denial
 # BEFORE the token, in shapes the general _ABSENCE_BEFORE does not cover.
@@ -162,6 +266,11 @@ _ABSENCE_BEFORE_EXTRA = re.compile(
     # right way to record an absence.
     r"|\bunknown\s+celltype\b"
     r"|\bunknown\s+type\b"
+    # CPython's own ImportError. "cannot import name KRATOS_KNOWLEDGE from
+    # kratos_knowledge" is the interpreter reporting that the module does not
+    # define that name — the same class of evidence as "Unknown type 'X'", and
+    # anchored the same way, immediately before the token.
+    r"|\bcannot\s+import\s+name\s+(?=$)"
     r"|\bthe\s+spelling\s+(?=$)"
     r"|\bthe\s+earlier\s+[\x60'\"]?(?=$)"
     r"|\bwriting\b"
@@ -176,7 +285,8 @@ def _absence_asserted(text: str, start: int, end: int) -> bool:
         return True
     fwd = text[end:end + 180]
     return bool(_ABSENCE_AFTER.search(fwd)
-                or _ABSENCE_AFTER_REJECT.search(fwd))
+                or _ABSENCE_AFTER_REJECT.search(fwd)
+                or _ABSENCE_AFTER_SOLVER.search(fwd))
 
 
 # Words that mark the token beside them as an input key rather than emphasis.
@@ -203,8 +313,11 @@ def _in_list_with_identifier(text: str, start: int, end: int) -> bool:
     `SOUNDSPEED` is a plain all-caps word, exactly like the emphasis-caps this
     gate must ignore (`CHECKERBOARD`, `AUTOMATICALLY`). What distinguishes it is
     the company it keeps: enumerated alongside `DYN_VISCOSITY` and
-    `BULK_MODULUS`, both underscore-shaped and both real. A word being listed as
-    a peer of confirmed input keys is the claim that it is one.
+    `BULK_MODULUS`, both underscore-shaped and one of them real. A word being
+    listed as a peer of input keys is the claim that it is one — and note the
+    rule works on SHAPE, not on truth. `DYN_VISCOSITY` is itself not a 4C
+    parameter (the real spelling is `DYNAMIC_VISCOSITY`); it lent SOUNDSPEED
+    credibility anyway, which is the whole mechanism being modelled here.
     """
     lo = text.rfind("(", max(0, start - 200), start)
     seg_start = lo + 1 if lo != -1 else max(0, start - 200)
@@ -257,21 +370,100 @@ def candidate_keys(text: str) -> list[tuple[str, int, int]]:
     return out
 
 
+# An OASiS environment variable is not a backend input key. `FEBIO_BINARY` is
+# underscore-shaped, so it is a candidate on shape alone, and the entry naming
+# it says plainly what it is:
+#
+#     "Symlink the built binary to ~/FEBio/bin/febio4 or set FEBIO_BINARY so
+#      check_availability() finds it."
+#
+# It is read at src/backends/febio/backend.py:96 as os.environ.get(
+# "FEBIO_BINARY"). Looking for it in FEBio is looking in the wrong building —
+# FEBio has never heard of it and never will, and the entry does not claim
+# otherwise.
+#
+# WHY THIS CANNOT BE USED TO HIDE A FABRICATION. The set is not a hand-written
+# list: it is read out of this repo's own AST, and a name qualifies only by
+# appearing as the literal argument of os.environ[...] / os.environ.get(...) /
+# os.getenv(...). An invented input key lives in a deck template or in prose —
+# to reach this set someone would have to make OASiS read it from the
+# environment, at which point it is an OASiS variable and this is true. 24
+# names qualify today, every one of them plainly ours: FOURC_BINARY,
+# KRATOS_ROOT, FEBIO_BINARY, SPARTA_BINARY, OFA_DISABLE_PITFALLS, LD_LIBRARY_PATH.
+_ENV_VAR_CACHE: dict[str, set[str]] = {}
+
+
+def oasis_env_vars() -> set[str]:
+    """ALL-CAPS names this repo reads out of the process environment."""
+    if str(REPO) in _ENV_VAR_CACHE:
+        return _ENV_VAR_CACHE[str(REPO)]
+    out: set[str] = set()
+    for py in sorted((REPO / "src").rglob("*.py")):
+        try:
+            tree = ast.parse(py.read_text(errors="ignore"))
+        except (SyntaxError, OSError):
+            continue
+        for node in ast.walk(tree):
+            lit = None
+            if (isinstance(node, ast.Subscript)
+                    and isinstance(node.value, ast.Attribute)
+                    and node.value.attr == "environ"
+                    and isinstance(node.slice, ast.Constant)):
+                lit = node.slice.value
+            elif (isinstance(node, ast.Call) and node.args
+                  and isinstance(node.args[0], ast.Constant)):
+                fn = node.func
+                name = getattr(fn, "attr", getattr(fn, "id", ""))
+                base = getattr(getattr(fn, "value", None), "attr", "")
+                if name == "getenv" or (name == "get" and base == "environ"):
+                    lit = node.args[0].value
+            if isinstance(lit, str) and _KEY.fullmatch(lit):
+                out.add(lit)
+    _ENV_VAR_CACHE[str(REPO)] = out
+    return out
+
+
 def key_present(key: str, roots: list[Path]) -> bool:
     """Does this identifier occur anywhere in the backend's corpus?
 
     `-a` is not optional: without it grep skips files it decides are binary and
     reports nothing found. That single flag was the difference between a
     measured 91% fabrication rate and the true 73% in an earlier pass.
+
+    Returns (present, whole_word). The second value is the open defect this
+    pass measured and did not fix, recorded rather than left to be rediscovered.
+
+    A plain substring search answers YES for any key that is a SUBSTRING of a
+    longer identifier, so a fabrication that happens to sit inside a real name
+    is invisible. Measured, on the case that exposed it: dune-fem's implicit
+    Runge-Kutta schemes are ImplicitEuler, CrankNicolson, DIRK23, DIRK34 and
+    SDIRK22 (dune/fem/solver/rungekutta/timestepcontrol.hh:154). The knowledge
+    offered `DIRK22`, which is not one of them — and substring search resolves
+    DIRK22 against the letters of SDIRK22 and calls it real. DIRK22 was found
+    by reading the header, not by this gate.
+
+    `-w` fixes that (word-constituent characters are letters, digits and
+    underscore, so DIRK22 no longer matches inside SDIRK22, and
+    STRUCTURAL_MECHANICS no longer matches inside
+    KRATOS_STRUCTURAL_MECHANICS_APPLICATION). It is NOT yet the pass/fail rule,
+    because switching it on surfaces 63 further candidates across all nine
+    backends including 4C, and shipping 63 untriaged reds — or parking them in
+    the baseline — would be worse than shipping a named, measured limitation.
+    They are listed by name in `substring_only` on every run, so the next pass
+    starts from a list rather than from a rediscovery.
     """
     if not roots:
-        return False
-    cmd = ["grep", "-r", "-a", "-l", "-F", "--", key] + [str(r) for r in roots]
-    try:
-        p = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
-    except (subprocess.TimeoutExpired, OSError):
-        return False
-    return bool(p.stdout.strip())
+        return False, False
+    paths = [str(r) for r in roots]
+    for flags in (["-w"], []):
+        cmd = ["grep", "-r", "-a", "-l", *flags, "-F", "--", key] + paths
+        try:
+            p = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+        except (subprocess.TimeoutExpired, OSError):
+            return False, False
+        if p.stdout.strip():
+            return True, flags == ["-w"]
+    return False, False
 
 
 # A YAML/XML key sitting at the start of a line inside a template string. This
@@ -383,15 +575,24 @@ def audit(backend: str, verbose: bool = False) -> dict:
     for path, tok in template_keys(backend):
         seen.setdefault(tok, []).append((str(path), "[DECK TEMPLATE]"))
 
+    ours = oasis_env_vars()
+    res["substring_only"] = []
     for tok in sorted(seen):
         res["checked"] += 1
-        if not key_present(tok, roots):
+        if tok in ours:
+            continue          # our own environment variable, see oasis_env_vars
+        present, whole_word = key_present(tok, roots)
+        if not present:
             res["unresolved"].append({
                 "key": tok,
                 "occurrences": len(seen[tok]),
                 "first_seen": seen[tok][0][0],
                 "signal": seen[tok][0][1],
             })
+        elif not whole_word:
+            # Resolved only inside a longer identifier. Weaker evidence than a
+            # whole-word hit and the gate's known blind spot — see key_present.
+            res["substring_only"].append(tok)
     if res["entries"] == 0:
         # "OK, 0 keys checked, 0 unresolved" is the shape of a pass, and it is
         # what this returned for SPARTA — whose knowledge in this tree is a
@@ -532,6 +733,14 @@ def main() -> int:
             print(f"        corpus is partial: {r['corpus_partial']}")
         for u in hits[:8]:
             print(f"        {u['key']:<28} x{u['occurrences']:<3} {u['signal']}")
+        # Never folded into the count above. These RESOLVED, so they are not
+        # accusations; they resolved only inside a longer identifier, which is
+        # the weaker of the two answers and the gate's known blind spot.
+        sub = r.get("substring_only") or []
+        if sub:
+            print(f"        substring-only ({len(sub)}, resolve inside a "
+                  f"longer identifier -- next triage batch, see key_present): "
+                  + " ".join(sub))
     if args.json:
         Path(args.json).write_text(json.dumps(out, indent=2))
         print(f"\n  written to {args.json}")

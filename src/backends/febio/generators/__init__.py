@@ -159,7 +159,11 @@ KNOWLEDGE["_general"] = {
                 "(Executed 2026-08-03, FEBio 4.12.0.86045466d.)"
             ),
             (
-                "[Syntax] `max_elems` is an EROSION parameter and is "
+                "[Syntax] `max_elems` is a parameter of the "
+                "`erosion` adaptor -- that exact lower-case spelling "
+                "is the registered type string, "
+                "REGISTER_FECORE_CLASS(FEErosionAdaptor, \"erosion\") "
+                "in FEAMR/FEAMR.cpp:49 -- and is "
                 "not accepted by hex_refine. FEHexRefine registers "
                 "max_elem_refine, max_value and criterion; its base "
                 "FERefineMesh adds max_iters, max_elements, map_data, "

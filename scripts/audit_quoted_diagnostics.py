@@ -110,7 +110,19 @@ SOURCE_HINTS: dict[str, list[str]] = {
     # found reading the wrong one. It does NOT matter here — this audit asks
     # only whether a symbol or message exists anywhere in deal.II — but the
     # source tree is listed first so answers come from the real thing.
-    "dealii": ["/home/alexander/dealii", "/usr/include/deal.II"],
+    #
+    # SLEPc's headers are part of deal.II's corpus because deal.II's eigenvalue
+    # wrapper does not define its own vocabulary — it passes SLEPc's enum
+    # straight through: `SolverBase::set_which_eigenpairs(const EPSWhich)`
+    # (include/deal.II/lac/slepc_solver.h:240). So the value an entry names is
+    # a SLEPc identifier, and deal.II's own tree only happens to mention the
+    # three enumerators its tests use (EPS_TARGET_MAGNITUDE,
+    # EPS_SMALLEST_REAL, EPS_LARGEST_MAGNITUDE). `EPS_TARGET_REAL` was reported
+    # invented on that basis; it is enumerator 8 of EPSWhich in
+    # /usr/include/slepc/slepceps.h:106. The library a wrapper forwards to is
+    # not an optional part of the wrapper's grammar.
+    "dealii": ["/home/alexander/dealii", "/usr/include/deal.II",
+               "/usr/include/slepc", "/usr/include/petsc"],
     # SPARTA is a C++ code with its own input-command corpus in doc/ and
     # examples/; both matter, since a command can be documented and exercised
     # without appearing as a literal in the source.
@@ -129,8 +141,43 @@ SOURCE_HINTS: dict[str, list[str]] = {
     # material key AND written into generated decks, is absent from the full
     # 28-app build too. Now that the corpus can answer, that absence means
     # something. The real keys are STATIC_FRICTION / DYNAMIC_FRICTION.
+    #
+    # And the C++ SOURCE checkout is listed beside the install, because an
+    # installed Kratos is a build PRODUCT and a build product does not contain
+    # the things that only exist before or during compilation:
+    #
+    #   * macros — KRATOS_ERROR, KRATOS_ERROR_IF, KRATOS_REGISTER_ELEMENT are
+    #     preprocessor names. They are gone by the time there is a .so, so 15
+    #     entries quoting the source's own error-raising idiom scored zero
+    #     against the install and were reported unresolved.
+    #   * build-system names — INCLUDE_TRIANGLE, USE_TRIANGLE_NONFREE_TPL and
+    #     the CMake FATAL_ERROR that names them exist only in CMakeLists.txt.
+    #   * applications that are real but not built here — PFEM2Application and
+    #     PfemFluidDynamicsApplication (hence YIELD_SHEAR) ship in the source
+    #     tree; the 28-app install omits them.
+    #
+    # 48 applications, a git checkout at b04fcde3. The SOURCE directories are
+    # named one by one rather than pointing at the checkout root: `.git` is 75
+    # MB of compressed objects that `grep -a` would read as text, and `build/`
+    # and `install/` are build products of this very tree, already represented
+    # by the install listed above. Neither is source and neither should be able
+    # to answer a question about what Kratos accepts.
+    #
+    # Positive control: `grep -r -a -l -F DISPLACEMENT_X` hits, so the tree is
+    # greppable, and all twelve names that motivated the addition resolve under
+    # these directories alone (KRATOS_ERROR 1411 files, KRATOS_ERROR_IF 963,
+    # KRATOS_REGISTER_ELEMENT 29, USE_TRIANGLE_NONFREE_TPL 12, YIELD_SHEAR 29,
+    # L2_ERROR 1). Negative control, and the reason this addition does not blunt
+    # the gate: PARTICLE_FRICTION, FREESTREAM_VELOCITY and MACH_INFINITY still
+    # appear in ZERO files. They remain absent with the whole of Kratos on hand,
+    # which is what makes those entries' retractions worth something.
     "kratos": ["/mnt/kratos-tier2/kv/lib/python3.12/site-packages/"
-               "KratosMultiphysics"],
+               "KratosMultiphysics",
+               "/home/alexander/Kratos/kratos",
+               "/home/alexander/Kratos/applications",
+               "/home/alexander/Kratos/external_libraries",
+               "/home/alexander/Kratos/cmake_modules",
+               "/home/alexander/Kratos/scripts"],
 }
 
 # Python backends, PRIMARY MODULE FIRST. The first entry must be importable or
@@ -580,6 +627,14 @@ def search_roots(backend: str) -> tuple[list[Path], list[Path], list[str]]:
         shared.extend(vendored_lib_dirs(shared))
         shared.extend(linked_libraries(shared))
         shared.extend(cpython_runtime(own))
+        # The C/C++ headers under the binding. dune's go in OWN — dune-fem IS
+        # that C++ library and the Python package is a thin wrapper over it, so
+        # a name absent from both really is absent from dune. PETSc's and
+        # SLEPc's go in SHARED, where a hit may confirm a constant and a miss
+        # licenses nothing: they are dependencies FEniCSx surfaces, not
+        # FEniCSx.
+        headers = stack_headers(backend, found_primary)
+        (own if backend == "dune" else shared).extend(headers)
     return own, shared, missing
 
 
@@ -979,6 +1034,64 @@ def linked_libraries(package_dirs: list[Path]) -> list[Path]:
     return out
 
 
+# C headers of the stack a Python-bound backend is a binding FOR. Globs are
+# relative to the environment prefix, found the same way `linked_libraries`
+# finds the env's lib/.
+#
+# THE GAP THIS CLOSES is the compiled-constant one. `linked_libraries` gets the
+# .so files, which is right for MESSAGES — those are string literals and they
+# survive compilation. It is useless for SYMBOLIC CONSTANTS, which do not: a C
+# enumerator is an integer by the time there is a shared object, and its NAME
+# exists in exactly one place on disk, the header.
+#
+#   dune-fem   the accepted implicit Runge-Kutta method names are a
+#              std::string array in dune/fem/solver/rungekutta/
+#              timestepcontrol.hh:154 — { "ImplicitEuler", "CrankNicolson",
+#              "DIRK23", "DIRK34", "SDIRK22" }. Nothing in the 6.3 MB Python
+#              package names any of them, so SDIRK22, which is real and
+#              spelled exactly right, was indistinguishable from DIRK22,
+#              which is not a dune-fem scheme at all. With the headers on
+#              hand the audit separates them, which is the entire job.
+#   PETSc      KSP_DIVERGED_PC_FAILED is `= -11` in petscksp.h:828. petsc4py
+#              does not even expose that spelling — PETSc.KSP.ConvergedReason
+#              has DIVERGED_PCSETUP_FAILED and no DIVERGED_PC_FAILED — so the
+#              name a user reads in PETSc's own documentation and error output
+#              resolved nowhere.
+#   SLEPc      EPS_SMALLEST_REAL / EPS_TARGET_REAL, enumerators of EPSWhich in
+#              slepceps.h.
+#
+# Narrow globs, not `include/`: the FEniCSx env's include tree is 461 MB of
+# every conda package's headers, and grepping that per key turns a check into
+# a stall. petsc*.h and slepc*.h are 6 MB.
+_STACK_HEADERS: dict[str, list[str]] = {
+    "fenics": ["include/petsc*.h", "include/slepc*.h"],
+    "dune": ["include/dune"],
+}
+
+
+def stack_headers(backend: str, package_dirs: list[Path]) -> list[Path]:
+    """Header files/dirs of the C/C++ stack under `backend`'s Python binding."""
+    globs = _STACK_HEADERS.get(backend)
+    if not globs:
+        return []
+    prefixes: list[Path] = []
+    for d in package_dirs:
+        for parent in d.parents:
+            if parent.name == "site-packages":
+                prefix = parent.parent.parent.parent   # <prefix>/lib/pyX.Y/sp
+                if prefix.is_dir() and prefix not in prefixes:
+                    prefixes.append(prefix)
+                break
+    out: list[Path] = []
+    for prefix in prefixes:
+        for pat in globs:
+            for p in sorted(prefix.glob(pat)):
+                real = p.resolve()
+                if (real.is_dir() or real.is_file()) and real not in out:
+                    out.append(real)
+    return out
+
+
 def _dt_needed(obj: Path) -> list[str]:
     """DT_NEEDED entries of an ELF object, or [] if it is not one."""
     try:
@@ -1025,6 +1138,27 @@ def _json_entries(be_dir: Path) -> list[tuple[Path, str]]:
 
 
 def collect_entries(backend: str) -> list[tuple[Path, str]]:
+    """Every knowledge entry the backend serves — and nothing else.
+
+    DOCSTRINGS ARE NOT KNOWLEDGE. A module docstring explaining how the package
+    is laid out is written for whoever opens the file, is never returned by
+    get_knowledge(), and never reaches an agent. It reads as an entry here only
+    because it happens to contain the word "Signal:" while describing the
+    convention that entries carry a Signal clause — which is what SPARTA's
+    generators/__init__.py does:
+
+        "... and every pitfall carries an observable ``Signal:`` clause. The
+         verbatim command index stays in sparta_knowledge.json ..."
+
+    Auditing that text against SPARTA reported ``GENERATORS`` and ``KNOWLEDGE``
+    — the names of this project's own dicts, three words earlier in the same
+    sentence — as SPARTA input keys that do not exist. They are not SPARTA's
+    and were never claimed to be.
+
+    Measured across all nine backends before removing them: 4 collected entries
+    are docstrings, all four in SPARTA, all four describing module layout. No
+    backend keeps a real entry in a docstring, so this drops exactly the noise.
+    """
     be_dir = REPO / "src" / "backends" / backend
     out = []
     if not be_dir.is_dir():
@@ -1035,10 +1169,20 @@ def collect_entries(backend: str) -> list[tuple[Path, str]]:
             tree = ast.parse(py.read_text(errors="ignore"))
         except (SyntaxError, OSError):
             continue
+        docstrings = set()
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef,
+                                 ast.AsyncFunctionDef)):
+                body = getattr(node, "body", None)
+                if (body and isinstance(body[0], ast.Expr)
+                        and isinstance(body[0].value, ast.Constant)
+                        and isinstance(body[0].value.value, str)):
+                    docstrings.add(id(body[0].value))
         for node in ast.walk(tree):
             if (isinstance(node, ast.Constant)
                     and isinstance(node.value, str)
-                    and "Signal:" in node.value):
+                    and "Signal:" in node.value
+                    and id(node) not in docstrings):
                 out.append((py, node.value))
     return out
 
