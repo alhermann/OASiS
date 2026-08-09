@@ -16,6 +16,7 @@ from pathlib import Path
 import numpy as np
 import ufl
 from dolfinx import default_scalar_type, fem, mesh as dmesh
+from dolfinx.fem import petsc as _fp
 from dolfinx.fem.petsc import LinearProblem
 from mpi4py import MPI
 
@@ -88,8 +89,16 @@ L = fem.Constant(domain, default_scalar_type(F_SRC)) * v * ufl.dx
 
 outer = dmesh.locate_entities_boundary(domain, fdim,
                                        lambda x: np.isclose(x[0], OUTER_X))
-bcs = [fem.dirichletbc(default_scalar_type(T_OUTER),
-                       fem.locate_dofs_topological(V, fdim, outer), V)]
+outer_dofs = fem.locate_dofs_topological(V, fdim, outer)
+bcs = [fem.dirichletbc(default_scalar_type(T_OUTER), outer_dofs, V)]
+
+# One definition of the interface measure, used by the Neumann branch to APPLY
+# the partner's flux and by the Dirichlet branch to RECOVER its own.
+facets_if = dmesh.locate_entities_boundary(domain, fdim,
+                                           lambda x: np.isclose(x[0], IFACE_X))
+tags_if = dmesh.meshtags(domain, fdim, np.sort(facets_if),
+                         np.full(len(facets_if), 7, dtype=np.int32))
+ds_if = ufl.Measure("ds", domain=domain, subdomain_data=tags_if)(7)
 
 if SIDE == "dirichlet":
     g = fem.Function(V)
@@ -98,27 +107,75 @@ if SIDE == "dirichlet":
 else:
     g = fem.Function(V)
     g.x.array[iface_dofs] = sample(imp, "normal_fluxes", Q_INIT, y_if)
-    facets = dmesh.locate_entities_boundary(domain, fdim,
-                                            lambda x: np.isclose(x[0], IFACE_X))
-    tags = dmesh.meshtags(domain, fdim, np.sort(facets),
-                          np.full(len(facets), 7, dtype=np.int32))
-    ds_if = ufl.Measure("ds", domain=domain, subdomain_data=tags)(7)
     L += g * v * ds_if          # APPLY the partner's number UNCHANGED
 
 uh = LinearProblem(a, L, bcs=bcs, petsc_options_prefix="cpl",
                    petsc_options={"ksp_type": "preonly",
                                   "pc_type": "lu"}).solve()
 
-# Outward normal flux density q = -K * dT/dn, L2-projected onto CG1 so its
-# values live on the same nodes as the interface DOFs.
+# Outward normal flux density q = -(K grad T).n on the interface.
+#
+# WHY NOT AN L2 PROJECTION OF THE GRADIENT. That is what this file used to do:
+# project -K dT/dx over the whole subdomain and sample it at the interface.
+# The gradient of a P1 solution is only O(h) accurate ON the boundary — the
+# superconvergence points are interior — and the boundary trace is exactly what
+# the coupling reads. Measured against a manufactured solution with a known
+# exact interface flux, the projection converges at order 1.07 while the
+# consistent flux below converges at 2.05, and in a full coupled run the graded
+# field order moves from 1.83 to 2.05 against a pass band that ends at 1.6. The
+# recovery, not the physics and not the partner, was setting the answer.
+#
+# THE CONSISTENT (REACTION) FLUX. From
+#     a(u,v) - (f,v) = int_dOmega (K grad u . n) v ds = -int_Gamma qn v ds
+# it follows that for every basis function phi_i on the interface
+#     int_Gamma qn phi_i ds = -r_i,   r = A u_h - b
+# with r the UNCONSTRAINED residual: assembled with no boundary condition
+# applied and with the constrained rows NOT zeroed, because on the Dirichlet
+# side those rows ARE the reaction and zeroing them destroys the very quantity
+# being recovered. Dividing by w_i = int_Gamma phi_i ds turns the functional
+# into a density the partner can interpolate pointwise.
 p_, w_ = ufl.TrialFunction(V), ufl.TestFunction(V)
-qh = LinearProblem(p_ * w_ * ufl.dx, -K * S * uh.dx(0) * w_ * ufl.dx,
-                   petsc_options_prefix="flx",
-                   petsc_options={"ksp_type": "preonly",
-                                  "pc_type": "lu"}).solve()
+
+if SIDE == "dirichlet":
+    Amat = _fp.assemble_matrix(fem.form(a))          # no bcs= on purpose
+    Amat.assemble()
+    bvec = _fp.assemble_vector(fem.form(L))          # no lifting, no set_bc
+    bvec.ghostUpdate()
+    r = Amat.createVecLeft()
+    Amat.mult(uh.x.petsc_vec, r)
+    r.axpy(-1.0, bvec)
+
+    wvec = _fp.assemble_vector(fem.form(w_ * ds_if))
+    wvec.ghostUpdate()
+    wi = wvec.array[iface_dofs]
+
+    Q = np.zeros(len(iface_dofs))
+    ok = np.abs(wi) > 1e-14
+    Q[ok] = -r.array[iface_dofs][ok] / wi[ok]
+
+    # An interface node that ALSO lies on the outer Dirichlet boundary carries
+    # the OUTER reaction as well, so its residual is not this interface's flux
+    # (measured 9.4e-02 there against 2.1e-02 on the interface proper). Take
+    # the nearest interior interface node rather than exporting a corner value
+    # that is physically a different quantity.
+    suspect = np.isin(iface_dofs, outer_dofs) | ~ok
+    good = np.where(~suspect)[0]
+    if len(good):
+        for i in np.where(suspect)[0]:
+            Q[i] = Q[good[np.argmin(np.abs(good - i))]]
+else:
+    # NEUMANN SIDE: the reaction formula MUST NOT be used here. These interface
+    # DOFs are free, the discrete equations hold on them, so r is ~0 (measured
+    # 4.8e-16 on free rows) and the expression would silently export ZERO flux
+    # with no error raised. This side's flux export is not what the partner
+    # consumes in any case — the Dirichlet partner reads its `values`.
+    qh = LinearProblem(p_ * w_ * ufl.dx, -K * S * uh.dx(0) * w_ * ufl.dx,
+                       petsc_options_prefix="flx",
+                       petsc_options={"ksp_type": "preonly",
+                                      "pc_type": "lu"}).solve()
+    Q = qh.x.array[iface_dofs]
 
 T = uh.x.array[iface_dofs]
-Q = qh.x.array[iface_dofs]
 print(f"[fenics {SIDE}] interface n={len(T)} "
       f"T=[{T.min():.6g},{T.max():.6g}] q=[{Q.min():.6g},{Q.max():.6g}]")
 

@@ -102,9 +102,26 @@ if __name__ == "__main__":
 # reported as a failure. These use a noisy participant with a seed drawn per
 # invocation, so they exercise the real mechanism with no solver involved.
 
+# SEED=None keeps the original behaviour: a fresh draw per invocation, which is
+# what a real Monte-Carlo participant does. SEED=<int> makes the sequence
+# reproducible WITHOUT making it constant — the participant is a fresh process
+# every iteration, so it advances a counter on disk and seeds with SEED+n. The
+# residual trajectory is then noisy but identical from run to run.
+#
+# A test that asserts a message about a residual TRAJECTORY needs the
+# trajectory to be fixed. With a fresh draw, whether the residual had actually
+# plateaued by iteration 25 varied per run, so the assertion sampled the noise
+# rather than testing the message, and failed roughly one run in ten.
 _NOISY = (
     'import json, os, random\nfrom pathlib import Path\n'
-    'random.seed(int.from_bytes(os.urandom(8), "little"))\n'
+    'SEED = SEEDVAL\n'
+    'if SEED is None:\n'
+    '    random.seed(int.from_bytes(os.urandom(8), "little"))\n'
+    'else:\n'
+    '    _c = Path("_iter.txt")\n'
+    '    _n = int(_c.read_text()) if _c.is_file() else 0\n'
+    '    _c.write_text(str(_n + 1))\n'
+    '    random.seed(SEED + _n)\n'
     'imp=json.loads(Path("imports.json").read_text() or "{}")\n'
     'y=imp["B"]["values"][0] if "B" in imp else 0.0\n'
     'v=0.5*y+1.0\n'
@@ -120,8 +137,10 @@ _QUIET_B = (
     '"values":[0.5*x+2.0]},open("exports.json","w"))\n')
 
 
-def _noisy_pair(tmp_path, amp=0.05):
-    a = _write_participant(tmp_path, "A", _NOISY.replace("AMP", repr(amp)))
+def _noisy_pair(tmp_path, amp=0.05, seed=None):
+    a = _write_participant(
+        tmp_path, "A",
+        _NOISY.replace("AMP", repr(amp)).replace("SEEDVAL", repr(seed)))
     b = _write_participant(tmp_path, "B", _QUIET_B)
     return (Participant("A", [sys.executable, "run.py"], a, imports_from=["B"]),
             Participant("B", [sys.executable, "run.py"], b, imports_from=["A"]))
@@ -129,8 +148,16 @@ def _noisy_pair(tmp_path, amp=0.05):
 
 def test_stochastic_participant_fails_without_the_noise_branch(tmp_path):
     """The symptom the branch exists to remove: a correct coupling, a tol under
-    the sampling noise, and an unconditional FAILURE."""
-    pa, pb = _noisy_pair(tmp_path)
+    the sampling noise, and an unconditional FAILURE.
+
+    SEEDED, unlike its siblings. This asserts a sentence about the residual
+    TRAJECTORY — that a residual which stopped falling names the noise-floor
+    route — and with a fresh draw per run, whether it had actually plateaued by
+    iteration 25 varied. The assertion then sampled the noise instead of
+    testing the message and failed about one run in ten. The participant is
+    still noisy; the noise is now the same noise every time.
+    """
+    pa, pb = _noisy_pair(tmp_path, seed=20260809)
     r = run_coupling([pa, pb], max_iter=25, tol=1e-9, accelerator="constant")
     assert not r.converged
     assert r.noise_floor is None, "no floor was asked for, so none may be claimed"
