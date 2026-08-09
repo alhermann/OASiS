@@ -108,6 +108,15 @@ def _needle_present(needle: str, low_out: str) -> bool:
             return True
         start = i + 1
 
+def _co_defends_of(fixture_dir) -> list:
+    """Fixtures this one declares it deliberately shares a claim with."""
+    f = fixture_dir / "fixture.json"
+    try:
+        return list(json.loads(f.read_text()).get("co_defends") or [])
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
 def backends_with_no_verdict(results: dict) -> list[str]:
     """Backends where EVERY fixture skipped, so the run says nothing about them.
 
@@ -247,6 +256,10 @@ class FixtureResult:
     forbid_violated: list = field(default_factory=list)
     notes: list = field(default_factory=list)
     captured_head: str = ""                # first 800 bytes of captured output (sanitised)
+    # Fixtures this one deliberately shares its claim with. Carried on the
+    # result so the clash check can see BOTH sides' declarations — a one-sided
+    # claim of sharing is what a mis-keyed fixture would produce.
+    co_defends: list = field(default_factory=list)
 
 
 def _run(cmd: list[str], cwd: Path, env: dict | None = None,
@@ -286,6 +299,7 @@ def _eval_fixture(fixture_dir: Path,
         # collapsed to three. Qualifying it keeps every run its own row.
         pitfall_index=idx, fixture_id=f"{backend}/{fixture_dir.name}",
         mode=mode,
+        co_defends=[str(x) for x in (meta.get("co_defends") or [])],
     )
     expect = [str(s) for s in meta.get("expect_in_output", [])]
     forbid = [str(s) for s in meta.get("forbid_in_output", [])]
@@ -844,15 +858,42 @@ def run(backend: str | None = None, fixture: str | None = None) -> dict:
             if r.key in out_map:
                 prior = out_map[r.key]
                 prior_fixture = prior.get("fixture_id", "?")
-                r.notes.append(
-                    f"KEY COLLISION: this fixture's key "
-                    f"{r.key!r} is already used by fixture "
-                    f"{prior_fixture!r}. Pick a distinct "
-                    f"pitfall_index in fixture.json — the "
-                    f"first-written result will otherwise be "
-                    f"silently overwritten."
-                )
-                r.status = "failed"
+                # DECLARED SHARING IS NOT A COLLISION.
+                #
+                # Some claims are genuinely defended by more than one fixture:
+                # kratos::dem::13 is compound ("DEM is NOT 3D-only ... there is
+                # no SphericParticle2D") and two fixtures establish its halves;
+                # coupling::precice_coupled_run::18 is one verdict with three
+                # independent pieces of evidence. Re-keying any of them to a
+                # free index would make it assert it tests something it does
+                # not. So a MUTUAL `co_defends` declaration is honoured here,
+                # exactly as tests/test_fixture_keys_point_at_real_claims.py
+                # honours it — the two must agree, or the suite and the runner
+                # disagree about the same corpus, which has already happened
+                # once with `covers` versus `pitfall_index`.
+                #
+                # An UNDECLARED clash still fails: a mis-keyed fixture does not
+                # know who it collided with, which is the case this check was
+                # written for.
+                mine = set(_co_defends_of(fixture_dir))
+                theirs = set(prior.get("co_defends") or [])
+                bare_prior = str(prior_fixture).split("/")[-1]
+                bare_mine = fixture_dir.name
+                if bare_prior in mine and bare_mine in theirs:
+                    r.notes.append(
+                        f"shares {r.key!r} with {prior_fixture!r} by mutual "
+                        f"declaration (co_defends)")
+                else:
+                    r.notes.append(
+                        f"KEY COLLISION: this fixture's key "
+                        f"{r.key!r} is already used by fixture "
+                        f"{prior_fixture!r}. Pick a distinct "
+                        f"pitfall_index in fixture.json, or — if both really "
+                        f"defend the same claim — add a MUTUAL `co_defends` "
+                        f"list to each naming the other. The first-written "
+                        f"result will otherwise be silently overwritten."
+                    )
+                    r.status = "failed"
             out_map[r.key] = asdict(r)
             status_glyph = {
                 "passed": "✓", "failed": "✗",
