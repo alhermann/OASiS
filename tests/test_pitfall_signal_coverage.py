@@ -430,7 +430,55 @@ SIGNAL_COVERAGE_MIN = {
                        #                 session: 8.7% -> 14.0% ->
                        #                 18.2% -> 22.1% -> 25.4% ->
                        #                 28.1% -> 30.1% -> 34.6% ->
-                       #                 40.6% across nine passes.)
+                       #                 40.6% across nine passes.
+                       #
+                       #                 2026-08-09: fourc had
+                       #                 dropped to 94.02%
+                       #                 (440/468) — NOT a
+                       #                 regression in authoring but
+                       #                 the visible half of a
+                       #                 data-loss fix. get_knowledge
+                       #                 used to fall back to the
+                       #                 generator's pitfalls only
+                       #                 when the data file had NONE,
+                       #                 so wherever both carried
+                       #                 pitfalls the generator's 49
+                       #                 entries were discarded. The
+                       #                 union restored them, and 28
+                       #                 of the restored entries
+                       #                 (fsi 13, tsi 9, fluid 6) had
+                       #                 no Signal: line. All 28 were
+                       #                 given signals established BY
+                       #                 EXECUTION on 4C 2026.2.0-dev
+                       #                 (commit 89519cfe76), one
+                       #                 mutation at a time on
+                       #                 f2_stokes_residualbased,
+                       #                 the fsi_2d deck template,
+                       #                 tutorial_prec_fsi,
+                       #                 tsi_lindilatation_geolin,
+                       #                 tsi_lincompression_monolithic
+                       #                 and tsi_heatflux_monolithic.
+                       #                 Nothing was deleted and the
+                       #                 floor was not touched: the
+                       #                 count is still 468 and the
+                       #                 measurement is back to
+                       #                 100.0% (468/468). Seven of
+                       #                 the 28 asserted a failure
+                       #                 mode that execution refutes
+                       #                 (SHAPEDERIVATIVES 'must be
+                       #                 true', missing ALE Dirichlet
+                       #                 'diverges', SOLID instead of
+                       #                 SOLIDSCATRA 'silently omits'
+                       #                 the coupling, THERMOMAT as
+                       #                 the thermal-strain link, the
+                       #                 WALL-QUAD4 message, LIFTDRAG
+                       #                 as a 2D substitute, and the
+                       #                 FLUID-vs-SOLID category
+                       #                 being schema-checked); those
+                       #                 were rewritten to the
+                       #                 observed behaviour rather
+                       #                 than given a signal for a
+                       #                 claim that is not true.)
     "dune":    99.0,   # measured 100.0 — dune at FULL Signal
                        #                 coverage (raised 2026-06-02
                        #                 from 0.0 after pass 1: 68
