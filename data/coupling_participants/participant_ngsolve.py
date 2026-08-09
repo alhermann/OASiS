@@ -115,25 +115,73 @@ with TaskManager():
     gfu.vec.data += a.mat.Inverse(fes.FreeDofs(),
                                   inverse="sparsecholesky") * res
 
-    # outward normal flux density q_out = -k * S * dT/dx, L2-projected to H1
-    fesq = H1(mesh, order=ORDER)
-    p, w = fesq.TnT()
-    m = BilinearForm(fesq)
-    m += p * w * dx
-    m.Assemble()
-    fq = LinearForm(fesq)
-    fq += (-K * S) * grad(gfu)[0] * w * dx
-    fq.Assemble()
-    qh = GridFunction(fesq)
-    qh.vec.data = m.mat.Inverse(fesq.FreeDofs(),
-                                inverse="sparsecholesky") * fq.vec
+    # Outward normal flux density q = -(k grad T).n on the interface.
+    #
+    # WHY NOT AN L2 PROJECTION OF THE GRADIENT. That is what this file used to
+    # do: project -k dT/dx over the whole subdomain and sample it at the
+    # interface. The gradient of a P1 solution is only O(h) accurate ON the
+    # boundary — the superconvergence points are interior — and the boundary
+    # trace is exactly what the coupling reads. Measured against a manufactured
+    # solution with a known exact interface flux, the projection converges at
+    # order ~1 while the consistent flux below converges at ~2, so the recovery,
+    # not the physics and not the partner, was setting the answer.
+    #
+    # THE CONSISTENT (REACTION) FLUX. From
+    #     a(u,v) - (f,v) = int_dOmega (k grad u . n) v ds = -int_Gamma qn v ds
+    # it follows that for every basis function phi_i on the interface
+    #     int_Gamma qn phi_i ds = -r_i,   r = A u_h - b
+    # with r the UNCONSTRAINED residual: NGSolve's a.mat and f.vec are exactly
+    # that — the Dirichlet condition lives in fes.FreeDofs() at solve time and
+    # never touches the assembled operator, so the constrained rows still carry
+    # the reaction. Dividing by w_i = int_Gamma phi_i ds turns the functional
+    # into a density the partner can interpolate pointwise.
+    if SIDE == "dirichlet":
+        rvec = f.vec.CreateVector()
+        rvec.data = a.mat * gfu.vec - f.vec        # r = A u_h - b, no bc applied
+        fw = LinearForm(fes)
+        fw += v * ds("interface")                  # w_i = int_Gamma phi_i ds
+        fw.Assemble()
 
-qdofs = np.array([fesq.GetDofNrs(NodeId(VERTEX, int(i)))[0] for i in iface_v], int)
+        r_if = np.array([rvec[int(d)] for d in iface_dofs], float)
+        w_if = np.array([fw.vec[int(d)] for d in iface_dofs], float)
+        Q = np.zeros(len(iface_dofs))
+        ok = np.abs(w_if) > 1e-14
+        Q[ok] = -r_if[ok] / w_if[ok]
+
+        # An interface node that ALSO lies on the outer Dirichlet boundary
+        # carries the OUTER reaction as well, so its residual is not this
+        # interface's flux. Take the nearest interior interface node rather than
+        # exporting a corner value that is physically a different quantity.
+        suspect = np.isin(iface_dofs, outer_dofs) | ~ok
+        good = np.where(~suspect)[0]
+        if len(good):
+            for i in np.where(suspect)[0]:
+                Q[i] = Q[good[np.argmin(np.abs(good - i))]]
+    else:
+        # NEUMANN SIDE: the reaction formula MUST NOT be used here. These
+        # interface dofs are free, the discrete equations hold on them, so r is
+        # ~0 and the expression would silently export ZERO flux with no error
+        # raised. This side's flux export is not what the partner consumes in
+        # any case — the Dirichlet partner reads its `values`.
+        fesq = H1(mesh, order=ORDER)
+        p, w = fesq.TnT()
+        m = BilinearForm(fesq)
+        m += p * w * dx
+        m.Assemble()
+        fq = LinearForm(fesq)
+        fq += (-K * S) * grad(gfu)[0] * w * dx
+        fq.Assemble()
+        qh = GridFunction(fesq)
+        qh.vec.data = m.mat.Inverse(fesq.FreeDofs(),
+                                    inverse="sparsecholesky") * fq.vec
+        qdofs = np.array([fesq.GetDofNrs(NodeId(VERTEX, int(i)))[0]
+                          for i in iface_v], int)
+        Q = np.array([qh.vec[int(d)] for d in qdofs], float)
 
 Path("exports.json").write_text(json.dumps({
     "field_name": "temperature",
     "n_points": int(len(iface_v)),
     "coordinates": [[float(IFACE_X), float(yy)] for yy in y_if],
     "values": [float(gfu.vec[int(d)]) for d in iface_dofs],
-    "normal_fluxes": [float(qh.vec[int(d)]) for d in qdofs],
+    "normal_fluxes": [float(q) for q in Q],
 }, indent=2))
