@@ -234,8 +234,9 @@ KNOWLEDGE = {
             "a vector bit-identical to the .flatten() version "
             "(both max|u| = 7.0312e-02 on MeshTri().refined(2) "
             "with unit_load). .flatten() remains the documented "
-            "and portable spelling, but the 'silently wrong "
-            "results' warning was stale and would have sent an "
+            "and portable spelling, but the earlier warning "
+            "about silently wrong results was stale and would "
+            "have sent an "
             "agent hunting a non-existent bug. (Verified "
             "empirically 2026-08-03 on skfem 12.0.1.)",
             "[API] Element catalog by cell type: ElementTriP1/P2/"
