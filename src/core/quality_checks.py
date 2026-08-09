@@ -422,10 +422,14 @@ def check_interface_balance(export_a, export_b, label_a="A", label_b="B",
     the net flux entering B (global balance). Pure arithmetic on the exchanged
     normal_fluxes — no physics. `export_*` are InterfaceData-like dicts/objects.
 
-    Returns findings only. Whether the check COULD run at all is a separate
-    question, answered by `interface_balance_coverage` — a coupling that
-    exchanges no fluxes gets an empty finding list here, and an empty finding
-    list must never be read as "conservation was checked and is fine".
+    An empty finding list means CHECKED AND BALANCED. Whether the check could
+    run at all is answered here too, as a finding: a coupling that exchanges no
+    fluxes, or whose two sides cannot be compared, gets an explicit NOT CHECKED
+    entry rather than silence. This used to delegate the question to
+    `interface_balance_coverage`, which was never written — it appeared in this
+    sentence and nowhere else in the tree — so for every caller the caveat was
+    unenforced and a coupling with no conservation evidence was indistinguishable
+    from one that conserves exactly.
 
     `floor` is an absolute magnitude below which an imbalance is float noise
     rather than a finding. It exists because the per-component branch below
@@ -499,7 +503,31 @@ def check_interface_balance(export_a, export_b, label_a="A", label_b="B",
     va, na = _flux(export_a, ca)
     vb, nb = _flux(export_b, cb)
     if va is None or vb is None:
-        return w
+        # NOT CHECKED IS NOT PASSED.
+        #
+        # This returned `w` — empty — when a side exported no normal_fluxes,
+        # so a coupling with NO conservation evidence produced exactly the same
+        # finding list as one that conserves perfectly. The docstring above
+        # already says an empty list "must never be read as conservation was
+        # checked and is fine", and delegates the question to
+        # `interface_balance_coverage`. That function does not exist: it is
+        # named in that sentence and nowhere else in the tree. So the caveat
+        # was never enforced anywhere, and every caller that asked only this
+        # function got silence.
+        #
+        # Fourteen lines below, the SAME function reports "could NOT be
+        # evaluated" as a finding when the two sides sample the interface
+        # differently, with a comment saying that is better than "silently
+        # returning []". This is that principle applied to the case it was
+        # skipped for.
+        missing = [lbl for lbl, v in ((label_a, va), (label_b, vb)) if v is None]
+        return w + [
+            f"Interface flux balance NOT CHECKED: "
+            f"{' and '.join(missing)} exported no `normal_fluxes`, so there is "
+            f"no conservation evidence for this coupling at all. This is not a "
+            f"passing balance check — nothing was compared. Export the outward "
+            f"normal flux from both participants, or state explicitly that "
+            f"this coupling is not conservative by construction."]
     # A FALLBACK TO THE PLAIN SUM ON DIFFERENT DISCRETISATIONS IS NOT A CHECK.
     # It compares 41 samples against 31 and its verdict is set by the meshes.
     # Reported as a finding, the way this function already reports a component
