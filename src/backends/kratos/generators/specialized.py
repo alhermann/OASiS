@@ -2086,7 +2086,7 @@ KNOWLEDGE = {
         ],
         "solver_types": ["explicit", "semi-implicit"],
         "pitfalls": [
-            "[API] The KratosShallowWaterApplication element name is BoussinesqElement2D3N / BoussinesqElement2D4N, NOT ShallowWaterElement2D3N. The Application class is named \"ShallowWater\" but the underlying element registration uses the \"Boussinesq\" stem (after the Boussinesq equations underlying the depth-averaged formulation). Signal: model_part.CreateNewElement(\"ShallowWaterElement2D3N\", ...) raises 'is not registered' from kratos/python/add_model_part_to_python.cpp:173; the same call with 'BoussinesqElement2D3N' succeeds. (Verified empirically 2026-06-01 \u2014 same Tier-2 fixture as the RANS naming entry, rans_shallowwater_element_naming in scripts/tier2_fixtures/kratos/.)",
+            "[API] The KratosShallowWaterApplication element name is BoussinesqElement2D3N / BoussinesqElement2D4N, NOT ShallowWaterElement2D3N. The Application class is named \"ShallowWater\" but the underlying element registration uses the \"Boussinesq\" stem (after the Boussinesq equations underlying the depth-averaged formulation). Signal: calling model_part.CreateNewElement with the unregistered name ShallowWaterElement2D3N raises 'is not registered' from kratos/python/add_model_part_to_python.cpp:173; the same call with 'BoussinesqElement2D3N' succeeds. (Verified empirically 2026-06-01 \u2014 same Tier-2 fixture as the RANS naming entry, rans_shallowwater_element_naming in scripts/tier2_fixtures/kratos/.)",
             "[Numerical] 2D only (depth-averaged) Signal: enforced by the element registry rather than by a convergence failure: the 2D Boussinesq elements construct while every 3D spelling raises 'is not registered', so a 3D shallow-water model cannot be assembled at all.",
             "[Input] Gravity is the SCALAR ProcessInfo[KM.GRAVITY_Z] (not a GRAVITY vector, not a nodal variable) \u2014 the base shallow-water solver sets ProcessInfo[GRAVITY_Z] = 9.81 and the elements read only that. Signal: silent g=0 \u2014 the initial free-surface perturbation never moves, all velocities stay exactly 0, rc=0. (Verified empirically 2026-06-12.)",
             "[Numerical] The BDF2 wave scheme (ShallowWaterResidualBasedBDFScheme) needs SetBufferSize(3) and the time loop must NOT solve until the buffer is full \u2014 replicate _TimeBufferIsInitialized (STEP + 1 >= 3); the first CloneTimeStep only shifts the initial condition into history. Signal: solving at step 1 uses a zero-filled history slot and corrupts the BDF time derivative \u2014 first-step velocities are wildly wrong, then the run \"recovers\" with a polluted transient. (Verified empirically 2026-06-12.)",
@@ -2423,8 +2423,8 @@ KNOWLEDGE = {
             "(el_i_1 < el_i_0 → minus). Default (omitted or "
             "0.0) is FRICTIONLESS sliding — the cable slides "
             "freely through intermediate nodes with no force "
-            "redistribution. Users who think 'a real cable "
-            "has friction' need to set this explicitly. "
+            "redistribution. Users who assume a real cable "
+            "must have friction need to set this explicitly. "
             "(File walk sliding_cable_element_3D.cpp "
             "2026-06-03.)",
             "[Input]+[Numerical] RingElement3D3N / "
@@ -2462,11 +2462,16 @@ KNOWLEDGE = {
             "unconditional-lumped pattern as "
             "EmpiricalSpringElement3D2N (lines 498-521) — "
             "USE_CONSISTENT_MASS_MATRIX is silently ignored. "
-            "Signal: Newton solver halts with 'Convergence is "
-            "not achieved' / 'residual norm = nan' on a ring "
-            "model with no actionable error — check Properties "
-            "has CROSS_AREA and YOUNG_MODULUS set, since the "
-            "element Check skips that. Modal analysis returns "
+            "Signal: the Newton loop simply exhausts its "
+            "iteration budget on a ring model with no actionable "
+            "error. What you can grep for is the convergence "
+            "criterion's own reporting, not a ring message: the "
+            "'RESIDUAL CRITERION' line carries 'Initial residual "
+            "norm = ' and a current-residual value that has gone "
+            "to nan, and an adaptive Newton-Raphson strategy adds "
+            "'ATTENTION: max iterations exceeded'. Check "
+            "Properties has CROSS_AREA and YOUNG_MODULUS set, "
+            "since the element Check skips that. Modal analysis returns "
             "infinity / NaN frequencies → DENSITY missing. "
             "First few non-rigid eigenfrequencies off by a "
             "factor of sqrt(3*N_nodes) from analytic — the "
@@ -2737,7 +2742,8 @@ KNOWLEDGE = {
             "downstream into the residual norm at the first solve "
             "step when the rail-segment endpoints (nodes 1+2) "
             "have degenerated to the same point (zero-length "
-            "rail) — symptom: 'residual norm = nan' with no "
+            "rail) — the symptom is a nan current-residual value "
+            "on the criterion's 'RESIDUAL CRITERION' line, with no "
             "exception, on a CAD-imported mesh with snap "
             "tolerance ≤ 1e-6; explicit-dynamics with this "
             "element gives infinite stable time step from the "
@@ -2897,7 +2903,7 @@ KNOWLEDGE = {
         "application": "DropletDynamicsApplication",
         "capabilities": ["droplet_impact", "contact_angle", "surface_tension", "two_phase"],
         "pitfalls": [
-            "[Integration] There is no catalog template for this physics. The availability-probe stub generators were removed in the 2026-06-26 honesty audit, so generate_input raises rather than emitting a script that exits 0 without solving. Nor is a real template possible on a pip stack: no KratosDropletDynamicsApplication wheel is published. A Kratos source build with applications/DropletDynamicsApplication enabled is required. Signal: `import KratosMultiphysics.DropletDynamicsApplication` raises ModuleNotFoundError and the package index offers no distribution at any version; the physics key is present in the knowledge catalog while the generator registry holds no entry for it, so generate_input raises ValueError 'No Kratos template for ...'.",
+            "[Integration] There is no catalog template for this physics. The availability-probe stub generators were removed in the 2026-06-26 honesty audit, so generate_input raises rather than emitting a script that exits 0 without solving. Nor is a real template possible on a pip stack: no KratosDropletDynamicsApplication wheel is published. A Kratos source build with applications/DropletDynamicsApplication enabled is required. Signal: `import KratosMultiphysics.DropletDynamicsApplication` raises ModuleNotFoundError and the package index offers no distribution at any version; the physics key is present in the knowledge catalog while the generator registry holds no entry for it, so generate_input raises a ValueError naming the missing template and the physics key. That ValueError is OASiS's own, raised in src/backends/kratos/backend.py, not a Kratos diagnostic — nothing in Kratos is reached at all. (pip index versions KratosDropletDynamicsApplication re-run 2026-08-09: no matching distribution, confirming the wheel is still unpublished.)",
         ],
     },
     "free_surface": {

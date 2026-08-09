@@ -50,8 +50,9 @@ class MixtureGenerator(BaseGenerator):
                     "both the under- and over-sum direction. "
                     "(Verified by execution 2026-08-06; no "
                     "stress is ever evaluated, so the "
-                    "predicted 'total > sum of constituents' "
-                    "artefact cannot appear.)"
+                    "predicted artefact of a total exceeding "
+                    "the sum of the constituents cannot "
+                    "appear.)"
                 ),
                 (
                     "[Input] Fibre direction is chosen by the "
@@ -89,8 +90,8 @@ class MixtureGenerator(BaseGenerator):
                     "4C_global_data_read.cpp -- and attaching "
                     "GROWTH_STRATEGY to the steady "
                     "MIX_Rule_Simple is rejected the same way, "
-                    "so 'a steady solve cannot grow' is "
-                    "enforced by the input spec rather than "
+                    "so the rule that a steady solve cannot "
+                    "grow is enforced by the input spec rather than "
                     "showing up as a quiet pure-elastic "
                     "answer. (Verified by execution "
                     "2026-08-06.)"

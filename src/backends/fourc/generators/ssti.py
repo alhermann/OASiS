@@ -178,7 +178,7 @@ class SSTIGenerator(BaseGenerator):
                     "grepping the log for 'thermo' tells you "
                     "nothing. (Verified by execution "
                     "2026-08-06; 'cannot clone material for "
-                    "<field>' is not in the binary, and the "
+                    "<field>' does not exist in 4C, and the "
                     "'exactly two SRC/TAR entries' rule was "
                     "wrong.)"
                 ),

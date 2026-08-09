@@ -252,9 +252,10 @@ class FBIGenerator(BaseGenerator):
                     "beam displacement comes back exactly "
                     "zero. A partially overlapping beam is "
                     "worse: it moves, wrongly, and still says "
-                    "nothing. There is no "
-                    "4C_fbi_partitioner.cpp and no 'beam "
-                    "outside fluid domain' message. "
+                    "nothing. The quoted 'beam "
+                    "outside fluid domain' does not exist in "
+                    "4C, and neither does the file it was "
+                    "attributed to, 4C_fbi_partitioner.cpp. "
                     "(Corrected by execution 2026-08-06.)"
                 ),
                 (
@@ -310,9 +311,10 @@ class FBIGenerator(BaseGenerator):
                     "MAT_BeamReissnerElastHyper_ByModes or "
                     "MAT_BeamReissnerElastPlastic!\" — it "
                     "names the offending material and lists "
-                    "the legal ones. There is no "
-                    "4C_mat_beam_base.cpp and no 'beam "
-                    "element requires beam material' message. "
+                    "the legal ones. The quoted 'beam "
+                    "element requires beam material' does not "
+                    "exist in 4C, and neither does the file it "
+                    "was attributed to, 4C_mat_beam_base.cpp. "
                     "(Corrected by execution 2026-08-06.)"
                 ),
             ],

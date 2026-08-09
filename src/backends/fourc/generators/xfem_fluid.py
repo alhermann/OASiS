@@ -231,7 +231,8 @@ class XFEMFluidGenerator(BaseGenerator):
                     'does not warn and does not fall back -- it terminates the '
                     'process with SIGSEGV inside '
                     'Core::FE::GaussPointsComposite::num_points, so the log ends '
-                    "with 'Signal: Segmentation fault (11)' and no 4C-level "
+                    'with the MPI runtime\'s signal block naming a segmentation '
+                    'fault, signal 11, and no 4C-level '
                     'diagnostic at all. If a cut run dies without a PROC 0 ERROR '
                     'block, check this key first. (Audit 2026-06-02; corrected by '
                     'execution 2026-08-06.)'

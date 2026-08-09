@@ -297,9 +297,14 @@ class BeamsGenerator(BaseGenerator):
                 (
                     "[Input] NUMDOF must match the element type: 6 for standard BEAM3R LINE3 "
                     "(without Hermite), 9 for BEAM3R LINE3 with HERMITE_CENTERLINE: true. "
-                    "Signal: a wrong NUMDOF is caught by the DOF-count check, whose template "
-                    "is '{} DOFs given but {} expected in {}' -- for example '3 DOFs given "
-                    "but 6 expected in Point Dirichlet boundary condition'. Verified by "
+                    "Signal: a wrong NUMDOF is caught by the DOF-count check in "
+                    "core/fem/src/discretization/4C_fem_discretization_utils_dbc.cpp, "
+                    "which throws a message of the form <given> DOFs given but "
+                    "<expected> expected in <condition name> -- for example 3 DOFs "
+                    "given but 6 expected in Point Dirichlet boundary condition. Every "
+                    "one of the three fields is substituted at run time, so the only "
+                    "literal in the source is the format string itself and there is "
+                    "nothing in that line long enough to grep for. Verified by "
                     "execution on a BEAM3R LINE2 deck; the older wording 'inconsistent DOF "
                     "count for beam element' is NOT a string the binary contains. Always "
                     "match NUMDOF to the BEAM3R configuration. (Audit 2026-06-02.) "
@@ -333,9 +338,10 @@ class BeamsGenerator(BaseGenerator):
                     "block on that node must use NUMDOF 9 with nine-entry ONOFF/VAL/FUNCT "
                     "vectors. Getting it wrong is not silent and does not produce spurious "
                     "tangent growth: the DBC reader compares the condition against the DOFs "
-                    "the node actually has and aborts before the first step. Signal: '6 DOFs "
-                    "given but 9 expected in Point Dirichlet boundary condition' from "
-                    "4C_fem_discretization_utils_dbc.cpp. (Executed 2026-08-06.) "
+                    "the node actually has and aborts before the first step. Signal: the "
+                    "DOF-count throw in 4C_fem_discretization_utils_dbc.cpp, reading 6 "
+                    "DOFs given but 9 expected in Point Dirichlet boundary condition -- "
+                    "all three fields substituted at run time. (Executed 2026-08-06.) "
                 ),
                 (
                     "[Numerical] Use DYNAMICTYPE GenAlphaLieGroup for beam3r dynamics. You "
@@ -384,8 +390,9 @@ class BeamsGenerator(BaseGenerator):
                     "from entity type.' from 4C_fem_condition.cpp. Two parts of that message "
                     "mislead: the bracket is the SIZE of the design-point list, so [0:0[ "
                     "means the list is empty, and the index is zero-based, so a condition "
-                    "written 'E: 2' is reported as DPoint 1. Neither 'no design nodes found' "
-                    "nor 4C_io_input_file.cpp appears anywhere. (Executed 2026-08-06.) "
+                    "written 'E: 2' is reported as DPoint 1. The older quote 'no design "
+                    "nodes found' does not exist in 4C, and neither the message nor the "
+                    "DPoint reader is in 4C_io_input_file.cpp. (Executed 2026-08-06.) "
                 ),
                 (
                     "[API] Beam material names use CamelCase WITHOUT inner underscores: "

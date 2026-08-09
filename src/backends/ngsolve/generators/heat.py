@@ -151,8 +151,9 @@ KNOWLEDGE = {
             "detector. (Verified empirically 2026-06-01 — drift "
             "correction; msg_level behaviour added 2026-08-03 "
             "and corrected in the 2026-08-03 adversarial "
-            "re-audit, which falsified the 'gated on msg_level "
-            "<= 1' description; the generator template above "
+            "re-audit, which falsified the description that had "
+            "the warning gated on msg_level <= 1; the generator "
+            "template above "
             "also dropped the kwarg.)",
             "[API] Matrix addition for the implicit-Euler "
             "operator uses BaseMatrix.AsVector() concatenation: "

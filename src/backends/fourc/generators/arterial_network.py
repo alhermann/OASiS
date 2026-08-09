@@ -273,7 +273,7 @@ class ArterialNetworkGenerator(BaseGenerator):
                     "registers only JUNCTION, PRESCRIBED (flow / pressure / "
                     "velocity / area / characteristicWave, forced or "
                     "absorbing), REFLECTIVE, IN_OUTLET and the porofluid/scatra "
-                    "coupling conditions. Signal: writing 'DESIGN NODE 1D "
+                    "coupling conditions. Signal: writing a DESIGN NODE 1D "
                     "ARTERY WINDKESSEL CONDITIONS' aborts with \"is not a valid "
                     "section name.\" from core/io/src/4C_io_input_file.cpp. "
                     "Terminal reflection is controlled by the single "

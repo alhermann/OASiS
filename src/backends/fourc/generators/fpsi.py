@@ -213,9 +213,10 @@ class FPSIGenerator(BaseGenerator):
                     "std::out_of_range terminates the "
                     "process, with no 'PROC 0 ERROR in' line "
                     "and no occurrence of the word 'cloning' "
-                    "anywhere in the log. Neither 'FPSI: ALE "
-                    "field not configured' nor 'cannot clone "
-                    "material for ALE' exists. (Corrected by "
+                    "anywhere in the log. The quoted 'FPSI: ALE "
+                    "field not configured' does not exist in 4C, "
+                    "and neither does 'cannot clone "
+                    "material for ALE'. (Corrected by "
                     "execution 2026-08-06.)"
                 ),
                 (
@@ -232,8 +233,8 @@ class FPSIGenerator(BaseGenerator):
                     "coupling/src/adapter/"
                     "4C_coupling_adapter.cpp. The message "
                     "names neither FPSI nor the condition, so "
-                    "read 'slave nodes' as 'the side you "
-                    "forgot'. (Corrected by execution "
+                    "read 'slave nodes' as the side you "
+                    "forgot. (Corrected by execution "
                     "2026-08-06.)"
                 ),
                 (
@@ -307,9 +308,10 @@ class FPSIGenerator(BaseGenerator):
                     "accepted in silence: the run exits 0, "
                     "passes its result tests, and builds the "
                     "same discretisations as without it. "
-                    "Nothing named 4C_fpsi_factory.cpp exists "
-                    "and 'porous field already has Lagrangian "
-                    "motion' is never printed, so the rule "
+                    "The quoted 'porous field already has "
+                    "Lagrangian motion' does not exist in 4C, "
+                    "and neither does the file it was "
+                    "attributed to, 4C_fpsi_factory.cpp; the rule "
                     "has to be followed deliberately rather "
                     "than learned from a diagnostic. "
                     "(Corrected by execution 2026-08-06.)"
