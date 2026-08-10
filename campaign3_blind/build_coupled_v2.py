@@ -1046,6 +1046,56 @@ def build_one(fn, seed=None):
                 sym_ok=sym_ok, trans_ok=trans_ok, num_ok=num_ok)
 
 
+def _exact_rms_on_probe_grid(r, s):
+    """RMS of the exact solution at the grader's probe points.
+
+    Pooled over both subdomains for a coupled instance, exactly as the grader
+    pools its error, so the ratio the grader forms is dimensionless and
+    comparable. Returns None if it cannot be computed — the grader then says
+    so explicitly rather than silently skipping the check.
+    """
+    try:
+        dim = s["dim"]
+        syms = {c: sp.Symbol(c) for c in s["coords"]}
+        acc_sq, acc_n = 0.0, 0
+        sides = (("A", "extent_a"), ("B", "extent_b")) if s.get(
+            "extent_b") else ((None, "extent_a"),)
+        for side, field in sides:
+            extent = s.get(field)
+            if not extent:
+                continue
+            bounds = [tuple(a) for a in extent]
+            pts = _probe_points(dim, bounds)
+            excl = s.get(f"probe_{(side or 'a').lower()}_exclude")
+            if excl:
+                boxes = [[tuple(a) for a in b] for b in excl]
+                pts = [pt for pt in pts
+                       if not any(all(lo < c < hi for c, (lo, hi) in zip(pt, b))
+                                  for b in boxes)]
+            src = r["exact"][side] if side and isinstance(
+                r["exact"], dict) else r["exact"]
+            exprs = src if isinstance(src, list) else [src]
+            fns = [sp.lambdify(list(syms.values()), sp.sympify(e, locals=syms),
+                               "math") for e in exprs]
+            for pt in pts:
+                for f in fns:
+                    acc_sq += float(f(*pt)) ** 2
+                    acc_n += 1
+        return (acc_sq / acc_n) ** 0.5 if acc_n else None
+    except Exception:
+        return None
+
+
+def _probe_points(dim, bounds):
+    M = PROBE_M[dim]
+    axes = [[lo + (i + 0.5) * (hi - lo) / M for i in range(M)]
+            for lo, hi in bounds]
+    pts = [()]
+    for ax in axes:
+        pts = [p + (v,) for p in pts for v in ax]
+    return pts
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--apply", action="store_true")
@@ -1106,6 +1156,14 @@ def main():
             "probe_M": s["probe_M"], "mesh_N": s["mesh_N"],
             "theoretical_order": s["theoretical_order"], "tol": s["tol"],
             "band": s["band"], "evidence_grade": s["evidence_grade"],
+            # The exact solution's own RMS on the grader's probe grid. The
+            # grader needs it to bound the COARSEST error in absolute terms:
+            # without it only the RATIO of successive errors is tested, and a
+            # ratio can be manufactured from the source term alone with no
+            # solver involved. Derived here because this is the only place the
+            # exact solution exists; it is a property of the answer, so it
+            # belongs in the sealed key and nowhere else.
+            "exact_rms": _exact_rms_on_probe_grid(r, s),
             "evidence_grade_reason": s["evidence_grade_reason"],
             "material_contrast": s["material_contrast"],
             "draw_seed": s["draw_seed"],

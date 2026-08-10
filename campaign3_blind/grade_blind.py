@@ -111,6 +111,13 @@ PROBE_M = {2: 44, 3: 21}
 PROBE_TOL = 1e-6
 MIN_R2 = 0.98
 
+# How much larger than the solution's own RMS the COARSEST error may be.
+# Generous on purpose: a legitimately coarse first mesh can carry an error of
+# the same order as the solution, and this bound exists to catch a field that
+# is wrong by orders of magnitude, not to police discretisation quality. The
+# forged case that motivated it was 1.4e6x.
+MAX_COARSE_REL = 5.0
+
 
 def assert_probe_grid_incommensurate(dim: int, mesh_N) -> None:
     """A probe count that divides or is divided by a mesh level aliases."""
@@ -398,8 +405,52 @@ def grade_run(run_dir: Path, problem_id: str) -> dict:
         return {**out, "outcome": "INVALID_SUBMISSION",
                 "note": f"error decay not clean (monotone={monotone}, R2={r2:.3f})"}
 
-    lo, hi = key["band"]
     theo, tol = key["theoretical_order"], key["tol"]
+
+    # ── ABSOLUTE SIZE, BEFORE ANY RATE ────────────────────────────────────
+    #
+    # The order is a RATIO of successive errors, and a ratio can be
+    # manufactured without solving anything. Demonstrated against this very
+    # function: derive u from the source term printed in the task (possible in
+    # one step for at least two instances), write u + A*4**-level at the probe
+    # points, add one log line, and the verdict is CORRECT at order 2.0000
+    # with R2 = 1.0. No solver ran. Errors of 1e6 -> 1e5 -> 1e4 -> 1e3 came
+    # back CORRECT_SUPERCONVERGENT while the exact solution's own RMS is 0.711
+    # — a field wrong by a million times the answer, passing.
+    #
+    # DESIGN.md §5 item 6 pre-registers the guard: "Correct if the observed
+    # order lies within the per-instance tolerance of the theoretical order AND
+    # inside the plausibility band." The band was unpacked here and never read
+    # again — the sentence was the whole implementation.
+    #
+    # Two bounds now, both absolute, both before the rate is consulted:
+    #   * the band the builder already writes into every key, on the order;
+    #   * a magnitude bound on the COARSEST error, relative to the exact
+    #     solution's own RMS. A first mesh whose error exceeds the solution it
+    #     is approximating is not a converging discretisation of it, whatever
+    #     its subsequent ratios look like.
+    lo, hi = key["band"]
+    if not (lo <= order <= hi):
+        return {**out, "outcome": "IMPLAUSIBLE_RATE",
+                "note": (f"observed order {order:.3f} outside the "
+                         f"pre-registered plausibility band [{lo}, {hi}]")}
+
+    ref = key.get("exact_rms")
+    if ref:
+        rel = errs[0] / float(ref)
+        if rel > MAX_COARSE_REL:
+            return {**out, "outcome": "IMPLAUSIBLE_MAGNITUDE",
+                    "note": (f"coarsest error {errs[0]:.3e} is {rel:.1f}x the "
+                             f"exact solution's own RMS {float(ref):.3e} "
+                             f"(limit {MAX_COARSE_REL}x) — the sequence may "
+                             f"converge, but not to this problem's solution")}
+    else:
+        out["magnitude_checked"] = False
+        out.setdefault("notes", []).append(
+            "NO MAGNITUDE CHECK: this key carries no `exact_rms`, so only the "
+            "rate was tested and a scaled or offset field cannot be "
+            "distinguished. Rebuild the key.")
+
     if abs(order - theo) <= tol:
         return {**out, "outcome": "CORRECT"}
     if order > theo + tol:
