@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import math
 import re
 from pathlib import Path
@@ -47,7 +48,26 @@ from pathlib import Path
 import sympy as sp
 
 HERE = Path(__file__).resolve().parent
-KEYS = HERE / "keys"
+
+# WHERE THE ANSWERS ARE.
+#
+# This was `HERE / "keys"`, which meant the answers had to sit inside this
+# directory. They do not and must not: they are kept outside the repository on
+# purpose, so that an agent running inside the checkout cannot reach them.
+#
+# The consequence was a split that made the experiment unrunnable. The answers
+# lived beside a SECOND, older copy of this file and of the question sheets, so
+# grading from here found no answers, and running from there served the
+# question sheets whose probe count the grader rejects. Neither location could
+# both serve a correct question sheet and grade against an answer.
+#
+# OASIS_BLIND_KEYS is the same variable build_coupled_v2.py already writes
+# them to, so one setting now names one location for both halves.
+KEYS = Path(os.environ.get("OASIS_BLIND_KEYS", "")) if os.environ.get(
+    "OASIS_BLIND_KEYS") else HERE / "keys"
+
+# The question sheets are ALWAYS this checkout's. Never the copy beside the
+# answers — that is how a stale sheet gets served.
 PROBLEMS = HERE / "problems"
 
 

@@ -37,7 +37,17 @@ import re
 import sys
 from pathlib import Path
 
-CAMPAIGN = Path("/home/alexander/Schreibtisch/qwen_uplift_test/campaign3_blind")
+# THIS CHECKOUT'S CAMPAIGN, NOT ANOTHER ONE.
+#
+# This was a hardcoded absolute path to a second copy of campaign3_blind on one
+# machine. That copy holds the answers, and it also holds OLDER question sheets
+# and an OLDER grader — so this wrapper imported the pre-fix grader (no support
+# for a non-rectangular subdomain's excluded probes) and would have graded
+# against question sheets whose probe count the grader rejects.
+#
+# The answers are located by OASIS_BLIND_KEYS, which is what grade_blind.py now
+# reads. The code always comes from here.
+CAMPAIGN = Path(__file__).resolve().parents[1] / "campaign3_blind"
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(CAMPAIGN))
 
