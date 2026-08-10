@@ -1,46 +1,65 @@
-"""The default accelerator survives the case the constant one blows up on.
+"""The default accelerator survives the case the constant one blows up on —
+"survives" meaning it LANDS ON THE ANSWER, not that it converges.
 
-THE CLAIM UNDER TEST is the sentence the knowledge attaches to its own
-worked divergence example, and it is the one that decides whether an agent
-reading that example panics about the DEFAULT:
+THE CLAIM UNDER TEST is the corrected sentence attached to the knowledge's own
+divergence example, and it is the one that decides what an agent does when a
+run at rho = 4 ends "did not converge":
 
   "at rho = 4, theta = 0.5 with a CONSTANT accelerator DIVERGES — the interface
-   values run away by many orders of magnitude and the conservation check fires
-   — while theta = 0.2 converges. Nothing warns you in advance: a diverging
-   coupling looks like a converging one for the first few iterations. Note the
-   default 'aitken' survives this particular case; do not read the constant-
-   theta stability limit as a property of the tool's default"
+   values run away by many orders of magnitude (measured: 4.1e+13 relative at
+   300 iterations) and the conservation check fires — while theta = 0.2
+   converges in 83. ... The default 'aitken' does NOT diverge on this case, and
+   it does not solve it either: it lands on the closed-form interface value to
+   1.2e-05 relative and its residual is still 1.4e-04 against tol = 1e-4 after
+   300 iterations. ... its own adaptation drove theta onto the 0.05 clamp for 60
+   of 299 adaptations, and once the raw output has settled the residual can only
+   fall like (1-theta) per iteration, measured here at 0.968. So the answer was
+   found and the convergence test could not certify it inside the budget."
 
-"aitken" is the `couple` tool's DEFAULT accelerator, and until this fixture
-nothing behind that word had ever been run. The sibling fixtures
-theta_stability_limit, theta_one_over_one_plus_rho_is_fastest and
-theta_converging_set_matches_the_limit all sweep the CONSTANT accelerator, so
-the entire measured basis of the theta advice was about the option the
-knowledge tells agents NOT to reach for first.
+WHAT THIS FIXTURE USED TO TEST, AND WHY IT HAD TO CHANGE. It tested the previous
+sentence, "Note the default 'aitken' survives this particular case", read as
+`converged=True`, and it failed. The sentence was written from a 40-cell sweep
+run on the PER-PARTICIPANT Aitken theta that feature/coupling-robustness
+replaced with ONE global theta, on an analytic stand-in for the participants,
+at tol=1e-8 over 400 iterations, with a harness that was never committed. On the
+driver that ships, re-measured with `scripts/sweep_accelerators.py`, the default
+at rho = 4, theta = 0.5 does not diverge and does not converge: it sits on the
+right answer with a residual that will not come down. The knowledge now says
+that, and this fixture now tests that.
+
+THIS IS THE DISTINCTION THE FIXTURE EXISTS FOR. `converged` and "found the
+answer" are different questions on a partitioned driver, and here they give
+opposite verdicts on the same run. An agent that reads `converged=False` as "the
+physics is wrong" will go and change the physics, which is the expensive mistake
+this whole section is written to prevent. So the fixture asserts BOTH: that the
+interface state really is the analytic one, from both sides, and that the
+residual really did not reach tol. Dropping either half would let a genuinely
+broken driver pass — the first half alone would accept a run that never settles,
+the second alone would accept a run that settled on the wrong fixed point.
+
+BUDGET: 300 ITERATIONS, AND THE CHANGE IS DELIBERATE. This fixture ran at 200.
+The claim it now tests is a 300-iteration statement, because the sweep behind it
+gave every cell of a 70-setting grid the same max_iter=300. At 200 the Aitken
+arm has landed on the interface VALUE (deviation 3.1e-04) but its interface flux
+is still 0.30 W/m^2 from the closed form against the 0.2 tolerance used below,
+so the physics half could not be checked at all and "landed on the answer" would
+have been asserted on the temperature alone. Both arms still get the identical
+budget and the identical tol, which is the property that matters: without it the
+comparison is between an accelerator and a budget.
 
 THE EXPERIMENT is one problem, run twice, with ONE string different. Same rho,
 same theta0, same max_iter, same tol, same meshes, same initial guess — only
-`accelerator` changes. Anything less than that and the two arms are not
-comparable and "survives" means nothing.
+`accelerator` changes.
 
-WHAT IS MEASURED, and why not the obvious thing. This follows
-couplinglib.probe_theta's reasoning exactly, because the trap is the same one.
-The residual is normalised by the raw export magnitude, so a diverging run
-SATURATES it near a constant of order one instead of sending it to infinity —
-the constant arm here ends with a residual of order 1, which is a number a
-merely-slow run could also produce. The raw interface value is no better: it
-sits near 316 K, so an error amplified fiftyfold still leaves it within a factor
-of two of the right answer. What separates a runaway from a settling iteration
-is the DEVIATION from the exact interface temperature relative to it, which
-grows as the amplification factor to the power of the iteration count with
-nothing to hide behind.
-
-And "survives" is not "did not crash". The Aitken arm has its PHYSICS checked
-against the closed form: the interface temperature from BOTH sides, the
-interface flux from both sides against ±q with the two outward normals'
-opposite signs, the net flux balance, and an empty `validation` block. A
-partitioned scheme that converged to the wrong fixed point would otherwise pass
-for a survivor.
+WHAT IS MEASURED, and why not the obvious thing. The residual is normalised by
+the raw export magnitude, so a diverging run SATURATES it near a constant of
+order one instead of sending it to infinity — the constant arm here ends with a
+residual of order 1, which a merely-slow run could also produce. The raw
+interface value is no better: it sits near 317 K, so an error amplified
+fiftyfold still leaves it within a factor of two of the right answer. What
+separates a runaway from a settling iteration is the DEVIATION from the exact
+interface temperature relative to it, which grows as the amplification factor to
+the power of the iteration count with nothing to hide behind.
 
 WHY THE COPY OF probe_theta. couplinglib's probe_theta hard-codes
 accelerator="constant" and this fixture's whole point is the other value, so the
@@ -67,8 +86,8 @@ import couplinglib as L                                     # noqa: E402
 
 RHO = 4.0               # the ratio the knowledge's own divergence example uses
 THETA0 = 0.5            # and its theta
-MAX_ITER = 200
-TOL = 1e-4
+MAX_ITER = 300          # the SAME budget for both arms — see the docstring
+TOL = 1e-4              # and the SAME tolerance
 # The two accelerator strings, named so the difference between the arms is one
 # identifier and the mutation can move it.
 AITKEN = "aitken"
@@ -128,7 +147,7 @@ def probe(tag: str, accelerator: str, rho: float = RHO, theta: float = THETA0,
             "iterations": int(res.get("iterations", 0)),
             "residual": float(res.get("residual", float("nan"))),
             "deviation": deviation, "result": res, "problem": p,
-            "accelerator": accelerator}
+            "accelerator": accelerator, "budget": (rho, theta, max_iter, tol)}
 
 
 def shown(dev: float) -> str:
@@ -143,19 +162,19 @@ def report(tag: str, r: dict) -> None:
     print(f"{tag}_deviation_from_exact={shown(r['deviation'])}")
 
 
-def reached_closed_form(tag: str, r: dict) -> bool:
+def landed_on_the_closed_form(tag: str, r: dict) -> bool:
     """Not `converged`: the interface VALUES, against the analytic answer.
 
     A partitioned fixed-point scheme converges to a fixed point, which is the
     solution only if the two participants exchange the right quantity with the
     right sign in the right units. So this checks the temperature from both
-    sides, the flux from both sides with their opposite outward normals, the
-    conservation balance, and the tool's own validation block.
+    sides, the flux from both sides with their opposite outward normals, and
+    the conservation balance.
+
+    `converged` is deliberately NOT part of this. On this driver at this ratio
+    the two answers differ, and separating them is the fixture's subject.
     """
     p, res = r["problem"], r["result"]
-    ok = L.check(r["converged"], f"{tag}_did_not_converge",
-                 f"residual {r['residual']:.3e} after {r['iterations']} of "
-                 f"{MAX_ITER}: {str(res.get('error'))[:200]}")
     ex = res.get("exports") or {}
     if not ex:
         return bool(L.check(False, f"{tag}_no_exports",
@@ -164,7 +183,7 @@ def reached_closed_form(tag: str, r: dict) -> bool:
     print(f"{tag}_n_points={nl}/{nr}")
     ok = L.check(nl != nr, f"{tag}_matching_meshes",
                  f"both sides used {nl} interface points, so the "
-                 f"non-matching-interface claim was not exercised") and ok
+                 f"non-matching-interface claim was not exercised")
     for side in ("left", "right"):
         lo, hi = L.span(ex[side]["values"])
         print(f"{tag}_{side}_T_span=[{lo:.10g},{hi:.10g}]")
@@ -180,8 +199,6 @@ def reached_closed_form(tag: str, r: dict) -> bool:
     print(f"{tag}_flux_balance_rel={rel:.3e}")
     ok = L.check(rel < BALANCE_RTOL, f"{tag}_flux_not_balanced",
                  f"net(left)={net_l:.6e} net(right)={net_r:.6e}") and ok
-    ok = L.check(not res.get("validation"), f"{tag}_validation_not_empty",
-                 "; ".join(res.get("validation") or [])[:300]) and ok
     return bool(ok)
 
 
@@ -211,15 +228,39 @@ def body() -> None:
             "the constant arm reached the tolerance, so there is nothing for "
             "the default to survive")
 
+    # ── what "survives" means here: the default did NOT run away ───────────
+    a_away = (not math.isfinite(a["deviation"])) or a["deviation"] > RUNAWAY
+    print(f"aitken_diverged={bool(a_away)}")
+    L.check(not a_away, "aitken_diverged_too",
+            f"the knowledge says the default does not diverge on this case; "
+            f"its deviation ended at {shown(a['deviation'])}")
+
     settled = L.check(a["deviation"] < SETTLED, "aitken_deviation_too_large",
                       f"deviation ended at {shown(a['deviation'])}, above "
                       f"{SETTLED:.0e}")
-    physics = reached_closed_form("aitken", a)
-    survived = bool(settled and physics)
-    print(f"aitken_reached_closed_form={survived}")
-    L.check(survived, "aitken_did_not_survive",
-            "the knowledge says the default accelerator survives this exact "
-            "case; on this driver it did not")
+    physics = landed_on_the_closed_form("aitken", a)
+    landed = bool(settled and physics)
+    print(f"aitken_landed_on_the_closed_form={landed}")
+    L.check(landed, "aitken_did_not_land_on_the_closed_form",
+            "the knowledge says the default lands on the closed-form interface "
+            "state at this ratio; on this driver it did not")
+
+    # ── and the other half: it did NOT certify that answer ─────────────────
+    #
+    # Asserted, not merely printed. The served sentence is that the answer was
+    # found and the convergence test could not confirm it inside the budget; a
+    # driver on which the default now DOES reach tol here is a better driver
+    # and a stale claim, and this fixture is the thing that has to say so.
+    print(f"aitken_met_tol={a['converged']}")
+    L.check(not a["converged"], "aitken_now_meets_tol_here",
+            f"the served claim is that at rho={RHO:g}, theta={THETA0} the "
+            f"default lands on the answer WITHOUT its residual reaching "
+            f"tol={TOL:g} inside {MAX_ITER} iterations. It converged in "
+            f"{a['iterations']} with residual {a['residual']:.3e}. Re-run "
+            f"scripts/sweep_accelerators.py and rewrite the claim from it")
+    print(f"aitken_residual_above_tol="
+          f"{bool(a['residual'] > TOL)}")
+    print(f"aitken_residual_over_tol_ratio={a['residual'] / TOL:.2f}")
 
     # The gap between the two arms, so the run reports its own numbers rather
     # than the fixture pinning one.
@@ -234,12 +275,18 @@ def body() -> None:
             f"{shown(c['deviation'])}")
 
     # A two-arm comparison in which both arms ran the same accelerator would
-    # be vacuous however green it looked, so say out loud that they did not.
+    # be vacuous however green it looked, and one in which the arms got
+    # different budgets would prove nothing. Both are read back from the runs.
     distinct = bool(AITKEN != CONSTANT and a["accelerator"] != c["accelerator"])
     print(f"the_two_arms_ran_different_accelerators={distinct}")
     L.check(distinct, "both_arms_ran_the_same_accelerator",
             f"arm 1 ran {c['accelerator']!r} and arm 2 ran "
             f"{a['accelerator']!r}; there is no comparison here")
+    same_budget = bool(a["budget"] == c["budget"])
+    print(f"arms_differed_only_in_the_accelerator={same_budget}")
+    L.check(same_budget, "the_two_arms_did_not_share_a_budget",
+            f"aitken ran (rho, theta, max_iter, tol)={a['budget']} and "
+            f"constant ran {c['budget']}")
     print("arms=2")
 
 

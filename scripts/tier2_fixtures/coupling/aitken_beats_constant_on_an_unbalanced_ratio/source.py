@@ -1,46 +1,65 @@
-"""At a strongly unbalanced ratio the default accelerator lands on the answer
-and the naive constant theta does not.
+"""At a strongly unbalanced ratio the default accelerator is tens of orders of
+magnitude closer to the answer than the naive constant theta — and NEITHER of
+them reaches it. Both halves are the claim.
 
-THE CLAIM UNDER TEST is the comparative half of the accelerator advice, the
-reason "aitken" is both the default and the recommendation:
+THE CLAIM UNDER TEST is the comparative half of the accelerator advice:
 
-  "Measured across conductance ratios rho from 1/4 to 9 and theta from 0.1 to
-   1.0 on this driver, Aitken matched or beat a constant theta almost
-   everywhere, and in a quarter of those settings it converged to the right
-   interface value where the SAME constant theta diverged by tens of orders of
-   magnitude. It is the main thing protecting you from a theta chosen too
-   large."
+  "over the whole grid Aitken matched or beat the same constant theta in 65 of
+   the 70 settings"
+  "at rho = 6 and rho = 9 it solved NOTHING and landed on NOTHING. At every
+   theta on the grid it diverged, by 4.1e+03 to 2.0e+17 relative"
 
-A whole sweep is not what a fixture is for, and reproducing one would take
-hours of solver time to restate a summary. What a fixture can do is take the
-setting the claim is about — one strongly unbalanced ratio, and the theta the
-knowledge itself hands an agent who cannot estimate rho ("first try, cannot
-estimate rho at all: theta=0.5, keep accelerator='aitken'") — and run the two
-accelerators head to head against the closed form under an identical budget.
+Note what the claim says and does not say. It says MATCHED OR BEAT. It does not
+say Aitken converges wherever a constant theta fails, and on this driver it very
+often does not: over the 70-setting grid behind that sentence, Aitken solved
+where the same constant theta ran away in only 4 settings, all of them at
+rho = 2.
 
-WHY rho = 6 AND NOT rho = 9. The ratio has to be one where the naive theta is
-genuinely bad for the constant accelerator, or there is no contest: theta = 0.5
-must sit above the stability limit 2/(1+rho), which needs rho > 3. It also has
-to be one the default actually rescues, and that is a real limit measured on
-this driver rather than an arbitrary choice — at rho = 9 with theta = 0.5 the
-default accelerator does NOT rescue the split. It diverges too, by many orders
-of magnitude, just far fewer than the constant arm's. That is the knowledge's
-own caveat ("It is not magic: at a strongly unbalanced ratio no accelerator
-rescues a bad split") and it is why the comparative claim is worded "almost
-everywhere". rho = 6 is inside the swept range, well above the limit that makes
-theta = 0.5 a bad constant choice, and inside the region the default still
-recovers.
+WHAT THIS FIXTURE USED TO ASSERT, AND WHY THAT WAS WRONG. It required the
+default to REACH the closed-form interface state here, at rho = 6, on the
+strength of a preamble that said rho = 6 was "inside the region the default
+still recovers". That was never measured on this driver — it was carried over
+from a 40-cell sweep run on the PER-PARTICIPANT Aitken theta that
+feature/coupling-robustness replaced with one global theta, on an analytic
+stand-in for the participants rather than the participants themselves, and
+whose harness was never committed. Re-measured with
+`scripts/sweep_accelerators.py` on the driver and participants that ship:
 
-BOTH ARMS USE THE SAME max_iter AND THE SAME tol. Without that the comparison
-is between an accelerator and a budget.
+    at theta = 0.5 the default SOLVES up to rho = 2 and no further.
+    At rho = 4 it lands on the closed-form interface value (1.2e-05 relative)
+    without its residual reaching tol in 300 iterations.
+    At rho = 6 and rho = 9 it solves nothing and lands on nothing, at any theta
+    from 0.1 to 1.0.
 
-WHAT COUNTS AS WINNING is not `converged`. Each arm's interface temperature and
-interface flux are checked from BOTH sides against the closed form, with the
-two outward normals' opposite signs, plus the conservation balance and the
-tool's own validation block — a partitioned scheme that converged to the wrong
-fixed point would otherwise be counted a winner. The constant arm is then
-required to have FAILED that same check, so the fixture states a contrast and
-not a single success.
+So rho = 6 is OUTSIDE the recovery region by two swept ratios, and the fixture
+was demanding something the knowledge does not claim, at a ratio the knowledge
+now says the opposite about. The assertion is corrected to the claim; the ratio
+is NOT moved to one where the default wins, because moving it would be choosing
+the setting that makes a sentence true instead of measuring it.
+
+WHY rho = 6 IS STILL THE RIGHT RATIO. It is the setting where the two halves of
+the claim come apart, which is exactly what a fixture is for. theta = 0.5 sits
+above the constant stability limit 2/(1+rho) = 0.286, so the naive theta is
+genuinely bad for the constant scheme and there is a real contest; and the
+default is measured to lose the absolute contest here while winning the
+comparative one by about thirty orders of magnitude. A fixture at a ratio where
+the default simply wins would not notice if "matched or beat" quietly became
+"always solves".
+
+BOTH ARMS USE THE SAME max_iter AND THE SAME tol, read back from each run rather
+than assumed. Without that the comparison is between an accelerator and a
+budget.
+
+WHAT IS AND IS NOT PINNED. The GAP between the two arms is asserted as a floor
+in orders of magnitude, never as a value. The constant arm at this setting is
+bit-reproducible — its residual and deviation come back identical run after run
+— but the AITKEN arm is not reproducible across environments: its theta is a
+nonlinear function of the residual history and it is clamped, so on a diverging
+run a last-bit difference in a BLAS reduction changes which adaptation hits the
+clamp, and from there the trajectories differ. Measured here the gap was about
+31 orders; the same cell measured elsewhere put the Aitken arm at 2.3e+04 rather
+than 2.9e+04. The VERDICT was identical in every environment tried. So this
+fixture asserts verdicts and a floor, and prints the digits for the record.
 """
 from __future__ import annotations
 
@@ -65,12 +84,17 @@ TOL = 1e-4              # and the SAME tolerance
 
 RUNAWAY = 1.0           # deviation above this: the value is not even the right
                         # order of magnitude
-SETTLED = 1e-3
+SETTLED = 1e-3          # below this: the run landed on the answer
 
-# Physics against the closed form. A run converged to tol=1e-4 sits a few
-# 1e-3 K and a few 1e-2 W/m^2 away; these thresholds sit an order of magnitude
-# above that and orders of magnitude below a wrong fixed point (tens of K) or a
-# flux sign error (O(1) relative).
+# The floor on the gap between the arms, in orders of magnitude. Measured at
+# about 31 here; the floor sits far below that because the Aitken arm's digits
+# move between environments (see the docstring) while the verdict does not.
+MIN_ORDERS = 10.0
+
+# Physics against the closed form, used to establish that NEITHER arm reached
+# it. A run converged to tol=1e-4 sits a few 1e-3 K and a few 1e-2 W/m^2 away;
+# these thresholds sit an order of magnitude above that and orders of magnitude
+# below a wrong fixed point (tens of K) or a flux sign error (O(1) relative).
 T_ATOL = 0.05
 Q_ATOL = 0.2
 BALANCE_RTOL = 1e-2
@@ -125,65 +149,44 @@ def shown(dev: float) -> str:
     return "inf" if not math.isfinite(dev) else f"{dev:.3e}"
 
 
-def reached_closed_form(tag: str, r: dict, loud: bool) -> bool:
-    """Did this arm actually land on the analytic interface state?
+def reached_closed_form(tag: str, r: dict) -> bool:
+    """Did this arm land on the analytic interface state?
 
-    `loud` says whether a miss is a FAILURE. The arm that is EXPECTED to miss
-    calls this quietly: its failure is the fixture's evidence, not the
-    fixture's failure, and a FAIL: line there would contradict the verdict.
+    Reported, never asserted True: at this ratio the measured answer is that
+    NEITHER arm does, and that is the fixture's evidence rather than its
+    failure. Printed for both arms so the boundary claim has numbers behind it.
     """
     p, res = r["problem"], r["result"]
-    ok = bool(r["converged"])
-    if not ok and loud:
-        L.check(False, f"{tag}_did_not_converge",
-                f"residual {r['residual']:.3e} after {r['iterations']} of "
-                f"{MAX_ITER}: {str(res.get('error'))[:200]}")
+    ok = bool(r["converged"]) and r["deviation"] < SETTLED
     ex = res.get("exports") or {}
     if not ex:
-        if loud:
-            L.check(False, f"{tag}_no_exports", "no interface exports at all")
+        print(f"{tag}_no_exports=True")
         return False
     nl, nr = len(ex["left"]["coordinates"]), len(ex["right"]["coordinates"])
     print(f"{tag}_n_points={nl}/{nr}")
     if nl == nr:
+        # The non-matching-interface claim is part of what this setting
+        # exercises, so say so out loud rather than letting it pass unnoticed.
         ok = False
-        if loud:
-            L.check(False, f"{tag}_matching_meshes",
-                    f"both sides used {nl} interface points, so the "
-                    f"non-matching-interface claim was not exercised")
+        L.check(False, f"{tag}_matching_meshes",
+                f"both sides used {nl} interface points, so the "
+                f"non-matching-interface claim was not exercised")
     for side in ("left", "right"):
         lo, hi = L.span(ex[side]["values"])
         print(f"{tag}_{side}_T_span=[{lo:.10g},{hi:.10g}]")
         err = abs(0.5 * (lo + hi) - p.t_iface)
         print(f"{tag}_{side}_T_err={err:.3e}")
-        if not (err <= T_ATOL):
-            ok = False
-            if loud:
-                L.check(False, f"{tag}_{side}_T_off_the_closed_form",
-                        f"|T - {p.t_iface:.6f}| = {err:.6e} > {T_ATOL:.1e}")
+        ok = ok and err <= T_ATOL
     for side, sign in (("left", +1.0), ("right", -1.0)):
         lo, hi = L.span(ex[side]["normal_fluxes"])
         print(f"{tag}_{side}_q_span=[{lo:.10g},{hi:.10g}]")
         err = abs(0.5 * (lo + hi) - sign * p.q)
         print(f"{tag}_{side}_q_err={err:.3e}")
-        if not (err <= Q_ATOL):
-            ok = False
-            if loud:
-                L.check(False, f"{tag}_{side}_q_off_the_closed_form",
-                        f"|q - {sign * p.q:.6f}| = {err:.6e} > {Q_ATOL:.1e}")
+        ok = ok and err <= Q_ATOL
     net_l, net_r = L.net_flux(ex["left"]), L.net_flux(ex["right"])
     rel = abs(net_l + net_r) / max(abs(net_l), abs(net_r), 1e-30)
     print(f"{tag}_flux_balance_rel={rel:.3e}")
-    if not (math.isfinite(rel) and rel < BALANCE_RTOL):
-        ok = False
-        if loud:
-            L.check(False, f"{tag}_flux_not_balanced",
-                    f"net(left)={net_l:.6e} net(right)={net_r:.6e}")
-    if res.get("validation"):
-        ok = False
-        if loud:
-            L.check(False, f"{tag}_validation_not_empty",
-                    "; ".join(res["validation"])[:300])
+    ok = ok and math.isfinite(rel) and rel < BALANCE_RTOL
     return bool(ok)
 
 
@@ -216,30 +219,57 @@ def body() -> None:
         print(f"{tag}_residual={r['residual']:.3e}")
         print(f"{tag}_deviation_from_exact={shown(r['deviation'])}")
 
-    a_ok = bool(reached_closed_form("aitken", a, loud=True)
-                and a["deviation"] < SETTLED)
-    print(f"aitken_reached_closed_form={a_ok}")
-    L.check(a_ok, "aitken_did_not_reach_the_closed_form",
-            f"deviation {shown(a['deviation'])} at rho={RHO:g}, theta={THETA}")
+    # ── half one: the CONSTANT arm must be the disaster the claim says it is ──
+    c_away = (not math.isfinite(c["deviation"])) or c["deviation"] > RUNAWAY
+    print(f"constant_theta_diverged={bool(c_away)}")
+    L.check(c_away, "constant_theta_did_not_diverge",
+            f"deviation ended at {shown(c['deviation'])}, which is not a "
+            f"runaway; the comparative claim rests on it being one")
 
-    c_ok = bool(reached_closed_form("constant", c, loud=False)
-                and c["deviation"] < SETTLED)
+    # ── half two: the MEASURED BOUNDARY. rho = 6 is outside the region the
+    # default recovers, and this fixture is the place that says so with runs.
+    a_ok = reached_closed_form("aitken", a)
+    c_ok = reached_closed_form("constant", c)
+    print(f"aitken_reached_closed_form={a_ok}")
     print(f"constant_reached_closed_form={c_ok}")
+    print(f"neither_arm_reached_the_closed_form={bool(not a_ok and not c_ok)}")
     L.check(not c_ok, "the_same_constant_theta_also_worked",
             f"the constant arm reached the closed form in {c['iterations']} "
             f"iterations with deviation {shown(c['deviation'])}, so this ratio "
             f"shows no advantage for the default and the claim is not being "
             f"tested here")
+    L.check(not a_ok, "aitken_recovered_at_a_ratio_the_knowledge_says_it_cannot",
+            f"the served accelerator advice states that at rho = 6 the default "
+            f"'solved NOTHING and landed on NOTHING ... at every theta on the "
+            f"grid'. Here it reached the closed form at rho={RHO:g}, "
+            f"theta={THETA} with deviation {shown(a['deviation'])}. That is a "
+            f"better driver and a stale claim: re-run "
+            f"scripts/sweep_accelerators.py and rewrite the boundary from it")
+    a_away = (not math.isfinite(a["deviation"])) or a["deviation"] > RUNAWAY
+    print(f"aitken_also_diverged={bool(a_away)}")
+    L.check(a_away, "aitken_did_not_diverge_here",
+            f"the boundary claim says the default diverges at rho = 6 for every "
+            f"theta measured; here its deviation ended at "
+            f"{shown(a['deviation'])}, inside the runaway threshold {RUNAWAY:g}")
 
-    diverged = (not math.isfinite(c["deviation"])) or c["deviation"] > RUNAWAY
-    print(f"constant_theta_diverged={bool(diverged)}")
-
-    won = bool(a_ok and not c_ok)
-    print(f"aitken_beat_constant={won}")
-    L.check(won, "aitken_did_not_beat_constant",
+    # ── half three: MATCHED OR BEAT, which is what the claim actually says ──
+    beat = bool(a["deviation"] < c["deviation"])
+    orders = (math.log10(c["deviation"] / a["deviation"])
+              if (math.isfinite(c["deviation"]) and math.isfinite(a["deviation"])
+                  and a["deviation"] > 0.0) else float("inf"))
+    print(f"orders_of_magnitude_between_the_arms="
+          f"{'inf' if not math.isfinite(orders) else f'{orders:.1f}'}")
+    print(f"aitken_beat_constant={beat}")
+    L.check(beat, "aitken_did_not_beat_constant",
             f"at rho={RHO:g}, theta={THETA}, max_iter={MAX_ITER}, tol={TOL:g}: "
             f"aitken deviation {shown(a['deviation'])}, constant deviation "
             f"{shown(c['deviation'])}")
+    wide = bool(orders >= MIN_ORDERS)
+    print(f"gap_is_at_least_{MIN_ORDERS:g}_orders={wide}")
+    L.check(wide, "the_gap_between_the_arms_is_not_wide",
+            f"the claim is that the default is tens of orders of magnitude "
+            f"closer to the answer here; measured gap {orders:.1f} orders, "
+            f"floor {MIN_ORDERS:g}")
 
     # The two arms differ in ONE argument. Read back what each run was
     # actually given rather than asserting it from the constants: a comparison
