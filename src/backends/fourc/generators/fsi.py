@@ -180,7 +180,7 @@ class FSIGenerator(BaseGenerator):
                 #        (exodus mesh, iter_mortar_monolithicfluidsplit, Belos +
                 #        Teko, cut to NUMSTEP 2 / MAXTIME 2e-4, 52 s, exit 0).
                 (
-                    "[Reference] FSI is the most complex problem type in 4C and "
+                    "[Input] FSI is the most complex problem type in 4C and "
                     "the reason is structural, not conceptual: one deck drives "
                     "THREE discretisations (structure, fluid, ALE), and the "
                     "sections that wire them together fail in unrelated places "

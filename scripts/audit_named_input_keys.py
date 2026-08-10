@@ -158,7 +158,29 @@ _PROSE_STOPWORDS = {
     "REFERENCED", "REFUTED", "REWRITES", "SAMPLE", "SECOND", "SENSITIVE",
     "STILL", "THAT", "THREE", "UNASSIGNED", "UNVERIFIED", "UPPERCASE",
     "VERIFIED", "WHERE", "WHICH", "WIDESPREAD", "WRONG",
+    # Added 2026-08-10, same rule, same evidence. SILENT arrived with the 4C
+    # signal work ("leaving the null space open is SILENT"): `4C -p` reports 0
+    # occurrences and 4C's src/ 0, so it is not a 4C identifier.
+    "SILENT",
 }
+
+# THIS REPOSITORY'S OWN PYTHON NAMES, which are not input keys of anything.
+#
+# Separate from the prose list because the reason differs: these are real
+# identifiers, just not the backend's. `data/kratos_knowledge.py` exports
+# per-application constants, and an entry that documents the import surface has
+# to name them. Spelling them in lowercase prose to dodge the screen would make
+# the entry less useful and less true — the point of that entry is that
+# `from kratos_knowledge import KRATOS_KNOWLEDGE` FAILS, which cannot be said
+# without writing the name.
+#
+# Admitted on the same evidence as above: neither is a Kratos variable
+# (KratosGlobals.GetVariable raises for both), and neither is in 4C's grammar.
+_OASIS_OWN_NAMES = {
+    "KRATOS_KNOWLEDGE",   # the name that does NOT exist; the entry says so
+    "GEOMECHANICS",       # a constant in data/kratos_knowledge.py, not Kratos
+}
+_STOPWORDS |= _OASIS_OWN_NAMES
 
 _STOPWORDS |= _PROSE_STOPWORDS
 
