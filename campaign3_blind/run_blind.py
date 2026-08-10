@@ -176,7 +176,23 @@ def preflight_or_die(problems: list) -> None:
     ready = HERE / "path_readiness.json"
     if ready.is_file():
         rd = json.loads(ready.read_text()).get("path_verified", {})
-        unready = [p for p in problems if rd.get(p) is False]
+        # AN ID THE FILE HAS NEVER HEARD OF IS UNREADY, NOT READY.
+        #
+        # This was `rd.get(p) is False`. For a problem the file does not
+        # mention, rd.get returns None, and `None is False` is False — so the
+        # id was treated as VERIFIED. The gate only ever caught an id
+        # explicitly recorded as unwalked.
+        #
+        # That makes the control a no-op for exactly the case it exists for: a
+        # NEW problem, whose path has by definition never run. Renaming the
+        # coupled set — which a rebalanced matrix does — would have silently
+        # disabled it for every cell while the preflight printed a pass. The
+        # file's own opening principle is "a coupled task whose intended
+        # execution path has never run measures the path, not the agent".
+        #
+        # Absent is now unready. Add the id with `true` once its path has
+        # actually been walked, which is the only thing that should silence it.
+        unready = [p for p in problems if rd.get(p) is not True]
         if unready and not os.environ.get("OASIS_SKIP_PATH_CHECK"):
             failures.append(
                 f"no throwaway non-blind run has been recorded through the "
