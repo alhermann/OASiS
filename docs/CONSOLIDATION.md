@@ -836,7 +836,18 @@ This is a property of `ffb5d1c6`, not of this merge: `_aitken` and the loop are
 taken from coupling-robustness unchanged. It is recorded here because the served
 sweep ("Aitken matched or beat a constant theta almost everywhere, measured
 across rho from 1/4 to 9") was measured on the OTHER driver, and one cell of it
-does not reproduce. The sweep has not been re-run.
+does not reproduce.
+
+THE SWEEP HAS SINCE BEEN RE-RUN — see "The Aitken comparative claim is not
+backed on this driver" below, which now carries the replacement numbers and the
+committed harness. Two corrections to the paragraph above fall out of it. First,
+the stall is a BUDGET artefact of Aitken's own adaptation and not a ceiling: at
+max_iter=300 rather than 200 the same case reaches 1.2e-05 from the closed form
+with the interface flux right from both sides, and its residual is 1.4e-04
+against tol=1e-4 — the answer is found, the convergence test cannot certify it.
+Second, "the Aitken arms do not diverge" is true HERE and stops being true two
+ratios up: at rho = 6 and rho = 9 the default diverges at every theta from 0.1
+to 1.0, including thetas a constant theta converges on.
 
 ## Where this merge left the numbers
 
@@ -1033,28 +1044,79 @@ Two of its ten commits also edit `docs/CONSOLIDATION.md` (one adds 114 lines),
 so they will conflict with this file. Resolve by keeping both sections: they
 describe different findings and neither supersedes the other.
 
-## The Aitken comparative claim is not backed on this driver
+## The Aitken comparative claim is not backed on this driver — RESOLVED, the sweep was re-run
 
-`aitken_beats_constant_on_an_unbalanced_ratio` FAILS against the merged tree
-(`aitken_reached_closed_form` and `aitken_beat_constant` both missing), for the
-same reason as the rho=4 stall recorded above: at rho=6 with theta=0.5 the ONE
-global theta no longer rescues the split that the per-participant theta did.
-The fixture is left failing rather than retuned, because retuning it would be
-choosing a ratio that makes the served sentence true instead of measuring
-whether it is.
+This section recorded that `aitken_beats_constant_on_an_unbalanced_ratio` FAILED
+against the merged tree, that the served 40-cell sweep behind the claim had been
+run on the PER-PARTICIPANT accelerator that no longer exists, and that the
+outstanding work was to re-run it rather than edit the sentence to match two
+cells. That has now been done. The harness is `scripts/sweep_accelerators.py` —
+committed this time, which is the part that was missing: the 2026-08-05 sweep
+touched only `coupling_knowledge.py` and its test, so nothing could notice when
+its numbers stopped describing the driver.
 
-What the served knowledge still claims, and what is now behind it:
+Re-measured over rho in {1/4, 1/2, 1, 2, 4, 6, 9} x theta from 0.1 to 1.0 in
+steps of 0.1, both accelerators, the SAME max_iter=300 and tol=1e-4 in every
+cell, driving the real shipped skfem participant pair across a non-matching
+interface — 70 settings, 140 runs:
 
-    "Measured across conductance ratios rho from 1/4 to 9 and theta from 0.1
-     to 1.0 on this driver, Aitken matched or beat a constant theta almost
-     everywhere, and in a quarter of those settings it converged to the right
-     interface value where the SAME constant theta diverged"
+    "almost everywhere"   ->  65 of 70. Survives as a fraction. The five losses
+                              are not scattered: every one is at rho = 6 or 9.
+    "a quarter"           ->  4 of 70 (6%) solved where the same constant theta
+                              ran away; 10 of 70 (14%) if a run that lands on
+                              the closed-form value without its residual
+                              reaching tol is counted. Not a quarter either way.
+    recovery boundary     ->  rho <= 2: solves all 40 settings, every theta up
+                              to 1.0. rho = 4: solves only theta <= 0.4, which
+                              is exactly the constant limit 2/(1+rho); above it
+                              it lands on the answer (1.2e-05 relative) without
+                              certifying it in 300 iterations. rho = 6 and 9: it
+                              solves NOTHING and lands on NOTHING, at any theta.
 
-That 40-cell sweep was run on the PER-PARTICIPANT accelerator, which no longer
-exists. Two cells have been re-measured on the merged one and neither
-reproduces. The sentence should not be trusted until the sweep is re-run, and
-re-running it is the outstanding work — not editing the sentence to match two
-cells, which would be the same mistake in the other direction.
+So rho = 6 was never inside the recovery region of this driver, and the fixture
+was asserting more than the claim says — the claim says "matched or beat", not
+"converges". At rho = 6, theta = 0.5 the default IS about thirty-one orders of
+magnitude closer to the answer than the constant arm (2.9e+04 against 4.7e+35)
+and neither reaches it. The fixture now asserts exactly that, plus the boundary,
+and it is green. The ratio was NOT moved to one where the default wins.
+
+The finding that changes the advice rather than its numbers, and the reason the
+old sentence was worse than merely stale: THE DEFAULT CAN DESTROY A SETTING THAT
+WORKS. At rho = 6 theta = 0.1 and 0.2, and rho = 9 theta = 0.1, a constant theta
+converged in 142 / 156 / 196 iterations and the default diverged from the same
+start. At rho = 6 the theta the knowledge itself tells the agent to compute,
+1/(1+rho) = 0.143, diverges to 1.0e+04 relative under `aitken` and converges in
+130 iterations under `constant`; the amplification factor there is 0.926, so the
+constant iteration is comfortably stable and the ACCELERATOR is what breaks it.
+An agent following the old first-try row of the symptom table got a diverging
+run. The table now routes rho >= 4 to `constant`.
+
+None of this is a defect in `_aitken`: it is the textbook Küttler-Wall
+recurrence and it IS given the previous residual. The Jacobi Dirichlet-Neumann
+map has purely imaginary eigenvalues +-i*sqrt(rho), so a scalar secant
+extrapolates along a direction that does not exist — the same mechanism the
+pitfall corpus already carries for a strongly coupled two-way TSI, which the
+accelerator section had been contradicting.
+
+Also re-measured, and worth keeping: the rho = 4 stall recorded above is NOT a
+physics failure. At 300 iterations the default sits 1.2e-05 from the closed form
+with the interface flux right from both sides and the balance at 4.7e-04 — the
+answer is found — and the residual is 1.4e-04 against tol = 1e-4. Its own
+adaptation drives theta onto the 0.05 clamp for 60 of 299 adaptations, and once
+the raw output has settled the residual can only fall like (1-theta) per
+iteration, measured at 0.968. `converged=False` and "found the answer" give
+opposite verdicts on that run, and `aitken_survives_where_constant_theta_diverges`
+now asserts both halves.
+
+One measurement caveat for anyone re-running a cell by hand: the CONSTANT arm is
+bit-reproducible (residual 1.517e+00 and deviation 4.653e+35 at rho = 6,
+theta = 0.5, run after run), the AITKEN arm is not reproducible across
+environments. Its theta is a nonlinear clamped function of the residual history,
+so on a diverging run a last-bit difference in a BLAS reduction changes which
+adaptation hits the clamp and the trajectories part. The same cell measured
+elsewhere put the Aitken arm at 2.3e+04 rather than 2.9e+04. Verdicts were
+identical everywhere; digits were not. Pin the thread count, and assert
+verdicts and floors rather than values.
 
 ---
 

@@ -230,8 +230,12 @@ that stops at max_iter=20 with a small theta never had a chance. (With
 accelerator="aitken" theta moves, so the rate moves with it, but the same
 mechanism is there.)
 
-`accelerator`: **the default, "aitken", is also the safer one — reach for
-"constant" to DIAGNOSE, not as your first choice.**
+`accelerator`: **"aitken" is the default and you should normally keep it up to a
+MODERATE conductance ratio, where it removes theta as a failure mode entirely.
+Once you know rho is 4 or more it stops being the right choice — at rho = 4 it
+costs three times the iterations, and from rho = 6 up it DIVERGES at every theta
+measured, including ones a constant theta converges on. Above rho = 4 use
+"constant" at theta = 1/(1+rho). The crossover was measured; it is below.**
   * "aitken" — ONE theta for the whole interface state, recomputed every
     iteration, starting from the theta you pass and clamped into [0.05, 1.0].
     There is no per-participant and no per-field theta: Aitken's derivation is
@@ -242,22 +246,69 @@ mechanism is there.)
     constant theta converged. The two fallback paths inside the update — the
     first iteration, where there is no previous residual, and a degenerate
     denominator — hold the previous theta, clamped into the same [0.05, 1.0].
-    THIS IS THE DEFAULT AND YOU SHOULD NORMALLY KEEP IT. Measured across conductance ratios rho from 1/4 to 9 and theta from 0.1
-    to 1.0 on this driver, Aitken matched or beat a constant theta almost
-    everywhere, and in a quarter of those settings it converged to the right
-    interface value where the SAME constant theta diverged by tens of orders of
-    magnitude. It is the main thing protecting you from a theta chosen too
-    large. It is not magic: at a strongly unbalanced ratio no accelerator
-    rescues a bad split — see the role-swapping advice below.
+    THIS IS THE DEFAULT AND YOU SHOULD NORMALLY KEEP IT — up to a moderate
+    ratio, and the boundary is measured, not a feeling.
+
+    WHAT IT IS WORTH, AND WHERE IT STOPS. Measured over rho in
+    {1/4, 1/2, 1, 2, 4, 6, 9} x theta from 0.1 to 1.0 in steps of 0.1, both
+    accelerators, the SAME max_iter=300 and the SAME tol=1e-4, on two real
+    coupled codes exchanging across a non-matching interface — 70 settings, 140
+    runs. Re-run it with `scripts/sweep_accelerators.py`; every number below is
+    that script's output.
+
+      * UP TO rho = 2 IT SOLVED EVERY SETTING — all 40 of them, every theta from
+        0.1 to 1.0 — including theta = 1.0, where a constant theta oscillates
+        forever at rho = 1 and reaches 1.1e+44 at rho = 2. That is the
+        protection against a theta chosen too large, and inside this range it is
+        complete;
+      * at rho = 4 it solved only for theta <= 0.4, which is exactly the
+        constant scheme's own stability limit 2/(1+rho) — so in the sense of
+        MEETING tol it bought nothing beyond that limit. Above it the run does
+        land on the closed-form interface value (1.2e-05 to 2.4e-05 relative)
+        but its residual never reaches tol inside 300 iterations, while the
+        constant arm runs away to between 4.1e+13 and 1.7e+89;
+      * at rho = 6 and rho = 9 it solved NOTHING and landed on NOTHING. At every
+        theta on the grid it diverged, by 4.1e+03 to 2.0e+17 relative;
+      * IT CAN DESTROY A SETTING THAT WORKS, and this is the part worth
+        memorising. At rho = 6, theta = 0.1 and 0.2, and at rho = 9,
+        theta = 0.1, a constant theta converged — in 142, 156 and 196 iterations
+        — and the DEFAULT diverged from the same start. Worse: at rho = 6 the
+        theta this section tells you to compute, 1/(1+rho) = 0.143, DIVERGES
+        under "aitken" (1.0e+04 relative after 300 iterations) and CONVERGES
+        under "constant" in 130 iterations. The amplification factor there is
+        0.926 — the constant iteration is comfortably stable and the
+        ACCELERATOR is what breaks it;
+      * over the whole grid Aitken matched or beat the same constant theta in 65
+        of the 70 settings, and solved where that same constant theta ran away
+        in 4 of 70, with 6 further settings where it landed on the right value
+        without its residual certifying it. All five of its losses are at
+        rho = 6 and rho = 9.
+
+    WHY IT STOPS, so you can predict it rather than discover it. The Jacobi
+    Dirichlet-Neumann map's iteration matrix has PURELY IMAGINARY eigenvalues
+    +- i*sqrt(rho) — the same fact as the amplification
+    sqrt((1-theta)^2 + rho*theta^2) in the next section. The residual turns by
+    about a right angle each iteration instead of shrinking along a fixed
+    direction, so Aitken's scalar secant extrapolates along a direction that
+    does not exist, and the larger rho is the less there is to extrapolate. The
+    same mechanism is what makes the default fail on a strongly coupled two-way
+    thermo-mechanical coupling.
+
+    SO: keep "aitken" when you cannot estimate rho, or when you believe the two
+    sides are within a factor of a few. Once you know rho >= 4, pass
+    accelerator="constant" with theta = 1/(1+rho) — and consider swapping which
+    side is Dirichlet, which replaces rho by 1/rho and puts you back inside the
+    range where the default works.
   * "constant" — theta fixed at exactly what you passed. Predictable and
     reproducible, which makes it the right tool for working out what the
     iteration is doing, and unforgiving: above the stability limit for your rho
-    it diverges instead of adapting. One case was found where a constant theta
-    converged and Aitken did not: a very unbalanced split (rho = 9) at the one
-    theta that works there, where Aitken reached the correct interface value but
-    was still marginally above tol at the iteration budget. That is the
-    exception, not the rule; if "aitken" stalls, raise max_iter first, then try
-    the same theta constant, and only then touch the physics.
+    it diverges instead of adapting. Below that limit it is the MORE RELIABLE of
+    the two at an unbalanced ratio. On the grid above it solved 41 of the 70
+    settings against Aitken's 44, but the three it solved that Aitken did not
+    are all strongly unbalanced splits, and in those Aitken did not merely stall
+    — it diverged by 4 to 16 orders of magnitude. Where both solved, Aitken was
+    usually the cheaper (median 16 iterations against 28.5); rho = 4 is the
+    exception, at 283-291 iterations against the constant arm's 83-117.
 
 WHAT "AITKEN" MEANS HERE. The update is the classical Aitken dynamic-relaxation
 recurrence on the global interface residual r_k = G(x_k) - x_k:
@@ -313,11 +364,24 @@ Observed on this driver, running real two-code couplings:
   * at rho = 1, theta = 0.5 converges and theta = 1.0 oscillates forever
     WITHOUT blowing up — the interface value simply never settles;
   * at rho = 4, theta = 0.5 with a CONSTANT accelerator DIVERGES — the interface
-    values run away by many orders of magnitude and the conservation check fires
-    — while theta = 0.2 converges. Nothing warns you in advance: a diverging
-    coupling looks like a converging one for the first few iterations. Note the
-    default "aitken" survives this particular case; do not read the constant-
-    theta stability limit as a property of the tool's default;
+    values run away by many orders of magnitude (measured: 4.1e+13 relative at
+    300 iterations) and the conservation check fires — while theta = 0.2
+    converges in 83. Nothing warns you in advance: a diverging coupling looks
+    like a converging one for the first few iterations. The default "aitken"
+    does NOT diverge on this case, and it does not solve it either: it lands on
+    the closed-form interface value to 1.2e-05 relative and its residual is
+    still 1.4e-04 against tol = 1e-4 after 300 iterations. The reason is worth
+    knowing, because it is how a stalled Aitken run looks in general — its own
+    adaptation drove theta onto the 0.05 clamp for 60 of 299 adaptations, and
+    once the raw output has settled the residual can only fall like (1-theta)
+    per iteration, measured here at 0.968. So the answer was found and the
+    convergence test could not certify it inside the budget. Do not read the
+    constant-theta stability limit as a property of the tool's default — and do
+    not read the default as a rescue at this ratio either;
+  * at rho = 6 and above the default is actively WORSE than a constant theta
+    inside the stability limit: theta = 1/(1+rho) = 0.143 converges in 130
+    iterations with accelerator="constant" and diverges to 1.0e+04 relative with
+    the default. Above rho = 4, choose "constant";
   * for one asymmetric split, the SAME problem with the SAME tolerance failed
     to converge inside the iteration budget with the stiff subdomain on the
     Dirichlet side, and converged comfortably inside it once the two roles were
@@ -326,11 +390,12 @@ Observed on this driver, running real two-code couplings:
     each script's `SIDE` and `T_OUTER`.
 
   | Symptom                                       | Do this                    |
-  | first try, know nothing                       | estimate rho, set theta=1/(1+rho), keep accelerator="aitken" |
+  | first try, know nothing                       | estimate rho, set theta=1/(1+rho); keep accelerator="aitken" if rho < 4, use "constant" if rho >= 4 |
   | first try, cannot estimate rho at all         | theta=0.5, keep accelerator="aitken" |
+  | rho is 4 or more (a stiff side against a soft one) | accelerator="constant", theta=1/(1+rho) — the default DIVERGES here at every theta measured from rho=6 up |
   | residual falls steadily but slowly            | keep theta, raise max_iter; then swap which side is Dirichlet |
   | residual flat or oscillating in sign          | halve theta                |
-  | residual GROWING, values exploding            | halve theta, and check the flux sign convention (section 5) |
+  | residual GROWING, values exploding            | halve theta, and check the flux sign convention (section 5); if accelerator="aitken", switch to "constant" at theta=1/(1+rho) BEFORE halving — at an unbalanced ratio the accelerator is the likelier cause |
   | want to see what the iteration is doing       | same theta, accelerator="constant" — reproducible, no adaptation |
   | converged, but you want it faster             | put Dirichlet on the softer subdomain, theta = 1/(1+rho) |
 

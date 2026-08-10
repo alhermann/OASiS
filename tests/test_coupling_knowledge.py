@@ -365,31 +365,49 @@ def test_knowledge_tool_output_matches_the_payload_function(topic):
             f"have diverged")
 
 
-def test_the_default_accelerator_is_not_disparaged():
-    """The knowledge told the agent that "aitken" — the tool's DEFAULT — "is not
-    the safe choice here" and to use "constant" FIRST.
+def test_the_accelerator_advice_carries_its_measured_crossover():
+    """The accelerator advice has been wrong in BOTH directions, and this pins
+    the shape that is neither.
 
-    Swept on this driver over rho in {1/4, 1/2, 1, 2, 4, 9} x theta in
-    {0.1,...,1.0} (40 cells), that is backwards: Aitken matched or beat the
-    constant theta in 39 of 40 cells and converged to the correct interface value
-    in 10 cells where the SAME constant theta diverged (at rho=4, theta=0.7:
-    constant reached 3e63, Aitken converged in 86 iterations). Exactly one cell
-    went the other way, marginally. Steering a weak model from the adaptive
-    default to the setting that diverges by tens of orders of magnitude is the
-    most expensive kind of wrong advice this section could give.
+    It first told the agent that "aitken" — the tool's DEFAULT — "is not the safe
+    choice here" and to use "constant" FIRST. A sweep replaced that with a blanket
+    endorsement instead, and the blanket was measured on a driver that no longer
+    exists: it was run on the PER-PARTICIPANT Aitken theta that
+    feature/coupling-robustness replaced with one global theta, on an analytic
+    stand-in for the participants rather than the participants, and its harness
+    was never committed, so nothing could notice when it stopped being true.
+
+    Re-measured on the shipped driver and the shipped participants over rho in
+    {1/4, 1/2, 1, 2, 4, 6, 9} x theta in {0.1,...,1.0}, 70 settings, both
+    accelerators, the same max_iter=300 and tol=1e-4 (scripts/sweep_accelerators.py):
+    the truth has a CROSSOVER in it. Up to rho = 2 Aitken solved all 40 settings
+    including theta = 1.0, where a constant theta reaches 1.1e+44. At rho = 6 and
+    rho = 9 it solved none of the 20, and at rho = 6, theta = 1/(1+rho) = 0.143 it
+    DIVERGES to 1.0e+04 where the same theta with "constant" converges in 130
+    iterations.
+
+    So both blanket statements are wrong advice, in opposite regimes, and the
+    knowledge has to carry the number that separates them.
     """
     core = _core()
-    assert 'accelerator="constant"' not in core.split("| Symptom")[1].split(
-        "residual falls steadily")[0], (
-        "the first-try row of the symptom table must not send the agent to "
-        "accelerator='constant'")
+    first_try = core.split("| Symptom")[1].split("residual falls steadily")[0]
+    assert 'keep accelerator="aitken"' in first_try, (
+        "the first-try rows must still keep the adaptive DEFAULT when rho is "
+        "unknown — that is the regime it was measured to win in")
     assert "USE THIS FIRST" not in core, (
-        "'constant' must not be advertised as the first choice")
+        "'constant' must not be advertised as the blanket first choice")
     low = core.lower()
-    assert "the default, \"aitken\", is also the safer one" in low or \
-           "default and you should normally keep" in low, (
+    assert "default and you should normally keep" in low, (
         "the knowledge must say plainly that the default accelerator is the "
-        "safer one")
+        "normal choice")
+    # ...and it must say WHERE that stops, with the ratio in it. A blanket
+    # endorsement is what went stale last time.
+    assert "rho >= 4" in core or "rho = 4" in core, (
+        "the accelerator advice must name the measured ratio at which the "
+        "default stops being the right choice")
+    assert "scripts/sweep_accelerators.py" in core, (
+        "a measured claim must name the harness that measures it, or it decays "
+        "into a quotation nobody can re-run")
 
 
 def test_iteration_sizing_is_a_worked_formula_not_a_lookup_table():
