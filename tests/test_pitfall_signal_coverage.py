@@ -41,6 +41,7 @@ rather than pretending coverage is universally high.
 from __future__ import annotations
 
 import sys
+import re
 import unittest
 from pathlib import Path
 
@@ -605,6 +606,44 @@ SIGNAL_COVERAGE_MIN = {
 }
 
 
+# A `Signal:` clause that says there is NO signal is not retrieval coverage.
+#
+# The predicate was `"Signal:" in text` — the substring, not the property. An
+# audit found 93 entries in the shipped corpus whose clause opens `Signal:
+# none`, `Signal: nothing at run time`, or `Signal: there is no diagnostic`.
+# This file's own docstring says the clause is the anchor that gets "searched
+# for `Signal:` snippets that match the error output". A clause reading `none`
+# matches no output, so it is exactly as invisible to that path as an entry
+# with no clause at all — the failure this gate exists to prevent. 4C's
+# headline 468/468 carried 55 of the 93.
+#
+# Most of the 93 are GOOD knowledge and must still count: a silent failure is
+# worth documenting, and these mostly go on to name a substitute observable —
+# "compare a settled position", "the detector is the ABSENCE of a
+# <prefix>-vtk-files/ directory", "count the contact pairs". That is a
+# retrievable signal, just not an error string.
+#
+# The rule: a clause that declares no message must name something checkable.
+# One that declares no message and names nothing is not coverage. Saying so is
+# the difference between measuring the property and counting a substring.
+_NO_SIGNAL = re.compile(
+    r"Signal:\s*(none|nothing|no\s+(message|diagnostic|error|warning|output|"
+    r"signal)|there\s+is\s+no)", re.I)
+_SUBSTITUTE = re.compile(
+    r"(compar|grep|absence of|check|inspect|the detector is|read off|look at|"
+    r"diff |count |verify|measure|the observable is|watch )", re.I)
+
+
+def _has_retrievable_signal(text: str) -> bool:
+    """True when the entry can be FOUND by what the agent is holding."""
+    if "Signal:" not in text:
+        return False
+    m = _NO_SIGNAL.search(text)
+    if not m:
+        return True
+    return bool(_SUBSTITUTE.search(text[m.end():m.end() + 400]))
+
+
 def _pitfall_text(pit) -> str:
     if isinstance(pit, str):
         return pit
@@ -641,7 +680,7 @@ class TestPitfallSignalCoverage(unittest.TestCase):
                     continue
                 for pit in k.get("pitfalls", []):
                     total += 1
-                    if "Signal:" in _pitfall_text(pit):
+                    if _has_retrievable_signal(_pitfall_text(pit)):
                         with_sig += 1
             if total == 0:
                 continue
