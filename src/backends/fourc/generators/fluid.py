@@ -231,7 +231,7 @@ class FluidGenerator(BaseGenerator):
                     "build and the signal name comes from libc, so do not grep "
                     "for it; grep for exit status 139 and for the absence of any "
                     "PROC 0 ERROR block. The last named "
-                    "frames being Discret::Elements::SolidEleCalc<...>::setup and "
+                    "frames are Discret::Elements::SolidEleCalc<...>::setup and "
                     "Core::IO::MeshReader::read_and_partition — and note that "
                     "OpenMPI prints those frames mangled "
                     "(_ZN5FourC7Discret8Elements12SolidEleCalc...), unlike the "
