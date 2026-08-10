@@ -184,80 +184,24 @@ with TaskManager():
     gfu.vec.data += a.mat.Inverse(fes.FreeDofs(),
                                   inverse="sparsecholesky") * res
 
-    # Interface traction export q_out = -(sigma . n_own).
-    #
-    # WHY NOT AN L2 PROJECTION OF THE STRESS. That is what this file used to do:
-    # project -(sigma(u_h) . n_own) over the whole subdomain and sample it at
-    # the interface. The gradient of a P1 solution — and therefore the stress —
-    # is only O(h) accurate ON the boundary; the superconvergence points are
-    # interior, and the boundary trace is exactly what the coupling reads.
-    # Measured against a manufactured solution with a known exact interface
-    # traction, the projection converges at order ~1 while the consistent
-    # traction below converges at ~2, so the recovery, not the physics and not
-    # the partner, was setting the answer.
-    #
-    # THE CONSISTENT (REACTION) TRACTION. From
-    #     a(u,v) - (f,v) = int_dOmega (sigma(u).n).v ds = -int_Gamma q_out.v ds
-    # (the second equality is this file's sign convention) it follows that for
-    # every vector basis function phi_i on the interface
-    #     int_Gamma q_out . phi_i ds = -r_i,   r = A u_h - b
-    # with r the UNCONSTRAINED residual: NGSolve's a.mat and f.vec are exactly
-    # that — the Dirichlet condition lives in fes.FreeDofs() at solve time and
-    # never touches the assembled operator, so the constrained rows still carry
-    # the reaction. The test vector (1,1) in the weight form makes
-    # w_i = int_Gamma phi_i ds the SCALAR nodal weight for BOTH components.
-    if SIDE == "dirichlet":
-        rvec = f.vec.CreateVector()
-        rvec.data = a.mat * gfu.vec - f.vec       # r = A u_h - b, no bc applied
-        fw = LinearForm(fes)
-        fw += InnerProduct(CF((1.0, 1.0)), v) * ds("interface")
-        fw.Assemble()
+    # q_out = -(sigma . n_own), L2-projected onto VectorH1 so its values live
+    # on the same vertices as the interface DOFs.
+    fesq = VectorH1(mesh, order=ORDER)
+    p, w = fesq.TnT()
+    m = BilinearForm(fesq)
+    m += InnerProduct(p, w) * dx
+    m.Assemble()
+    exx, eyy, exy = eps_of(grad(gfu))
+    sxx = 2.0 * MU * exx + LAM * (exx + eyy)
+    sxy = 2.0 * MU * exy
+    fq = LinearForm(fesq)
+    fq += (-S) * (sxx * w[0] + sxy * w[1]) * dx
+    fq.Assemble()
+    qh = GridFunction(fesq)
+    qh.vec.data = m.mat.Inverse(fesq.FreeDofs(),
+                                inverse="sparsecholesky") * fq.vec
 
-        Q = np.zeros((len(iface_v), 2))
-        ok = np.ones((len(iface_v), 2), bool)
-        for k, vtx in enumerate(iface_v):
-            for c in (0, 1):
-                d = int(vdof[vtx, c])
-                wi = float(fw.vec[d])
-                if abs(wi) > 1e-14:
-                    Q[k, c] = -float(rvec[d]) / wi
-                else:
-                    ok[k, c] = False
-
-        # THE TWO INTERFACE CORNERS ARE ON THE OUTER DIRICHLET BOUNDARY (a
-        # y-face), so their rows carry the OUTER reaction too and their residual
-        # is not this interface's traction. Take the nearest interior interface
-        # node rather than exporting a corner value that is physically a
-        # different quantity.
-        suspect = np.isin(iface_v, outer_v) | ~ok.all(axis=1)
-        good = np.where(~suspect)[0]
-        if len(good):
-            for i in np.where(suspect)[0]:
-                Q[i] = Q[good[np.argmin(np.abs(good - i))]]
-    else:
-        # NEUMANN SIDE: the reaction formula MUST NOT be used here. These
-        # interface dofs are free, the discrete equations hold on them, so r is
-        # ~0 and the expression would silently export ZERO traction with no
-        # error raised. This side's export is not what the partner consumes in
-        # any case — the Dirichlet partner reads its `values`.
-        fesq = VectorH1(mesh, order=ORDER)
-        p, w = fesq.TnT()
-        m = BilinearForm(fesq)
-        m += InnerProduct(p, w) * dx
-        m.Assemble()
-        exx, eyy, exy = eps_of(grad(gfu))
-        sxx = 2.0 * MU * exx + LAM * (exx + eyy)
-        sxy = 2.0 * MU * exy
-        fq = LinearForm(fesq)
-        fq += (-S) * (sxx * w[0] + sxy * w[1]) * dx
-        fq.Assemble()
-        qh = GridFunction(fesq)
-        qh.vec.data = m.mat.Inverse(fesq.FreeDofs(),
-                                    inverse="sparsecholesky") * fq.vec
-        qdof = np.array([fesq.GetDofNrs(NodeId(VERTEX, int(i)))[:2]
-                         for i in iface_v], int)
-        Q = np.array([[float(qh.vec[int(d0)]), float(qh.vec[int(d1)])]
-                      for d0, d1 in qdof])
+qdof = np.array([fesq.GetDofNrs(NodeId(VERTEX, int(i)))[:2] for i in iface_v], int)
 
 Path("exports.json").write_text(json.dumps({
     "field_name": "displacement",
@@ -265,5 +209,6 @@ Path("exports.json").write_text(json.dumps({
     "coordinates": [[float(IFACE_X), float(yy)] for yy in y_if],
     "values": [[float(gfu.vec[int(vdof[i, 0])]), float(gfu.vec[int(vdof[i, 1])])]
                for i in iface_v],
-    "normal_fluxes": [[float(q0), float(q1)] for q0, q1 in Q],
+    "normal_fluxes": [[float(qh.vec[int(d0)]), float(qh.vec[int(d1)])]
+                      for d0, d1 in qdof],
 }, indent=2))
