@@ -82,7 +82,46 @@ DEVELOPMENT: dict[str, str] = {
     "D2": "FEniCSx + deal.II, domain-decomposed diffusion, 3D",
     "D3": "FEniCSx + Kratos, two-material conduction, conductivity jump 1:4, 2D",
     "D4": "FEniCSx + deal.II, domain-decomposed linear elasticity (vector), 2D",
+    # D5-D8 WERE MISSING FROM THIS LIST, AND THEY ARE SPENT.
+    #
+    # path_readiness.json records all FIFTEEN instances as walked non-blind with
+    # the results discarded, and the walks changed the tool under test — a
+    # Kratos Neumann participant, a 3-D deal.II participant, transient
+    # participants, a non-rectangular-subdomain mesher, a bent-interface
+    # arclength exchange, and a heap-corruption fix in the 3-D flux
+    # post-processing that was silent in 2-D and fatal in 3-D. Those are
+    # instance-caused changes to the thing being measured.
+    #
+    # With them absent, assert_evaluation_is_clean would have let D5-D8 be
+    # graded as held-out. This list must be derivable from the walk record, not
+    # maintained by hand — see the assertion below, which now enforces that.
+    "D5": "FEniCSx + scikit-fem, notched non-convex subdomain, bent "
+          "L-polyline interface, four materials, 2D",
+    "D6": "NGSolve + Kratos, conductivity contrast 1:1000, role assignment "
+          "forced, 2D",
+    "D7": "FEniCSx + NGSolve, genuinely different operators either side, 2D",
+    "D8": "FEniCSx + deal.II, transient two-material conduction, waveform "
+          "relaxation over the space-time trace",
 }
+
+
+def _walked_but_unlisted() -> list[str]:
+    """Instances the walk record says are spent but DEVELOPMENT omits.
+
+    The hand-maintained list drifted once already, by four coupled instances,
+    which is the failure this catches: an omission here does not raise, it
+    silently reclassifies a burnt problem as held-out.
+    """
+    import json
+    from pathlib import Path as _P
+    rec = _P(__file__).resolve().parent / "path_readiness.json"
+    if not rec.is_file():
+        return []
+    try:
+        walked = json.loads(rec.read_text()).get("path_verified", {})
+    except (json.JSONDecodeError, OSError):
+        return []
+    return sorted(k for k, v in walked.items() if v and k not in DEVELOPMENT)
 
 
 def held_out_spec(seed: int) -> dict:
