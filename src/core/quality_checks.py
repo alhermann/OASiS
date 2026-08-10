@@ -528,6 +528,44 @@ def check_interface_balance(export_a, export_b, label_a="A", label_b="B",
             f"passing balance check — nothing was compared. Export the outward "
             f"normal flux from both participants, or state explicitly that "
             f"this coupling is not conservative by construction."]
+
+    # THE SIBLINGS OF THE ABOVE, which the missing-key check does not cover.
+    #
+    # `is None` catches an ABSENT key. It does not catch a key that is present
+    # and carries nothing, or carries nothing but zeros. Both of those sum to
+    # zero on each side, the relative imbalance is 0/floor = 0, and the
+    # function returned [] — indistinguishable from a perfectly conserving
+    # coupling, and unlike the absent-key case with no coverage note either.
+    #
+    # These are not exotic. An empty array is a participant that wrote the key
+    # and no data. All-zeros is the signature of a transfer that never ran, a
+    # misspelled field name, or a buffer that was allocated and never filled.
+    # Reporting those as "checked and balanced" is the whole defect this
+    # function was audited for.
+    def _n(v):
+        try:
+            return int(_np.asarray(v).size)
+        except (TypeError, ValueError):
+            return 0
+
+    if _n(va) == 0 or _n(vb) == 0:
+        empty = [lbl for lbl, v in ((label_a, va), (label_b, vb)) if _n(v) == 0]
+        return w + [
+            f"Interface flux balance NOT CHECKED: "
+            f"{' and '.join(empty)} exported the `normal_fluxes` key with NO "
+            f"data in it, so nothing was compared. An empty export is not a "
+            f"zero flux — it is a participant that wrote the field and never "
+            f"filled it."]
+
+    if not _np.any(_np.abs(_np.asarray(va, float)) > 0) and \
+       not _np.any(_np.abs(_np.asarray(vb, float)) > 0):
+        return w + [
+            f"Interface flux balance NOT CHECKED: both {label_a} and "
+            f"{label_b} exported fluxes that are identically zero. That "
+            f"balances trivially and says nothing about conservation — it is "
+            f"the signature of a transfer that never ran, a wrong field name, "
+            f"or an unfilled buffer. Confirm a non-zero flux is actually "
+            f"being exchanged before reading any balance verdict."]
     # A FALLBACK TO THE PLAIN SUM ON DIFFERENT DISCRETISATIONS IS NOT A CHECK.
     # It compares 41 samples against 31 and its verdict is set by the meshes.
     # Reported as a finding, the way this function already reports a component
