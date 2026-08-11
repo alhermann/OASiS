@@ -784,10 +784,30 @@ def longest_found_prefix(fragment: str, roots: list[Path],
                 # both reported as ASSEMBLED rather than ABSENT.
                 if i + length == n:
                     continue
-                # A window that trims BOTH ends has lost its anchors, so it must
-                # still be MOST of the message.
-                if length < 0.6 * n:
-                    continue
+            # 60% APPLIES TO EVERY WINDOW, INCLUDING ONE THAT STARTS AT THE
+            # BEGINNING. This check used to sit inside `if i > 0`, so a LEADING
+            # slice escaped it and needed only MIN_STATIC_FRAGMENT characters.
+            #
+            # An audit built 13 fabricated diagnostics whose opening words were
+            # taken from real strings in the corpus. All 13 were excused — three
+            # of them written specifically to be caught. Against a corpus the
+            # size of 4C's, any 16-character English phrase occurs somewhere, so
+            # the rule reduced to "does this invention start like a sentence".
+            # Measured on the shipped corpus: 86 of 109 ASSEMBLED entries were
+            # excused by a leading slice, 24 of them retaining under 60% of the
+            # fragment's words. Worst case: "Material with ID N is not
+            # admissible for scalar transport elements" excused by the
+            # 16-character "Material with ID" — 3 of 11 words.
+            #
+            # The exemption had a real motive: a message with a runtime SUFFIX
+            # ("Element type X is not registered", X interpolated at the end)
+            # has its greppable core as a leading slice, and trimming that tail
+            # is legitimate. But that is exactly what 60% word retention
+            # already permits — trim up to 40% as a runtime insertion, no more.
+            # The rule was never specific to interior windows; it was only ever
+            # placed there.
+            if length < 0.6 * n:
+                continue
             if grep_literal(cand, roots):
                 return cand
     return ""

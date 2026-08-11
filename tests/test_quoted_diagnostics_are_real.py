@@ -64,7 +64,16 @@ import audit_quoted_diagnostics as audit  # noqa: E402
 
 # Backends whose implementation this machine can actually search. Others are
 # reported by the script as UNKNOWN and are not asserted on here.
-CHECKABLE = ["fourc", "ngsolve", "skfem", "fenics", "kratos"]
+# ALL NINE. This was five, and the four omissions were not idle backends —
+# measured with the corrected leading-slice rule they hold 94 of the 115 absent
+# fragments in the corpus: febio 52, dealii 17, sparta 14, dune 11. A gate that
+# examines five ninths of the corpus and reports CLEAN is not measuring the
+# corpus, and "115 -> 0" was quoted from it without noticing the scope.
+#
+# The audit script itself has always screened all nine; only the gate was
+# narrow. So no new machinery is needed — the omission was a list.
+CHECKABLE = ["fourc", "ngsolve", "skfem", "fenics", "kratos",
+             "dealii", "dune", "febio", "sparta"]
 
 
 @pytest.mark.parametrize("backend", CHECKABLE)
