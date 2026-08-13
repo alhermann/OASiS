@@ -36,7 +36,8 @@
   "FE1": true,
   "NG1": true,
   "SK2": true,
-  "FE2": true
+  "FE2": true,
+  "SK1": true
  },
  "blocking": "No instance is blocked. All fifteen execution paths were walked non-blind and the results discarded. The two non-path blockers recorded below were REPAIRED after this walk: the B1-B7 task texts were brought to the grader's PROBE_M at 28d29eec, and the grader was taught to honour a non-rectangular subdomain's probe exclusion at 93bede18. Both repairs are gated by tests/test_blind_task_grid_matches_grader.py, which fails if the task text and the grader ever disagree again.",
  "walk_2026_08_09": {
@@ -236,7 +237,8 @@
   "FE1": "single-code cell, walked end to end by the builder before it was committed: solved in FE1 at every prescribed level, probe values submitted to grade_blind.py with the run_level<k>.log NDOF contract lines, verdict CORRECT at observed order 1.988 against a theoretical 2.0 (tolerance 0.4), R2 = 1.0, errors 0.005015 -> 0.001277 -> 0.0003209 -> 8.03e-05.",
   "NG1": "single-code cell, walked end to end by the builder before it was committed: solved in NG1 at every prescribed level, probe values submitted to grade_blind.py with the run_level<k>.log NDOF contract lines, verdict CORRECT at observed order 2.063 against a theoretical 2.0 (tolerance 0.4), R2 = 0.9995, errors 0.001849 -> 0.0004059 -> 0.0001027 -> 2.536e-05.",
   "SK2": "single-code cell, walked end to end by the builder before it was committed: solved in SK2 at every prescribed level, probe values submitted to grade_blind.py with the run_level<k>.log NDOF contract lines, verdict CORRECT at observed order 1.942 against a theoretical 2.0 (tolerance 0.5), R2 = 0.9998, errors 0.0001759 -> 4.809e-05 -> 1.232e-05 -> 3.1e-06.",
-  "FE2": "single-code cell, walked end to end by the builder before it was committed: solved in FE2 at every prescribed level, probe values submitted to grade_blind.py with the run_level<k>.log NDOF contract lines, verdict CORRECT at observed order 3.056 against a theoretical 3.0 (tolerance 0.5), R2 = 1.0, errors 5.153e-05 -> 6.129e-06 -> 7.454e-07."
+  "FE2": "single-code cell, walked end to end by the builder before it was committed: solved in FE2 at every prescribed level, probe values submitted to grade_blind.py with the run_level<k>.log NDOF contract lines, verdict CORRECT at observed order 3.056 against a theoretical 3.0 (tolerance 0.5), R2 = 1.0, errors 5.153e-05 -> 6.129e-06 -> 7.454e-07.",
+  "SK1": "single-code cell, walked end to end by the builder before it was committed: solved in SK1 at every prescribed level, probe values submitted to grade_blind.py with the run_level<k>.log NDOF contract lines, verdict CORRECT at observed order 3.081 against a theoretical 3.0 (tolerance 0.5), R2 = 1.0, errors 5.734e-05 -> 6.653e-06 -> 8.004e-07."
  },
  "d4_measured_here": {
   "rho_normal": 0.6532,
