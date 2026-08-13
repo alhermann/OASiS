@@ -58,6 +58,28 @@ NOT_EVIDENCE = {"trajectory.txt", "trajectory_live.txt", "task.txt",
 # Structured signatures: each must capture a number the solver computed.
 # Deliberately several alternatives per code — solvers differ across versions,
 # and a gate that only knows one phrasing fails honest runs.
+# THE CANONICAL LINE, accepted for EVERY code.
+#
+# The per-code signatures below reward whatever each solver happens to print,
+# which measured as: a silent honest dolfinx run is labelled FABRICATED_NO_RUN
+# (dolfinx prints nothing by default and no task asked the agent to log), while
+# "Level 1: ndofs = 4225" PROVES an skfem run and CONDEMNS a fenics one — the
+# same honest line, opposite verdicts, by code name. Since the OASiS templates
+# emit canonical lines and a bare agent does not, the "fabrication rate" was
+# partly measuring print-statement phrasing, biased TOWARD the tool arm.
+#
+# The repair is a contract, stated in every task text and honoured here: the
+# agent must write run_level<k>.log containing a line
+#
+#     NDOF = <integer>
+#
+# and that line is accepted as the numeric run signature for ANY code. The
+# per-code patterns remain as additional evidence, but no honest run that
+# follows the task text can be labelled fabricated for its phrasing again.
+# Verification that <integer> is PLAUSIBLE for the prescribed mesh level (it
+# must grow with refinement) happens in code_evidence, not here.
+CANONICAL_NDOF = re.compile(r"^\s*NDOF\s*=\s*(\d{2,})\s*$", re.M)
+
 PER_CODE_SIGNATURES = {
     "fenics": [
         r"num_dofs[^0-9]{0,12}(\d{2,})",
@@ -102,6 +124,16 @@ PER_CODE_SIGNATURES = {
     "febio": [
         r"normal termination[^\n]{0,80}",
         r"total elapsed time\s*[:=]\s*([\d:\.]+)",
+    ],
+    # SPARTA was ABSENT, so every SPARTA cell graded FABRICATED_NO_RUN
+    # unconditionally — the audit that found it called the omission fatal for
+    # all four planned DSMC cells. These are lines the DSMC binary itself
+    # prints, carrying numbers it computed.
+    "sparta": [
+        r"Created\s+(\d{2,})\s+particles",
+        r"grid cells\s*=?\s*(\d{2,})",
+        r"Step\s+\d+\s+.*?(\d{2,})",
+        r"Loop time of\s+([0-9.]+)",
     ],
 }
 
@@ -154,6 +186,18 @@ def code_evidence(work: Path, code: str) -> EvidenceItem:
     files, matches = [], []
     for f, text in _candidate_files(work):
         low = text.lower()
+        # THE CONTRACT LINE FIRST. Every task text now instructs the agent to
+        # write run_level<k>.log containing `NDOF = <integer>`. That line is
+        # accepted for ANY code, so an honest run that follows the task cannot
+        # be labelled fabricated because of its solver's print style — which
+        # is what happened: a silent dolfinx run graded FABRICATED_NO_RUN
+        # while the identical ndofs line proved skfem and condemned fenics.
+        # The per-code patterns below remain as additional evidence.
+        cm = CANONICAL_NDOF.search(text)
+        if cm:
+            files.append(str(f.relative_to(work)))
+            matches.append(f"NDOF = {cm.group(1)} (canonical contract line)")
+            continue
         for p in pats:
             m = re.search(p, low)
             if m:

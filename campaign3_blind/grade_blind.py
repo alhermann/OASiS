@@ -240,7 +240,17 @@ def code_ran(work: Path, code: str) -> tuple[bool, str]:
     """
     import sys as _sys
     _sys.path.insert(0, str(HERE.parent / "src"))
-    _sys.path.insert(0, "/home/alexander/Schreibtisch/ofa-blind-eval/src")
+    # THIS CHECKOUT'S evidence gate, not another worktree's.
+    #
+    # This was a hardcoded absolute path to ofa-blind-eval — a different
+    # checkout. Consequence: hash-freezing this repository froze NOTHING about
+    # the evidence thresholds, because the code actually executed at grading
+    # time lived in a tree the freeze never touched. Same class as the answers
+    # living beside a stale grader: the campaign's parts must all come from
+    # the one tree that gets committed and frozen.
+    _here_src = str(Path(__file__).resolve().parents[1] / "src")
+    if _here_src not in _sys.path:
+        _sys.path.insert(0, _here_src)
     from blind_eval.evidence import code_evidence
     ev = code_evidence(work, code)
     return ev.verdict == "PROVEN", (ev.files[0] if ev.files else ev.detail)
