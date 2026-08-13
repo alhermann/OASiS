@@ -35,7 +35,8 @@
   "D8": true,
   "C8": true,
   "C9": true,
-  "C10": true
+  "C10": true,
+  "C2": true
  },
  "blocking": "No instance is blocked. All fifteen execution paths were walked non-blind and the results discarded. The two non-path blockers recorded below were REPAIRED after this walk: the B1-B7 task texts were brought to the grader's PROBE_M at 28d29eec, and the grader was taught to honour a non-rectangular subdomain's probe exclusion at 93bede18. Both repairs are gated by tests/test_blind_task_grid_matches_grader.py, which fails if the task text and the grader ever disagree again.",
  "walk_2026_08_09": {
@@ -370,6 +371,48 @@
      }
     ],
     "note": null
+   },
+   "C2": {
+    "converged_every_level": true,
+    "levels": [
+     {
+      "level": 1,
+      "N": 8,
+      "converged": true,
+      "iterations": 11,
+      "residual": 3.5850875860423476e-07,
+      "wall_s": 16.3,
+      "errors": {
+       "A": 3.2368796022221635e-05,
+       "B": 2.7630191718095007e-05
+      }
+     },
+     {
+      "level": 2,
+      "N": 16,
+      "converged": true,
+      "iterations": 11,
+      "residual": 4.1535445856768677e-07,
+      "wall_s": 16.9,
+      "errors": {
+       "A": 9.049840493929686e-06,
+       "B": 7.616267716536375e-06
+      }
+     },
+     {
+      "level": 3,
+      "N": 32,
+      "converged": true,
+      "iterations": 11,
+      "residual": 4.4151511396062256e-07,
+      "wall_s": 20.6,
+      "errors": {
+       "A": 2.3780815842653892e-06,
+       "B": 1.98804906134269e-06
+      }
+     }
+    ],
+    "note": "flux recovery: 4C exposes no reaction, so the Q1 system is re-assembled in numpy on 4C's own mesh at 4C's own solution"
    }
   }
  }

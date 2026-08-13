@@ -121,6 +121,10 @@ def stage(spec, info, sources, level, N, root: Path):
         wd = root / f"{side}_{code}"
         wd.mkdir(parents=True, exist_ok=True)
         shutil.copy(HERE / "walkers" / "wcommon.py", wd)
+        # deal.II has no Python API, so its participant is a wrapper around a
+        # compiled program; the source has to travel with it.
+        if code == "dealii":
+            shutil.copy(HERE / "walkers" / "iface_dealii.cc", wd)
         script = HERE / "walkers" / SCRIPT[code]
         if not script.is_file():
             raise FileNotFoundError(f"no walk participant for {code}: {script}")
