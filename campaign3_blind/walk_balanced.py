@@ -65,7 +65,7 @@ SCRIPT["4C"] = "w_fourc.py"
 RELAX = {
     "C1": ("constant", 0.30), "C2": ("aitken", 0.5), "C3": ("aitken", 0.5),
     "C4": ("aitken", 0.5), "C5": ("constant", 0.20), "C6": ("aitken", 0.5),
-    "C7": ("aitken", 0.5), "C8": ("aitken", 0.5), "C9": ("aitken", 0.5),
+    "C7": ("aitken", 0.5), "C8": ("aitken", 0.5), "C9": ("constant", 0.6),
     "C10": ("aitken", 0.5), "C11": ("aitken", 0.5), "C12": ("aitken", 0.5),
 }
 
@@ -183,6 +183,7 @@ def walk(pid: str, levels: int, seed=None, max_iter=200):
             errs[side] = node_error(
                 wd, f if isinstance(f, (list, tuple)) else [f], coords)
         acc.append(dict(level=k + 1, N=N, converged=r.converged,
+                        history=[float(v) for v in (r.history or [])],
                         iterations=r.iterations, residual=r.residual,
                         wall_s=round(dt, 1), errors=errs, error=r.error))
         print(f"    level {k + 1} (h = 1/{N}): converged={r.converged} "
@@ -208,18 +209,29 @@ def main():
     ap.add_argument("--levels", type=int, default=2)
     ap.add_argument("--seed", type=int, default=None)
     ap.add_argument("--max-iter", type=int, default=200)
+    ap.add_argument("--theta", type=float, default=None)
+    ap.add_argument("--accel", default=None,
+                    choices=["aitken", "constant"])
     a = ap.parse_args()
     out = {}
     for pid in a.problems:
         try:
+            if a.theta is not None or a.accel:
+                m, th = RELAX.get(pid, ("aitken", 0.5))
+                RELAX[pid] = (a.accel or m,
+                              a.theta if a.theta is not None else th)
             out[pid] = walk(pid, a.levels, a.seed, a.max_iter)
         except Exception as exc:
             import traceback
             traceback.print_exc()
             out[pid] = [{"error": f"{type(exc).__name__}: {exc}"}]
-    (TMP / "walk_summary.json").write_text(json.dumps(out, indent=2,
-                                                      default=str))
-    print(f"\nwrote {TMP / 'walk_summary.json'}")
+    # MERGE, never overwrite: each walk is expensive and a later run of one
+    # problem must not erase the record of an earlier run of another.
+    f = TMP / "walk_summary.json"
+    prev = json.loads(f.read_text()) if f.is_file() else {}
+    prev.update(out)
+    f.write_text(json.dumps(prev, indent=2, default=str))
+    print(f"\nwrote {f} ({len(prev)} instance(s) on record)")
 
 
 if __name__ == "__main__":

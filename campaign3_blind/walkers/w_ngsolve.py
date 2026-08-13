@@ -100,7 +100,15 @@ gfu.vec[:] = 0.0
 imp = W.read_imports(cfg["partner"])
 if cfg["side"] == "dirichlet":
     g = W.sample(imp, "values", ipts, 0.0, ncomp, free_axes)
-    for row, vals in zip(idofs, g):
+    # THE INTERFACE CORNERS BELONG TO THE OUTER BOUNDARY ON BOTH SIDES. They lie
+    # on an outer face as well as on the interface, and in the un-split problem
+    # they carry the prescribed datum. Overwriting them with the partner's value
+    # makes the two subproblems disagree there by O(1) forever: the driver
+    # residual then oscillates near 1 and never falls, with both fields already
+    # close to correct. They are still exported, just not interface-imposed.
+    for v_i, row, vals in zip(iv, idofs, g):
+        if outer_v[v_i]:
+            continue
         for d, val in zip(row, np.atleast_1d(vals)):
             gfu.vec[int(d)] = float(val)
 else:

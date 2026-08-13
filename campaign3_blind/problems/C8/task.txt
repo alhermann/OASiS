@@ -6,8 +6,8 @@ SUBDOMAIN B: B = (0.625, 1.5) x (0, 1), thermal conductivity k = 1000
 INTERFACE: the line x = 5/8, where the two materials meet
 EQUATION: -div(k grad u) = f in each subdomain
 COEFFICIENTS: thermal conductivity k = 1 in subdomain A; thermal conductivity k = 1000 in subdomain B
-SOURCE TERM: f(x, y) = in subdomain A: -4*x**3*y - 2*x**3/3 - 993*x**2*y/2000 + 3669*x**2/4000 - 4*x*y**3 - 2*x*y**2 + 63021*x*y/8000 - 5007*x/16000 - 331*y**3/2000 + 3669*y**2/4000 - 3007*y/4000
-               in subdomain B: -x**3*y/250000 - x**3/1500000 - 7989*x**2*y/1000000 - 663*x**2/2000000 - x*y**3/250000 - x*y**2/500000 - 54728049*x*y/16000000 + 337857*x/6400000 - 2663*y**3/1000000 - 663*y**2/2000000 + 164855899*y/32000000 - 200799/2560000
+SOURCE TERM: f(x, y) = in subdomain A: -18*x**3*y/5 + 2*x**3/5 + 5063*x**2*y/20000 - 95021*x**2/60000 - 18*x*y**3/5 + 6*x*y**2/5 + 14607*x*y/4000 + 1669*x/2000 + 5063*y**3/60000 - 95021*y**2/60000 + 14993*y/10000
+               in subdomain B: -9*x**3*y/2500000 + x**3/2500000 - 64901*x**2*y/10000000 - 25033*x**2/30000000 - 9*x*y**3/2500000 + 3*x*y**2/2500000 - 422790921*x*y/160000000 - 21609971*x/32000000 - 64901*y**3/30000000 - 25033*y**2/30000000 + 1274009971*y/320000000 + 12989997/12800000
 NOTE: The conductance ratio is large; a fixed relaxation factor that works at unit contrast will not converge here.
 OUTER BOUNDARY CONDITIONS: u = 0 on the entire outer boundary
 INTERFACE CORNERS: at the points where the interface meets the outer boundary, the outer boundary condition above applies on BOTH subdomains. Those points belong to the outer boundary, not to the interface, on either side.

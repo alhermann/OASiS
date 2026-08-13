@@ -352,11 +352,36 @@ def vector_spec(pid, codes, roles, geom, family, lam, muA, muB, contrast,
 # The twelve pooled instances
 # ──────────────────────────────────────────────────────────────────────
 #
-# CONDUCTANCE RATIO. For a Dirichlet-Neumann iteration the un-relaxed error
-# amplification is rho = c_D / c_N with c = k / L per subdomain, so which side
-# carries the high conductance decides whether the instance needs strong
-# under-relaxation. It is chosen per cell rather than falling out of the
-# contrast: C8 is the extreme case and its role assignment is FORCED by it.
+# CONDUCTANCE RATIO, AND WHY IT IS A DESIGN VARIABLE RATHER THAN AN ACCIDENT.
+#
+# For a Dirichlet-Neumann interface the ratio that governs the iteration is
+# rho = c_D / c_N with c = k / L per subdomain (mu / L for elasticity). The
+# shipped driver is JACOBI -- within one iteration every participant reads the
+# PREVIOUS iteration's exports -- and it relaxes both exchanged blocks with ONE
+# scalar theta. In the error variables that is
+#
+#     e_lambda <- (1-theta) e_lambda - theta e_mu / c_N
+#     e_mu     <- (1-theta) e_mu     - theta c_D e_lambda
+#
+# whose eigenvalues are (1 - theta) +/- theta sqrt(rho). The PLUS branch is
+# 1 + theta (sqrt(rho) - 1), which exceeds 1 for EVERY theta in (0, 1] as soon as
+# rho > 1. So with this driver an instance whose Dirichlet side carries the
+# higher interface conductance cannot be made to converge by any choice of
+# relaxation factor -- it is not a matter of choosing theta better.
+#
+# This was measured, not assumed. C9 was first built with mu 1:5 and the
+# Dirichlet side on the stiff subdomain (rho = 3.6): at theta = 0.5 and at
+# theta = 0.2 the driver residual oscillated between 0.39 and 1.75 for 30
+# iterations and never fell, with every one of the eight exchanged blocks moving
+# by more than 100% per iteration. It is the same finding D6 recorded from the
+# other direction -- Kratos on the Dirichlet side at rho = 714, 60 iterations,
+# residual stuck at 0.988.
+#
+# Every cell here therefore places the LOWER conductance on the prescribed
+# Dirichlet side. The difficulty that remains is real and is spread on purpose:
+# rho near 1 converges slowly (C3 and C7 at 0.7, C12 at 0.56, ~40 iterations),
+# rho far below 1 converges in a handful (C8 at 0.0014). C8's role assignment is
+# FORCED by this and that is the point of it.
 
 def instance_C1(d):
     """4C + FEniCSx -- the THERMO-MECHANICAL chain the paper names this pair for.
@@ -377,7 +402,7 @@ def instance_C1(d):
     coefficients, which is stated in the task. The mechanical body force picks up
     ``beta grad T``, which needs no continuity because it is a volume term.
     """
-    kA, kB = sp.Integer(3), sp.Integer(1)
+    kA, kB = sp.Integer(1), sp.Integer(3)
     lam, muA, muB = sp.Integer(600), sp.Integer(400), sp.Integer(1600)
     beta = sp.Integer(1)
     g = Geom(2, 0)
@@ -397,7 +422,7 @@ def instance_C1(d):
     s = _common("C1", ["4C", "fenics"], ("dirichlet", "neumann"), g,
                 "steady thermoelasticity, decomposed: temperature and "
                 "displacement transmitted together",
-                "thermo_mechanical", "k 3:1, mu 1:4, lambda and beta shared",
+                "thermo_mechanical", "k 1:3, mu 1:4, lambda and beta shared",
                 notes=("the two transmitted fields have very different "
                        "interface stiffnesses (both follow from the "
                        "conductivities, Lame parameters and subdomain widths "
@@ -707,7 +732,11 @@ def instance_C9(d):
     traction components swap roles, and every "sample by y at x = const"
     assumption fails. A is the NEUMANN side here.
     """
-    lam, muA, muB = sp.Integer(480), sp.Integer(240), sp.Integer(1200)
+    # A is the NEUMANN side here, so A carries the STIFF material: the Jacobi
+    # driver diverges for every theta when the Dirichlet side is the stiffer one
+    # (measured on this very cell before the moduli were exchanged -- see the
+    # conductance-ratio note above).
+    lam, muA, muB = sp.Integer(480), sp.Integer(1200), sp.Integer(240)
     g = Geom(2, 1)
     ua, ub, fa, fb, _ = V.vector_straight(d, lam, muA, muB)
     uA = _scale((_swap(ua[1]), _swap(ua[0])), U_AMP)
@@ -715,7 +744,7 @@ def instance_C9(d):
     fA = _scale([_swap(fa[1]), _swap(fa[0])], U_AMP)
     fB = _scale([_swap(fb[1]), _swap(fb[0])], U_AMP)
     s = vector_spec("C9", ["ngsolve", "skfem"], ("neumann", "dirichlet"), g,
-                    "elasticity", lam, muA, muB, "mu 1:5, lambda shared",
+                    "elasticity", lam, muA, muB, "mu 5:1, lambda shared",
                     "two-material linear elasticity, horizontal interface")
     return s, dict(family="vector", mat=((lam, muA), (lam, muB)),
                    iface_var=y), {"A": uA, "B": uB}, {"A": fA, "B": fB}, (x, y)

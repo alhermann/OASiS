@@ -32,7 +32,10 @@
   "D5": true,
   "D6": true,
   "D7": true,
-  "D8": true
+  "D8": true,
+  "C8": true,
+  "C9": true,
+  "C10": true
  },
  "blocking": "No instance is blocked. All fifteen execution paths were walked non-blind and the results discarded. The two non-path blockers recorded below were REPAIRED after this walk: the B1-B7 task texts were brought to the grader's PROBE_M at 28d29eec, and the grader was taught to honour a non-rectangular subdomain's probe exclusion at 93bede18. Both repairs are gated by tests/test_blind_task_grid_matches_grader.py, which fails if the task text and the grader ever disagree again.",
  "walk_2026_08_09": {
@@ -235,5 +238,139 @@
   "rho_shear": 0.4667,
   "spread": "1.40x",
   "note": "D4's own component spread is mild, so the worst-component theta coincides with the normal-component one and the instance is not in the regime the relaxation fixture warns about. Recorded as a measurement, not a reassurance."
+ },
+ "walk_2026_08_13_balanced": {
+  "what_this_is": "One throwaway, NON-BLIND run per instance through the path that instance names, for the BALANCED coupled set C1-C12. Nothing here is a result. The walk does not open the published instance: it rebuilds the same builder with a FRESH CSPRNG draw, so geometry, materials, roles, mesh sequence, transmission conditions and both participants are identical while the hidden coefficients are different ones. No sealed key was touched. The field the error is measured against exists only in the walking process and is never written to the run tree.",
+  "driver": "core.coupling_driver.run_coupling, the same driver the registered `couple` tool calls, with probe=False.",
+  "measured_where": "RMS error at each participant's OWN NODES against the manufactured field, so the number is the solver's and not an interpolator's.",
+  "finding_that_changed_the_design": {
+   "what": "The shipped driver is JACOBI and relaxes both exchanged blocks with ONE scalar theta. In the error variables the amplification eigenvalues are (1 - theta) +/- theta*sqrt(rho) with rho = c_D/c_N, c = k/L. The PLUS branch is 1 + theta*(sqrt(rho) - 1), which exceeds 1 for EVERY theta in (0,1] as soon as rho > 1: an instance whose DIRICHLET side carries the higher interface conductance cannot be made to converge with this driver by any choice of relaxation factor.",
+   "measured_on": "C9 as first built (mu 1:5, Dirichlet on the stiff subdomain, rho = 3.6): at theta = 0.5 and again at theta = 0.2 the driver residual oscillated between 0.39 and 1.75 for 30 iterations and never fell, with all eight exchanged blocks moving by more than 100% per iteration, while both fields were already within 2% of the manufactured solution. Exchanging the two shear moduli (rho = 0.14) gives convergence in 25 iterations at every level.",
+   "consequence": "C1 and C9 were rebuilt with the lower conductance on the prescribed Dirichlet side. It is the same finding D6 recorded from the other direction (Kratos as Dirichlet at rho = 714: 60 iterations, residual stuck at 0.988)."
+  },
+  "participants_written_for_this_set": {
+   "note": "None of these ship; absence of a participant is work the agent under test has to do.",
+   "ngsolve": "scalar tensor-K + reaction and VECTOR elasticity, both roles, interface on either axis",
+   "skfem": "same, plus a NON-RECTANGULAR subdomain and a BENT interface",
+   "kratos": "the NEUMANN role (participant_kratos.py is Dirichlet-only) and the 3-D branch",
+   "dune": "the VECTOR (elasticity) participant, which does not exist at all: participant_dune.py is scalar-only",
+   "fenics": "spatially varying source, transient, bent interface, thermoelastic pair"
+  },
+  "per_instance": {
+   "C8": {
+    "converged_every_level": true,
+    "levels": [
+     {
+      "level": 1,
+      "N": 8,
+      "converged": true,
+      "iterations": 6,
+      "residual": 9.806114995248662e-07,
+      "wall_s": 4.6,
+      "errors": {
+       "A": 0.0002992390318276121,
+       "B": 1.4301546973845716e-06
+      }
+     },
+     {
+      "level": 2,
+      "N": 16,
+      "converged": true,
+      "iterations": 7,
+      "residual": 3.361046250795334e-07,
+      "wall_s": 5.6,
+      "errors": {
+       "A": 8.130096102530795e-05,
+       "B": 3.7698996423293625e-07
+      }
+     },
+     {
+      "level": 3,
+      "N": 32,
+      "converged": true,
+      "iterations": 7,
+      "residual": 3.553874885397261e-07,
+      "wall_s": 5.9,
+      "errors": {
+       "A": 2.1173456437556173e-05,
+       "B": 9.642895343808873e-08
+      }
+     }
+    ],
+    "note": null
+   },
+   "C9": {
+    "converged_every_level": true,
+    "levels": [
+     {
+      "level": 1,
+      "N": 8,
+      "converged": true,
+      "iterations": 25,
+      "residual": 6.407034709893269e-07,
+      "wall_s": 20.1,
+      "errors": {
+       "A": 4.518379109435e-08,
+       "B": 3.8013234399795435e-08
+      }
+     },
+     {
+      "level": 2,
+      "N": 16,
+      "converged": true,
+      "iterations": 25,
+      "residual": 8.255617925968704e-07,
+      "wall_s": 20.5,
+      "errors": {
+       "A": 1.2049875848261089e-08,
+       "B": 9.928249702107438e-09
+      }
+     },
+     {
+      "level": 3,
+      "N": 32,
+      "converged": true,
+      "iterations": 26,
+      "residual": 6.694302750958952e-07,
+      "wall_s": 26.6,
+      "errors": {
+       "A": 3.027794303508922e-09,
+       "B": 2.470686476222904e-09
+      }
+     }
+    ],
+    "note": null
+   },
+   "C10": {
+    "converged_every_level": true,
+    "levels": [
+     {
+      "level": 1,
+      "N": 8,
+      "converged": true,
+      "iterations": 21,
+      "residual": 9.558503797924371e-07,
+      "wall_s": 75.8,
+      "errors": {
+       "A": 0.000126875242864847,
+       "B": 9.013259903877101e-06
+      }
+     },
+     {
+      "level": 2,
+      "N": 16,
+      "converged": true,
+      "iterations": 21,
+      "residual": 4.504139124695667e-07,
+      "wall_s": 63.5,
+      "errors": {
+       "A": 3.656253706074688e-05,
+       "B": 2.348202070031006e-06
+      }
+     }
+    ],
+    "note": null
+   }
+  }
  }
 }

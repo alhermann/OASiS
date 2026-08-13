@@ -106,9 +106,32 @@ def _order(idx):
 inode = _order(inode)
 ipts = P[inode]
 
+# THE OUTER BOUNDARY, AND WHO OWNS THE INTERFACE CORNERS.
+#
+# A node is OUTER if it lies on a face of this subdomain that is NOT part of the
+# interface. The two ends of the interface lie on such a face as well as on the
+# interface, and they belong to the OUTER boundary on BOTH sides -- in the
+# un-split problem they carry the prescribed datum, so they stay essential in
+# both subproblems.
+#
+# Handing them to the interface instead is not a small error. On the Dirichlet
+# side they then take the partner's imported value while the Neumann side holds
+# them at the outer datum, and the two subproblems disagree at those nodes by
+# O(1) forever: measured here on C9, the driver residual oscillated between 0.39
+# and 1.23 for 25 iterations and never fell, while both fields were already
+# within 2% of the manufactured solution. They are still EXPORTED; they are just
+# not interface-imposed.
+def _is_iface_face(a, val):
+    if BENT:
+        return any(ax == a and abs(v - val) < 1e-9 for ax, v, _ in BENT)
+    return a == axis and abs(val - xi) < 1e-9
+
+
 outer = np.zeros(len(P), bool)
 for a in range(dim):
     for val in ext[a]:
+        if _is_iface_face(a, val):
+            continue
         outer |= np.abs(P[:, a] - val) < 1e-9
 for box in cfg.get("remove", []):                    # the notch faces are outer
     for a, (lo, hi) in enumerate(box):
@@ -118,9 +141,7 @@ for box in cfg.get("remove", []):                    # the notch faces are outer
                 if b != a:
                     on &= (P[:, b] > blo - 1e-9) & (P[:, b] < bhi + 1e-9)
             outer |= on
-outer &= ~np.isin(np.arange(len(P)), inode)
-if BENT:
-    outer |= (np.abs(P[:, 0]) < 1e-9) | (np.abs(P[:, 1]) < 1e-9)
+inode_bc = np.array([i for i in inode if not outer[i]], int)
 
 # ── operator ──────────────────────────────────────────────────────────
 src = cfg["source"]
@@ -165,11 +186,13 @@ D = np.unique(ndofs[outer][ndofs[outer] >= 0])
 if cfg["side"] == "dirichlet":
     g = W.sample(imp, "values", ipts, 0.0, ncomp, free_axes)
     for i, row in zip(inode, g):
+        if outer[i]:
+            continue                       # the corners keep the outer datum
         for c in range(ncomp):
             if ndofs[i, c] >= 0:
                 xg[ndofs[i, c]] = float(np.atleast_1d(row)[c])
     D = np.unique(np.concatenate(
-        [D, ndofs[inode][ndofs[inode] >= 0]]))
+        [D, ndofs[inode_bc][ndofs[inode_bc] >= 0]]))
 else:
     q = W.sample(imp, "normal_fluxes", ipts, 0.0, ncomp, free_axes)
     qv = np.zeros(ndof)

@@ -6,8 +6,8 @@ SUBDOMAIN B: B = (0.625, 1.5) x (0, 1), thermal conductivity k = 200
 INTERFACE: the line x = 5/8, where the two materials meet
 EQUATION: -div(k grad u) = f in each subdomain
 COEFFICIENTS: thermal conductivity k = 1 in subdomain A; thermal conductivity k = 200 in subdomain B
-SOURCE TERM: f(x, y) = in subdomain A: 12*x**3*y - 16*x**3/3 - 6221*x**2*y/400 + 2407*x**2/300 + 12*x*y**3 - 16*x*y**2 + 1807*x*y/200 - 7049*x/2400 - 6221*y**3/1200 + 2407*y**2/300 - 3407*y/1200
-               in subdomain B: 3*x**3*y/10000 - x**3/7500 + 1367*x**2*y/40000 - 289*x**2/30000 + 3*x*y**3/10000 - x*y**2/2500 - 247101*x*y/640000 + 27337*x/32000 + 1367*y**3/120000 - 289*y**2/30000 + 1918573*y/3840000 - 16119/12800
+SOURCE TERM: f(x, y) = in subdomain A: -6*x**3*y + 16*x**3/5 - 3379*x**2*y/800 + 18979*x**2/1500 - 6*x*y**3 + 48*x*y**2/5 + 287*x*y/200 - 11077*x/1200 - 3379*y**3/2400 + 18979*y**2/1500 - 44979*y/4000
+               in subdomain B: -3*x**3*y/20000 + x**3/12500 - 6167*x**2*y/80000 + 13967*x**2/150000 - 3*x*y**3/20000 + 3*x*y**2/12500 - 45948751*x*y/6400000 + 4904887*x/480000 - 6167*y**3/240000 + 13967*y**2/150000 + 139208181*y/12800000 - 994403/64000
 OUTER BOUNDARY CONDITIONS: u = 0 on the entire outer boundary
 INTERFACE CORNERS: at the points where the interface meets the outer boundary, the outer boundary condition above applies on BOTH subdomains. Those points belong to the outer boundary, not to the interface, on either side.
 INTERFACE CONDITIONS: the field and its normal flux must be continuous across the interface. Achieve this by exchanging interface data between the two codes and iterating until the interface mismatch is below 1e-6 relative.
