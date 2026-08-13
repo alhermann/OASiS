@@ -70,9 +70,14 @@ ipts = np.zeros((len(sfree), dim))
 ipts[:, axis] = xi
 ipts[:, free_axis] = sfree
 
+TR = cfg.get("transient")
+NSTEPS = int(round(TR["t_end"] / TR["dt"])) if TR else 0
+
 imp = W.read_imports(cfg["partner"])
 key = "values" if cfg["side"] == "dirichlet" else "normal_fluxes"
-g = W.sample(imp, key, ipts, 0.0, ncomp, [free_axis])
+# WAVEFORM exchange for the transient instance: the imported object is the
+# whole space-time trace, nsteps components per interface point
+g = W.sample(imp, key, ipts, 0.0, NSTEPS if TR else ncomp, [free_axis])
 
 
 def _mu(e):
@@ -83,12 +88,20 @@ def _mu(e):
 if vec:
     m = [float(cfg["lam"]), float(cfg["mu"]), 0.0, 0.0]
     s0, s1 = (_mu(e) for e in cfg["source"])
+    mode = 1
+elif TR:
+    K = np.asarray(cfg["K"], float)
+    # mode 2 packs (k, dt, nsteps) into the material line
+    m = [K[0, 0], float(TR["dt"]), float(NSTEPS), 0.0]
+    s0, s1 = _mu(cfg["source"]), "0"
+    mode = 2
 else:
     K = np.asarray(cfg["K"], float)
     m = [K[0, 0], K[0, 1], K[1, 0], K[1, 1]]
     s0, s1 = _mu(cfg["source"]), "0"
+    mode = 0
 
-lines = [f"{1 if vec else 0} {0 if cfg['side'] == 'dirichlet' else 1} "
+lines = [f"{mode} {0 if cfg['side'] == 'dirichlet' else 1} "
          f"{axis} {xi!r}",
          f"{ext[0][0]!r} {ext[0][1]!r} {ext[1][0]!r} {ext[1][1]!r} "
          f"{n[0]} {n[1]}",
@@ -109,20 +122,21 @@ if r.returncode != 0 or not Path("out.txt").is_file():
     sys.exit(f"deal.II solver failed (rc={r.returncode}):\n{r.stderr[-3000:]}")
 
 txt = Path("out.txt").read_text().splitlines()
-iface, nodes, ndof, mode = [], [], 0, 0
+iface, nodes, ndof, sect = [], [], 0, 0
 for ln in txt:
     if ln.startswith("#NODES"):
-        mode = 1
+        sect = 1
         continue
     if ln.startswith("#NDOF"):
         ndof = int(ln.split()[1])
         continue
     v = [float(a) for a in ln.split()]
-    (nodes if mode else iface).append(v)
+    (nodes if sect else iface).append(v)
 iface = np.array(iface, float)
 nodes = np.array(nodes, float)
-U = iface[:, 1:1 + ncomp]
-Q = iface[:, 1 + ncomp:1 + 2 * ncomp]
+nslot = NSTEPS if TR else ncomp
+U = iface[:, 1:1 + nslot]
+Q = iface[:, 1 + nslot:1 + 2 * nslot]
 
 if cfg["side"] == "neumann":
     # The Dirichlet partner reads this side's VALUES, not its flux; the C++ side

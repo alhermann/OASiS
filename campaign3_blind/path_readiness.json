@@ -43,8 +43,8 @@
   "C12": true,
   "C7": true,
   "C5": true,
-  "C1": false,
-  "C4": false
+  "C1": true,
+  "C4": true
  },
  "blocking": "No instance is blocked. All fifteen execution paths were walked non-blind and the results discarded. The two non-path blockers recorded below were REPAIRED after this walk: the B1-B7 task texts were brought to the grader's PROBE_M at 28d29eec, and the grader was taught to honour a non-rectangular subdomain's probe exclusion at 93bede18. Both repairs are gated by tests/test_blind_task_grid_matches_grader.py, which fails if the task text and the grader ever disagree again.",
  "walk_2026_08_09": {
@@ -649,11 +649,91 @@
      }
     ],
     "note": "theta = 0.2 constant: the two legs carry opposite conductance ratios and one global theta must satisfy the stricter"
+   },
+   "C1": {
+    "converged_every_level": true,
+    "levels": [
+     {
+      "level": 1,
+      "N": 8,
+      "converged": true,
+      "iterations": 39,
+      "residual": 8.863478337818226e-07,
+      "wall_s": 96.3,
+      "errors": {
+       "A": 0.00021760223189918858,
+       "B": 0.00017641435048585367
+      }
+     },
+     {
+      "level": 2,
+      "N": 16,
+      "converged": true,
+      "iterations": 49,
+      "residual": 9.742986206119335e-07,
+      "wall_s": 130.7,
+      "errors": {
+       "A": 6.156156256481301e-05,
+       "B": 4.979680807824059e-05
+      }
+     },
+     {
+      "level": 3,
+      "N": 32,
+      "converged": true,
+      "iterations": 58,
+      "residual": 5.892642184065155e-07,
+      "wall_s": 208.1,
+      "errors": {
+       "A": 1.7194264766570317e-05,
+       "B": 1.3977455380197536e-05
+      }
+     }
+    ],
+    "note": "two 4C runs per iteration: Scalar_Transport with CALCFLUX_BOUNDARY diffusive for T and its consistent flux, one-way-TSI one-element-thick slab for u; traction by interior-residual-checked reassembly"
+   },
+   "C4": {
+    "converged_every_level": true,
+    "levels": [
+     {
+      "level": 1,
+      "N": 8,
+      "converged": true,
+      "iterations": 30,
+      "residual": 3.79519781109874e-07,
+      "wall_s": 42.6,
+      "errors": {
+       "A": 8.018521301765175e-05,
+       "B": 3.217140008599742e-05
+      }
+     },
+     {
+      "level": 2,
+      "N": 16,
+      "converged": true,
+      "iterations": 26,
+      "residual": 7.640196023665785e-07,
+      "wall_s": 44.8,
+      "errors": {
+       "A": 2.1149532120219954e-05,
+       "B": 7.2066972081137735e-06
+      }
+     },
+     {
+      "level": 3,
+      "N": 32,
+      "converged": true,
+      "iterations": 24,
+      "residual": 8.095506018334559e-07,
+      "wall_s": 63.0,
+      "errors": {
+       "A": 5.4601150325236924e-06,
+       "B": 1.660206403923881e-06
+      }
+     }
+    ],
+    "note": "Crank-Nicolson waveform relaxation: whole space-time trace exchanged per iteration; transient deal.II participant written (mode 2 of iface_dealii.cc)"
    }
-  },
-  "not_walked": {
-   "C1": "thermo-mechanical: each subdomain solves a heat equation AND an elasticity equation whose stress carries a thermal term, and the interface transmits temperature, heat flux, displacement and traction together. 4C would need a thermo-structure participant; none ships and none was written. The construction itself is verified (both strong forms exactly zero, all four transmission conditions non-vacuous) and the instance grades CORRECT on a correct submission -- what is missing is only the execution path.",
-   "C4": "transient: no time-dependent participant of any kind ships, for any backend. The FEniCSx walker here carries a Crank-Nicolson branch that exchanges the whole space-time interface trace per iteration, but its deal.II partner does not, and the branch is UNTESTED. Recorded false rather than attempted-and-unreported."
   }
  }
 }

@@ -63,7 +63,7 @@ SCRIPT["4C"] = "w_fourc.py"
 # theta; it is derivable from the published coefficients and widths, and it is
 # recorded here rather than searched for so a walk that fails fails for a reason.
 RELAX = {
-    "C1": ("constant", 0.30), "C2": ("aitken", 0.5), "C3": ("aitken", 0.5),
+    "C1": ("aitken", 0.7), "C2": ("aitken", 0.5), "C3": ("aitken", 0.5),
     "C4": ("aitken", 0.5), "C5": ("constant", 0.20), "C6": ("aitken", 0.5),
     "C7": ("aitken", 0.5), "C8": ("aitken", 0.5), "C9": ("constant", 0.6),
     "C10": ("aitken", 0.5), "C11": ("aitken", 0.5), "C12": ("aitken", 0.5),
@@ -109,8 +109,18 @@ def make_cfg(spec, info, sources, side, level, N):
                    reaction=float(info.get("reaction", (0, 0))[idx]),
                    source=sp.sstr(sources[side]))
         if info.get("transient"):
+            # the task prescribes dt = h/4 = 1/(4N); with t_end = 1/4 that is
+            # exactly N steps per level (8, 16, 32)
             cfg.update(transient=dict(t_end=float(info["t_end"]),
-                                      dt=float(info["t_end"]) / (2 * N)))
+                                      dt=1.0 / (4 * N)))
+    elif fam == "thermoelastic":
+        (lamA, muA), (lamB, muB) = info["mat"]
+        K = info["K"][idx]
+        cfg.update(physics="thermoelastic",
+                   k=float(K[0, 0]), lam=float(lamA),
+                   mu=float([muA, muB][idx]), beta=float(info["beta"]),
+                   source_T=sp.sstr(sources[side][0]),
+                   source_u=[sp.sstr(c) for c in sources[side][1:]])
     elif fam == "notched":
         # The NON-RECTANGULAR subdomain and the BENT interface. A is the unit
         # square minus subdomain B minus the notch, and carries THREE material
@@ -160,6 +170,10 @@ def stage(spec, info, sources, level, N, root: Path):
         if code == "dealii":
             shutil.copy(HERE / "walkers" / "iface_dealii.cc", wd)
         script = HERE / "walkers" / SCRIPT[code]
+        # the thermoelastic pair needs 4C's TSI machinery, which lives in its
+        # own participant; every other physics goes through the plain one
+        if code == "4C" and info["family"] == "thermoelastic":
+            script = HERE / "walkers" / "w_fourc_tsi.py"
         if not script.is_file():
             raise FileNotFoundError(f"no walk participant for {code}: {script}")
         shutil.copy(script, wd)
@@ -237,6 +251,21 @@ def walk(pid: str, levels: int, seed=None, max_iter=200):
                 errs[side] = None
                 continue
             f = fields[side]
+            if info.get("transient"):
+                # the participants report the FINAL-TIME field; the space-time
+                # expression must be evaluated there or lambdify leaves t as an
+                # unbound global and the measurement crashes
+                # substitute BY NAME: the builder's t is Symbol("t",
+                # real=True) and a bare Symbol("t") is a different symbol that
+                # substitutes nothing, silently
+                te = sp.nsimplify(info["t_end"])
+
+                def _at_tend(e):
+                    e = sp.sympify(e)
+                    return e.subs({s_: te for s_ in e.free_symbols
+                                   if s_.name == "t"})
+                f = (_at_tend(f) if not isinstance(f, (list, tuple))
+                     else [_at_tend(c) for c in f])
             errs[side] = node_error(
                 wd, f if isinstance(f, (list, tuple)) else [f], coords,
                 avoid=info.get("avoid_lines", ()))

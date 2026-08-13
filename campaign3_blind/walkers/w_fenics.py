@@ -39,7 +39,9 @@ dim, axis, xi = cfg["dim"], cfg["axis"], cfg["xi"]
 ext, n = cfg["extent"], cfg["n"]
 phys = cfg["physics"]
 vec = phys == "vector"
-ncomp = {"scalar": 1, "vector": dim}[phys]
+# the thermoelastic pair exchanges (T, ux, uy): one scalar and one vector
+# field through ONE interface state
+ncomp = {"scalar": 1, "vector": dim, "thermoelastic": 1 + dim}[phys]
 free_axes = [i for i in range(dim) if i != axis] if axis is not None else [0, 1]
 BENT = cfg.get("bent")
 S = W.outward_sign(ext, axis, xi) if axis is not None else 1.0
@@ -57,6 +59,119 @@ V = fem.functionspace(domain, ("Lagrange", 1, (ncomp,)) if vec
                       else ("Lagrange", 1))
 fdim = domain.topology.dim - 1
 domain.topology.create_connectivity(fdim, domain.topology.dim)
+
+if phys == "thermoelastic":
+    # ── the THERMOELASTIC pair, NEUMANN side ──────────────────────────
+    #
+    # Two subproblems, solved in the sequence the coupling has: the heat
+    # equation first (it is independent of u), then elasticity with the
+    # just-computed DISCRETE temperature entering the stress. The weak form of
+    # -div(sigma_el - beta*T*I) = f_u is
+    #     int sigma_el(u):eps(v) dx = int f_u.v dx + int beta*T_h*div(v) dx
+    #                                 + int_Gamma t.v ds
+    # so the thermal term is a VOLUME term in T_h and needs no derivative of
+    # the discrete temperature. The imported traction is sigma_tot.n of the
+    # partner, thermal part included, applied UNCHANGED -- the two outward
+    # normals are opposite, so it is this side's natural datum.
+    #
+    # DIRICHLET is not served: C1 prescribes 4C as the Dirichlet side and no
+    # cell puts FEniCSx on the Dirichlet side of a thermoelastic exchange.
+    if cfg["side"] != "neumann":
+        sys.exit("the thermoelastic fenics participant serves the NEUMANN "
+                 "role only (C1 prescribes 4C as the Dirichlet side)")
+    ST = fem.functionspace(domain, ("Lagrange", 1))
+    SU = fem.functionspace(domain, ("Lagrange", 1, (dim,)))
+    XYs = ST.tabulate_dof_coordinates()[:, :dim]
+
+    def _sets(X):
+        ino = np.where(np.abs(X[:, axis] - xi) < 1e-9)[0]
+        fa = [i for i in range(dim) if i != axis]
+        ino = ino[np.lexsort(tuple(X[ino, a] for a in reversed(fa)))]
+        out = np.zeros(len(X), bool)
+        for a in range(dim):
+            for val in ext[a]:
+                if a == axis and abs(val - xi) < 1e-9:
+                    continue
+                out |= np.abs(X[:, a] - val) < 1e-9
+        return ino, out
+
+    inoT, outT = _sets(XYs)
+    XYu = SU.tabulate_dof_coordinates()[:, :dim]
+    inoU, outU = _sets(XYu)
+    iptsT = XYs[inoT]
+
+    fac = dmesh.locate_entities_boundary(
+        domain, fdim, lambda px: np.isclose(px[axis], xi))
+    tg = dmesh.meshtags(domain, fdim, np.sort(fac),
+                        np.full(len(fac), 7, dtype=np.int32))
+    dsw = ufl.Measure("ds", domain=domain, subdomain_data=tg)(7)
+
+    xcte = ufl.SpatialCoordinate(domain)
+    NSx = {"x": xcte[0], "y": xcte[1], "exp": ufl.exp, "sin": ufl.sin,
+           "cos": ufl.cos, "sqrt": ufl.sqrt}
+    kk = float(cfg["k"])
+    lam_, mu_, beta_ = (float(cfg["lam"]), float(cfg["mu"]),
+                        float(cfg["beta"]))
+
+    imp_te = W.read_imports(cfg["partner"])
+    fa_te = [i for i in range(dim) if i != axis]
+    q = W.sample(imp_te, "normal_fluxes", iptsT, 0.0, 1 + dim, fa_te)
+
+    # heat: -div(k grad T) = f_T, natural datum = the partner's flux
+    tT, vT = ufl.TrialFunction(ST), ufl.TestFunction(ST)
+    gqs = fem.Function(ST)
+    gqs.x.array[:] = 0.0
+    gqs.x.array[inoT] = q[:, 0]
+    aT = kk * ufl.inner(ufl.grad(tT), ufl.grad(vT)) * ufl.dx
+    LT = eval(cfg["source_T"], dict(NSx)) * vT * ufl.dx + gqs * vT * dsw
+    bcT = [fem.dirichletbc(default_scalar_type(0.0),
+                           np.where(outT)[0].astype(np.int32), ST)]
+    Th = LinearProblem(aT, LT, bcs=bcT, petsc_options_prefix="teT",
+                       petsc_options={"ksp_type": "preonly",
+                                      "pc_type": "lu"}).solve()
+
+    # elasticity with the thermal stress of the DISCRETE temperature
+    uu, vu = ufl.TrialFunction(SU), ufl.TestFunction(SU)
+
+    def epsw(w):
+        return ufl.sym(ufl.grad(w))
+
+    au = ufl.inner(2 * mu_ * epsw(uu) + lam_ * ufl.tr(epsw(uu))
+                   * ufl.Identity(dim), epsw(vu)) * ufl.dx
+    fvec = ufl.as_vector([eval(e, dict(NSx)) for e in cfg["source_u"]])
+    gts = fem.Function(SU)
+    gts.x.array[:] = 0.0
+    for c in range(dim):
+        gts.x.array[dim * inoU + c] = q[:, 1 + c]
+    Lu = (ufl.inner(fvec, vu) * ufl.dx
+          + beta_ * Th * ufl.div(vu) * ufl.dx
+          + ufl.inner(gts, vu) * dsw)
+    gzs = fem.Function(SU)
+    gzs.x.array[:] = 0.0
+    bcu = [fem.dirichletbc(gzs, np.where(outU)[0].astype(np.int32))]
+    Uh = LinearProblem(au, Lu, bcs=bcu, petsc_options_prefix="teU",
+                       petsc_options={"ksp_type": "preonly",
+                                      "pc_type": "lu"}).solve()
+
+    Vv = np.column_stack([Th.x.array[inoT]]
+                         + [Uh.x.array[dim * inoU + c] for c in range(dim)])
+    allV = np.column_stack([Th.x.array]
+                           + [Uh.x.array[dim * np.arange(len(XYs)) + c]
+                              for c in range(dim)])
+    ndof_te = ST.dofmap.index_map.size_global \
+        + dim * SU.dofmap.index_map.size_global
+    W.write_nodes("nodes.csv", XYs, allV)
+    W.write_log(cfg, ndof_te,
+                f"num_cells = "
+                f"{domain.topology.index_map(domain.topology.dim).size_local}")
+    print(f"[fenics {cfg['sidename']} neumann thermoelastic] NDOF={ndof_te} "
+          f"iface_n={len(inoT)} T=[{Th.x.array.min():.6g},"
+          f"{Th.x.array.max():.6g}] u=[{Uh.x.array.min():.6g},"
+          f"{Uh.x.array.max():.6g}]")
+    # this side's flux export is not consumed (the partner is the Dirichlet
+    # side and reads `values`); zeros are honest
+    W.write_exports(iptsT, Vv, np.zeros_like(Vv), "thermoelastic")
+    sys.exit(0)
 
 # tabulate_dof_coordinates() has ONE ROW PER NODE (dof block); the scalar array
 # index of component c at node j is j*ncomp + c.
@@ -185,70 +300,89 @@ else:
 OPTS = {"ksp_type": "preonly", "pc_type": "lu"}
 
 if TR:
-    # CRANK-NICOLSON. The partner's interface datum is a whole space-time trace:
-    # the driver moves n interface points with nsteps components each and relaxes
-    # them unchanged, because it treats exchanged values as opaque numbers on
-    # coordinates. Calling the driver once per time step instead would need the
-    # participants to carry state across driver invocations, which the contract
-    # does not provide.
+    # CRANK-NICOLSON with WAVEFORM exchange: each coupling iteration
+    # integrates the WHOLE time window, and the exchanged object is the entire
+    # space-time interface trace -- n points with nsteps components -- which
+    # the driver moves and relaxes unchanged because it treats values as
+    # opaque numbers on coordinates. Convention shared with the deal.II side:
+    # values slot s is the field at t_{s+1}; flux slot s is the STEP-AVERAGED
+    # flux of step s, exported as -r_i/(w_i*dt) from the step residual and
+    # applied by the partner as dt*q_s*phi_i. Step-average vs midpoint differs
+    # by O(dt^2), so CN accuracy is preserved.
+    #
+    # TWO DEFECTS OF THE FIRST VERSION OF THIS BRANCH, fixed and worth
+    # recording because both produce a converged coupling with a wrong flux:
+    # it divided the residual by 0.5*dt -- exporting TWICE the step-averaged
+    # flux, which the partner then applies in full -- and it assembled the
+    # step residual AFTER uh had been overwritten with u^{n+1}, so the
+    # "residual" was of a system whose right side no longer contained u^n.
     nsteps = int(round(TR["t_end"] / TR["dt"]))
     dt = TR["t_end"] / nsteps
+    dtc = fem.Constant(domain, default_scalar_type(dt))
+    t0c = fem.Constant(domain, default_scalar_type(0.0))
+    t1c = fem.Constant(domain, default_scalar_type(0.0))
     uh = fem.Function(V)
     uh.x.array[:] = 0.0                       # the initial datum is u = 0
-    unew = fem.Function(V)
-    m_form = u_ * v_ * ufl.dx
-    stiff = a_form
-    trace_u = np.zeros((len(inode), nsteps))
-    trace_q = np.zeros((len(inode), nsteps))
+    gq = fem.Function(V)                      # Neumann: step-s flux density
+    gq.x.array[:] = 0.0
+
+    F0 = eval(cfg["source"], dict(NS, t=t0c))
+    F1 = eval(cfg["source"], dict(NS, t=t1c))
+    stiff_u = ufl.replace(a_form, {u_: uh})
+    # LinearProblem takes UFL forms; the residual assembly takes COMPILED
+    # ones. Keep both, built from the same expressions, so they cannot drift.
+    A_ufl = u_ * v_ * ufl.dx + 0.5 * dtc * a_form
+    b_terms = (uh * v_ * ufl.dx - 0.5 * dtc * stiff_u
+               + 0.5 * dtc * (F0 + F1) * v_ * ufl.dx)
+    b_un_form = fem.form(b_terms)             # residual side: NO flux term
+    b_ufl = (b_terms + dtc * gq * v_ * ds_if
+             if cfg["side"] == "neumann" else b_terms)
+    A_form = fem.form(A_ufl)
+    wvec = _fp.assemble_vector(fem.form(v_ * ds_if))
+    wvec.ghostUpdate()
+    wi = wvec.array[inode]
+    okw = np.abs(wi) > 1e-14
+
+    Amat = _fp.assemble_matrix(A_form)        # unconstrained; dtc is fixed,
+    Amat.assemble()                           # so assembled once
     gs = W.sample(imp, "values" if cfg["side"] == "dirichlet"
                   else "normal_fluxes", ipts, 0.0, nsteps, free_axes)
-    for s in range(nsteps):
-        t0, t1 = s * dt, (s + 1) * dt
-        tsym.value = t0
-        L0 = fem.form(eval(cfg["source"], dict(NS, t=tsym)) * v_ * ufl.dx)
-        f0 = _fp.assemble_vector(L0)
-        f0.ghostUpdate()
-        tsym.value = t1
-        Lt = eval(cfg["source"], dict(NS, t=tsym)) * v_ * ufl.dx
-        A_form = m_form + 0.5 * dt * stiff
-        b_form = (uh * v_ * ufl.dx - 0.5 * dt * ufl.replace(
-            stiff, {u_: uh}) + 0.5 * dt * Lt)
-        b_form = b_form + 0.5 * dt * eval(cfg["source"],
-                                          dict(NS, t=fem.Constant(
-                                              domain,
-                                              default_scalar_type(t0)))) \
-            * v_ * ufl.dx
-        step_bcs = [fem.dirichletbc(g_out, np.where(outer_n)[0].astype(np.int32))]
+    gstep = fem.Function(V)
+    trace_u = np.zeros((len(inode), nsteps))
+    trace_q = np.zeros((len(inode), nsteps))
+    r = Amat.createVecLeft()
+    for st in range(nsteps):
+        t0c.value = st * dt
+        t1c.value = (st + 1) * dt
+        step_bcs = [fem.dirichletbc(g_out,
+                                    np.where(outer_n)[0].astype(np.int32))]
         if cfg["side"] == "dirichlet":
-            gstep = fem.Function(V)
             gstep.x.array[:] = 0.0
-            gstep.x.array[inode] = gs[:, s]
-            step_bcs.append(fem.dirichletbc(gstep, inode_bc.astype(np.int32)))
+            gstep.x.array[inode] = gs[:, st]
+            step_bcs.append(fem.dirichletbc(gstep,
+                                            inode_bc.astype(np.int32)))
         else:
-            gq = fem.Function(V)
             gq.x.array[:] = 0.0
-            gq.x.array[inode] = gs[:, s]
-            b_form = b_form + dt * gq * v_ * ds_if
-        unew = LinearProblem(A_form, b_form, bcs=step_bcs,
-                             petsc_options_prefix=f"tr{s}",
+            gq.x.array[inode] = gs[:, st]
+        # the UNCONSTRAINED right side, with uh still holding u^n -- this is
+        # what the flux residual is taken against
+        b_un = _fp.assemble_vector(b_un_form)
+        b_un.ghostUpdate()
+        unew = LinearProblem(A_ufl, b_ufl, bcs=step_bcs,
+                             petsc_options_prefix=f"tr{st}",
                              petsc_options=OPTS).solve()
-        uh.x.array[:] = unew.x.array
-        trace_u[:, s] = uh.x.array[inode]
         if cfg["side"] == "dirichlet":
-            Aq = _fp.assemble_matrix(fem.form(A_form))
-            Aq.assemble()
-            bq = _fp.assemble_vector(fem.form(b_form))
-            bq.ghostUpdate()
-            r = Aq.createVecLeft()
-            Aq.mult(uh.x.petsc_vec, r)
-            r.axpy(-1.0, bq)
-            wv = _fp.assemble_vector(fem.form(v_ * ds_if))
-            wv.ghostUpdate()
-            wi = wv.array[inode]
-            ok = np.abs(wi) > 1e-14
+            Amat.mult(unew.x.petsc_vec, r)
+            r.axpy(-1.0, b_un)
             col = np.zeros(len(inode))
-            col[ok] = -r.array[inode][ok] / wi[ok] / (0.5 * dt)
-            trace_q[:, s] = col
+            col[okw] = -r.array[inode][okw] / wi[okw] / dt
+            bad = outer_n[inode] | ~okw
+            good = np.where(~bad)[0]
+            for i in np.where(bad)[0]:
+                col[i] = col[good[np.argmin(np.abs(good - i))]]
+            trace_q[:, st] = col
+        uh.x.array[:] = unew.x.array
+        trace_u[:, st] = uh.x.array[inode]
     U = trace_u
     Q = trace_q
     sol = uh
