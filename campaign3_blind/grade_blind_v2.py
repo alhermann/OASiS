@@ -144,6 +144,10 @@ def grade_run(run_dir: Path, problem_id: str, *, passphrase: str | None = None,
                 f"order-graded cell cannot be graded without it")
     probes.task_grid_agreement(problem_id, task_txt, spec, key)
     probes.assert_probe_grid_incommensurate(dim, mesh_N)
+    # a coupled cell whose interface cannot be placed is broken as a CELL:
+    # validate the structured interface description before any submission is
+    # read, so the defect halts grading instead of becoming an outcome
+    iface_legs = iface.interface_legs(spec, key, dim) if coupled else None
 
     res = outcomes.OrderResult(
         problem=problem_id, kind=kind, evidence_grade=grade, outcome="",
@@ -265,7 +269,8 @@ def grade_run(run_dir: Path, problem_id: str, *, passphrase: str | None = None,
     # jumps GATE the outcome
     iface_reasons = []
     if coupled:
-        ph = iface.interface_phase(work, spec, key, dim, len(names), mesh_N)
+        ph = iface.interface_phase(work, spec, key, dim, len(names), mesh_N,
+                                   legs=iface_legs)
         res.interface = ph
         res.findings.extend(ph["findings"])
         if ph["malformed"]:

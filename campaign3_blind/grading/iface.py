@@ -144,7 +144,7 @@ def _assign_to_leg(pts, legs):
 
 
 def interface_phase(work: Path, spec: dict, key: dict, dim: int,
-                    ncomp: int, mesh_N) -> dict:
+                    ncomp: int, mesh_N, legs: list | None = None) -> dict:
     """Grade the interface submission. Returns
         verdict   INTERFACE_SATISFIED | INTERFACE_NOT_SATISFIED | NOT_CHECKED
         malformed list of contract violations (missing/empty/short files,
@@ -152,9 +152,13 @@ def interface_phase(work: Path, spec: dict, key: dict, dim: int,
         reasons   machine-readable gate reasons when not satisfied
         findings  explicit NOT-CHECKED / refusal findings (never silent)
         per_level worst jumps per graded level
+
+    `legs` is normally validated up front by the orchestrator (a spec from
+    which no leg can be derived is a CELL defect and must halt grading before
+    any submission is read); it is derived here only when called standalone.
     """
     IF = interface_mod()
-    legs = interface_legs(spec, key, dim)
+    legs = legs if legs is not None else interface_legs(spec, key, dim)
     nval, nflux = iface_column_counts(spec, dim, ncomp)
 
     out = {"verdict": "NOT_CHECKED", "malformed": [], "reasons": [],
