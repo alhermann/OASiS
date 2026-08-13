@@ -92,7 +92,10 @@ def interface_legs(spec: dict, key: dict, dim: int) -> list[Leg]:
         if axis is None or axis >= dim:
             raise GraderConfigError(
                 f"interface_axis {axis_name!r} is not a coordinate of this "
-                f"{dim}D problem")
+                f"{dim}D problem. A bent interface (e.g. a polyline) cannot "
+                f"be described by one axis: record `iface_legs` in the public "
+                f"spec — a list of {{axis, value, band}} per leg, matching "
+                f"the INTERFACE PROBE POINTS the task text states.")
         return [Leg(axis, _num(spec["interface_value"]), band)]
 
     ea, eb = key.get("extent_a"), key.get("extent_b")
