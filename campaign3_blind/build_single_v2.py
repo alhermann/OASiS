@@ -1174,9 +1174,70 @@ def cell_FB1(d):
                              expr_limit=FEBIO_EXPR_LIMIT)
 
 
+def cell_FC2(d):
+    """4C, near-incompressible plane strain with the EAS element pinned.
+
+    The Cook's-membrane trap in the form the grader can score: a plain
+    displacement HEX8 at nu = 0.4999 locks, and locking has no convergence
+    order at all, so the element technology has to be part of the statement for
+    the theoretical order to mean anything. Same pressure-first construction as
+    FE2 -- p is O(1) and div u is O(1/lambda) -- because a manufactured field
+    with div u of order one turns a near-incompressible cell back into a
+    compressible one.
+    """
+    mu, lam = sp.Integer(1000), sp.Integer(4999000)
+    nu = sp.Rational(lam, 2 * (lam + mu))
+    E = sp.Rational(mu * (3 * lam + 2 * mu), lam + mu)
+    u, p, f, co = near_incompressible(d, mu, lam)
+    s = _base("FC2", "4C", "4C (write a .4C.yaml input file and run the 4C "
+              "binary)",
+              "near-incompressible linear elasticity (nu = 0.4999), plane "
+              "strain", "near-incompressible/locking", 2, [8, 16, 32], 2.0,
+              0.4, BAND_P1, components=["ux", "uy"],
+              domain="the unit square (0,1) x (0,1), in PLANE STRAIN. 4C's "
+                     "solid elements are three-dimensional, so model this as "
+                     "the slab (0,1) x (0,1) x (0, 1/8) with exactly ONE "
+                     "element through the thickness and the z displacement "
+                     "fixed to zero at EVERY node. With the load and the "
+                     "geometry independent of z that reproduces plane strain "
+                     "exactly, and the in-plane solution does not depend on the "
+                     "slab thickness.",
+              equation="-div(sigma(u)) = f, with "
+                       "sigma(u) = 2*mu*eps(u) + lambda*tr(eps(u))*I and "
+                       "eps(u) = (grad(u) + grad(u)^T)/2 (small strain, plane "
+                       "strain). f is a force per unit volume.",
+              coefficients=f"Lame parameters lambda = {lam} and mu = {mu} "
+                           f"(exactly), i.e. Poisson ratio nu = "
+                           f"{float(nu):.4f} and Young's modulus "
+                           f"E = {float(E):.1f}. The material is NEARLY "
+                           f"INCOMPRESSIBLE: lambda/mu = {int(lam / mu)}.",
+              bc_text="u = 0 (both in-plane components) on the four lateral "
+                      "faces x = 0, x = 1, y = 0 and y = 1; and uz = 0 at every "
+                      "node of the model",
+              element="HEX8 solid elements with LINEAR kinematics and the "
+                      "ENHANCED ASSUMED STRAIN technology switched on (in 4C: "
+                      "the SOLID element with KINEM linear and TECH eas_full). "
+                      "Use exactly this. A plain displacement HEX8 locks "
+                      "volumetrically at this Poisson ratio: its error stops "
+                      "falling under refinement, so it has no convergence order "
+                      "to be judged against.",
+              notes_public="f is defined by the equation exactly as printed. A "
+                           "solver's volume-load input may use a different sign "
+                           "convention or a different normalisation; check what "
+                           "the code you use expects before you supply it.",
+              mesh_text="uniform meshes of the square with N = 8, 16, 32 "
+                        "elements per side in x and y (h = 1/N) and one element "
+                        "in z, all three levels",
+              graded_note="\nONLY THE DISPLACEMENT IS GRADED. Report the two "
+                          "in-plane components ux and uy; do not report the "
+                          "pressure. They may be taken at any z: the solution "
+                          "does not depend on it.\n")
+    return s, u, f, co, dict(kind="mixed_elasticity", mu=mu, lam=lam, p=p)
+
+
 CELLS = [cell_FE1, cell_FE2, cell_DL1, cell_DL2, cell_NG1, cell_NG2,
          cell_SK1, cell_SK2, cell_KR1, cell_KR2, cell_DU1, cell_DU2,
-         cell_FB1]
+         cell_FB1, cell_FC2]
 
 
 # ── build, verify, seal ───────────────────────────────────────────────────
