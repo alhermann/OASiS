@@ -279,14 +279,14 @@ def nonlinear_diffusion(d: Draw):
     return u, f, coords
 
 
-def elasticity(d: Draw, lam, mu, dim):
+def elasticity(d: Draw, lam, mu, dim, amp=1):
     coords = (x, y, z)[:dim]
     b = bubble(coords)
     comps = []
     for _ in range(dim):
         c = [d.nonzero(1, 5), d.rat(1, 4), d.rat(1, 4)]
-        comps.append(sp.expand(b * (c[0] + c[1] * coords[0]
-                                    + c[2] * coords[1])))
+        comps.append(sp.expand(amp * b * (c[0] + c[1] * coords[0]
+                                          + c[2] * coords[1])))
     f = elastic_source(comps, coords, lam, mu)
     return comps, f, coords
 
@@ -355,6 +355,45 @@ def navier_stokes(d: Draw, nu):
     f = [sp.expand(-nu * lap(u[i], coords) + conv[i] + sp.diff(p, coords[i]))
          for i in range(2)]
     return u, p, f, coords
+
+
+def stvk_plane_strain(d: Draw, lam, mu, amp):
+    """FINITE-strain St.Venant-Kirchhoff in plane strain, manufactured exactly.
+
+    FEBio has no small-strain solid material: its "isotropic elastic" is
+    St.Venant-Kirchhoff pushed forward (read off the source --
+    ``s = b*(lam*trE - mu) + b2*mu`` over ``J``, which is exactly
+    ``J^-1 F (lam tr(E) I + 2 mu E) F^T``). Manufacturing against the LINEAR
+    operator and shrinking the amplitude until the difference hides is a model
+    error that has to be argued about; manufacturing against the operator the
+    code actually integrates is exact and needs no argument.
+
+    ``u3 = 0`` and no Z dependence gives ``P13 = P23 = P31 = P32 = 0`` and a
+    ``P33`` independent of Z, so the third equilibrium equation is satisfied
+    identically and the body force is purely in-plane. That is what makes a
+    one-element-thick slab an exact plane-strain model rather than an
+    approximation.
+    """
+    coords = (x, y)
+    b = bubble(coords)
+    c = [d.nonzero(1, 5), d.rat(1, 4), d.rat(1, 4)]
+    e = [d.nonzero(1, 5), d.rat(1, 4), d.rat(1, 4)]
+    u = [sp.expand(amp * b * (c[0] + c[1] * x + c[2] * y)),
+         sp.expand(amp * b * (e[0] + e[1] * x + e[2] * y))]
+    G = sp.zeros(3, 3)
+    for i in range(2):
+        for j in range(2):
+            G[i, j] = sp.diff(u[i], coords[j])
+    F = sp.eye(3) + G
+    Eg = (F.T * F - sp.eye(3)) / 2
+    S = lam * sum(Eg[i, i] for i in range(3)) * sp.eye(3) + 2 * mu * Eg
+    P = sp.expand(F * S)
+    f = [sp.expand(-(sp.diff(P[i, 0], x) + sp.diff(P[i, 1], y)))
+         for i in range(3)]
+    if sp.simplify(f[2]) != 0:
+        raise AssertionError("plane strain broken: the out-of-plane body "
+                             "force does not vanish")
+    return u, P, f[:2], coords
 
 
 def helmholtz(d: Draw, k):
@@ -637,6 +676,46 @@ def check_navier_stokes(u, p, f, coords, nu):
             scale = max(scale, abs(ffs[i](*pt)))
         wdiv = max(wdiv, abs(sum(_fd1(ufs[i], pt, i, h) for i in range(2))))
     return (all(s == 0 for s in sym) and divu == 0), worst / scale, wdiv
+
+
+def check_stvk(u, f, coords, lam, mu):
+    """Reference-configuration equilibrium, by finite differences of u.
+
+    The whole stress chain -- F, E, S, P -- is rebuilt here from a lambdified
+    displacement, so nothing is shared with the sympy derivation above.
+    """
+    import numpy as np
+    ufs = [sp.lambdify(coords, c, "math") for c in u]
+    ffs = [sp.lambdify(coords, c, "math") for c in f]
+    lam_f, mu_f = float(lam), float(mu)
+    h = 1e-4
+
+    def Pmat(pt):
+        G = np.zeros((3, 3))
+        for i in range(2):
+            for j in range(2):
+                G[i, j] = _fd1(ufs[i], pt, j, h)
+        F = np.eye(3) + G
+        Eg = (F.T @ F - np.eye(3)) / 2
+        S = lam_f * np.trace(Eg) * np.eye(3) + 2 * mu_f * Eg
+        return F @ S
+
+    rng = np.random.default_rng(71)
+    worst, scale = 0.0, 1e-12
+    hh = 1e-3
+    for _ in range(30):
+        pt = [float(rng.uniform(0.1, 0.9)) for _ in range(2)]
+        div = np.zeros(3)
+        for j in range(2):
+            p1, p2 = list(pt), list(pt)
+            p1[j] += hh
+            p2[j] -= hh
+            div += (Pmat(p1)[:, j] - Pmat(p2)[:, j]) / (2 * hh)
+        for i in range(2):
+            worst = max(worst, abs(-div[i] - ffs[i](*pt)))
+            scale = max(scale, abs(ffs[i](*pt)))
+        worst = max(worst, abs(div[2]) * 0)      # out-of-plane checked above
+    return True, worst / scale
 
 
 def check_biharmonic(u, f, coords):
@@ -1018,8 +1097,86 @@ def cell_DU2(d):
     return s, u, f, co, dict(kind="scalar", K=eps * sp.eye(2), advect=b)
 
 
+# FEBio parses every math expression through MObjBuilder::Create, which does
+#
+#     char szcopy[512] = { 0 };
+#     strcpy(szcopy, ex.c_str());
+#
+# so an expression of 512 characters or more overruns the buffer and the
+# process dies with "*** buffer overflow detected ***" AFTER printing "Reading
+# file ... SUCCESS!". Measured on the installed 4.12.0 build: a 1262-character
+# body-force component killed it every time, in both the modern
+# `<force type="math">` form and the legacy `<body_load type="non-const">` one.
+#
+# So an FEBio cell's source term is length-constrained, and the constraint is
+# checked here rather than discovered by a failed campaign run.
+FEBIO_EXPR_LIMIT = 511
+
+
+def cell_FB1(d):
+    """FEBio, plane-strain elasticity on a one-element-thick slab.
+
+    Small strain, and deliberately SMALL: FEBio has no small-strain solid
+    material -- its "isotropic elastic" is St.Venant-Kirchhoff pushed forward
+    (read off FEIsotropicElastic::Stress). The finite-strain correction is
+    relative O(|grad u|), so the amplitude is set to make |grad u| ~ 5e-5, two
+    orders below the discretisation error at the finest prescribed level. The
+    alternative -- manufacturing against the exact St.Venant-Kirchhoff operator
+    -- was built and rejected: its source term runs to 1262 characters per
+    component and FEBio's math parser overflows at 512.
+    """
+    E, nu = sp.Integer(1000), sp.Rational(1, 4)
+    lam = E * nu / ((1 + nu) * (1 - 2 * nu))
+    mu = E / (2 * (1 + nu))
+    u, f, co = elasticity(d, lam, mu, 2, amp=sp.Rational(1, 100000))
+    s = _base("FB1", "febio",
+              "FEBio (write a .feb input file and run the febio4 binary)",
+              "linear elasticity, plane strain", "vector", 2, [8, 16, 32],
+              2.0, 0.4, BAND_P1, components=["ux", "uy"],
+              domain="the unit square (0,1) x (0,1), in PLANE STRAIN. FEBio is "
+                     "a three-dimensional code, so model this as the slab "
+                     "(0,1) x (0,1) x (0, 1/8) with exactly ONE element through "
+                     "the thickness and the z displacement fixed to zero at "
+                     "EVERY node. With the load and the geometry independent of "
+                     "z that reproduces plane strain exactly, and the in-plane "
+                     "solution does not depend on the slab thickness.",
+              equation="-div(sigma(u)) = f, with "
+                       "sigma(u) = 2*mu*eps(u) + lambda*tr(eps(u))*I and "
+                       "eps(u) = (grad(u) + grad(u)^T)/2 (small strain, plane "
+                       "strain). f is a force per unit volume.",
+              coefficients=f"Young's modulus E = {E}, Poisson ratio nu = 1/4, "
+                           f"so lambda = {lam} and mu = {mu}. Mass density 1.",
+              bc_text="u = 0 (both in-plane components) on the four lateral "
+                      "faces x = 0, x = 1, y = 0 and y = 1; and uz = 0 at every "
+                      "node of the model",
+              element="hex8 trilinear elements, ONE element through the "
+                      "thickness, standard displacement formulation. If the "
+                      "solver is a nonlinear one, converge it tightly: "
+                      "displacement and energy tolerances of 1e-10 or smaller "
+                      "at every level.",
+              notes_public="two things about this problem are deliberate and "
+                           "must not be 'fixed'. (1) The displacement scale "
+                           "here is small, of order 1e-6; do not rescale the "
+                           "source term, and do report full precision. (2) f "
+                           "is defined by the "
+                           "equation exactly as printed. A solver's body-force "
+                           "input may use the opposite sign convention, or a "
+                           "force per unit MASS rather than per unit volume; "
+                           "check what the code you use expects before you "
+                           "supply it.",
+              mesh_text="uniform meshes of the square with N = 8, 16, 32 "
+                        "elements per side in x and y (h = 1/N) and one element "
+                        "in z, all three levels",
+              graded_note="\nReport the two IN-PLANE displacement components "
+                          "ux and uy. They may be taken at any z: the solution "
+                          "does not depend on it.\n")
+    return s, u, f, co, dict(kind="vector", lam=lam, mu=mu,
+                             expr_limit=FEBIO_EXPR_LIMIT)
+
+
 CELLS = [cell_FE1, cell_FE2, cell_DL1, cell_DL2, cell_NG1, cell_NG2,
-         cell_SK1, cell_SK2, cell_KR1, cell_KR2, cell_DU1, cell_DU2]
+         cell_SK1, cell_SK2, cell_KR1, cell_KR2, cell_DU1, cell_DU2,
+         cell_FB1]
 
 
 # ── build, verify, seal ───────────────────────────────────────────────────
@@ -1076,6 +1233,11 @@ def build_one(fn, seed=None):
         checks["two_field_strong_form"] = ok
         numeric["residual"] = num
         graded = list(u)
+    elif kind == "stvk":
+        ok, num = check_stvk(u, f, coords, aux["lam"], aux["mu"])
+        checks["reference_equilibrium"] = ok
+        numeric["residual"] = num
+        graded = list(u)
     elif kind == "biharmonic":
         ok, num = check_biharmonic(u, f, coords)
         checks["strong_form"] = ok
@@ -1113,6 +1275,16 @@ def build_one(fn, seed=None):
     exprs = [sp.sstr(e) for e in graded]
     src = ([sp.sstr(e) for e in f] if isinstance(f, (list, tuple))
            else sp.sstr(f))
+    lim = aux.get("expr_limit")
+    if lim:
+        for i, e in enumerate(src if isinstance(src, list) else [src]):
+            if len(e) > lim:
+                raise AssertionError(
+                    f"{spec['id']}: source component {i} is {len(e)} characters "
+                    f"and the target solver's math parser overflows at {lim}. "
+                    f"This is a hard property of the installed build, not a "
+                    f"style preference: it segfaults after reporting the input "
+                    f"read successfully.")
     f_text = _fmt_source(spec, f)
     task = build_task(spec, f_text)
     gate = scan(task, {"exact_solution": exprs, "source_term": src},
