@@ -192,9 +192,10 @@ class LowMachGenerator(BaseGenerator):
                     'gas law; MAT_fluid will not do. Because a LOMA run clones its '
                     'scalar-transport discretisation from the fluid one, the '
                     'material is vetted by the scatra cloning strategy rather than '
-                    "by any PHYSICAL_TYPE check. Signal: 'Material with ID N is not "
+                    "by any PHYSICAL_TYPE check. Signal: 'Material with ID {} is not "
                     "admissible for scalar transport elements' from "
-                    '4C_scatra_utils_clonestrategy.cpp, thrown before the first '
+                    '4C_scatra_utils_clonestrategy.cpp:59, with the material id '
+                    'filled in, thrown before the first '
                     'time step. The message names neither the material type nor '
                     'Loma, so grepping for either finds nothing, and there is no '
                     'quieter constant-density outcome to fall back on. (Audit '

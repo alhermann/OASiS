@@ -180,8 +180,9 @@ class XFEMFluidGenerator(BaseGenerator):
                     'the Eulerian answer. What does break is asking the fluid '
                     'ELEMENT block for ALE kinematics. Signal: with NA: ALE the run '
                     "parses and then aborts at the first assembly with 'Cannot find "
-                    "state dispnp in discretization fluid' from "
-                    '4C_fem_discretization.hpp -- a missing-state message that '
+                    "state {} in discretization {}' from "
+                    '4C_fem_discretization.hpp:1849 -- rendered as Cannot find '
+                    'state dispnp in discretization fluid, a missing-state message that '
                     'names neither XFEM nor ALE. Keep NA: Euler; do not expect a '
                     'warning about a leftover ALE DYNAMIC block. (Audit 2026-06-02; '
                     'corrected by execution 2026-08-06.)'
