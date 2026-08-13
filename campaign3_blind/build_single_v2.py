@@ -1519,6 +1519,208 @@ def precision_floor_ok(rms: float, finest_error: float) -> tuple[bool, float]:
             finest_error / max(floor, 1e-300))
 
 
+# ── SPARTA band-only cells ────────────────────────────────────────────────
+# DSMC has no manufactured solution: the method's own error is transport error
+# plus statistical noise going as 1/sqrt(particles per cell), so mesh halving
+# at fixed particle count makes the "error" RISE and an order-fit grades the
+# noise. These two cells are therefore BAND-ONLY: the graded quantity is a
+# single steady scalar, judged against a band PRE-REGISTERED FROM KINETIC
+# THEORY (written into the sealed key with its derivation, before any run),
+# plus a conservation identity a real steady DSMC run must satisfy. They are
+# evidence grade 3 and are never pooled with the manufactured-solution cells.
+#
+# The refinement rule replaces mesh halving: the GRID IS FIXED (cell size
+# ~ lambda/3) and the particle count is scaled 4x per level, so the
+# statistical error halves per level while the transport error stays fixed.
+# dt is pinned below the mean collision time.
+#
+# All numbers below are derived, not tuned: argon VHS viscosity from Bird's
+# eq. 4.63 with the species parameters printed in the task, hard-sphere mean
+# free path, first-order slip / temperature-jump corrections. The bands are
+# wide (about +-20% around the slip-corrected value) to cover the VSS-vs-VHS
+# transport difference, higher-order Knudsen corrections and residual noise;
+# they exist to catch answers wrong in kind, not to police the third digit.
+_SP = dict(
+    m=6.63e-26, dref=4.17e-10, omega=0.81, Tref=273.0, alpha=1.4,
+    kB=1.380649e-23, n=2.6e22, H=1.0e-3, T0=273.0)
+
+
+def _sparta_theory():
+    import math
+    p = _SP
+    mu_ref = (15.0 * math.sqrt(math.pi * p["m"] * p["kB"] * p["Tref"])
+              / (2.0 * math.pi * p["dref"] ** 2
+                 * (5.0 - 2.0 * p["omega"]) * (7.0 - 2.0 * p["omega"])))
+    lam = 1.0 / (math.sqrt(2.0) * math.pi * p["n"] * p["dref"] ** 2)
+    vmean = math.sqrt(8.0 * p["kB"] * p["T0"] / (math.pi * p["m"]))
+    tau_c = lam / vmean
+    kth = 3.75 * (p["kB"] / p["m"]) * mu_ref     # monatomic: k = 15/4 R mu
+    return mu_ref, lam, vmean, tau_c, kth
+
+
+SPARTA_CONTRACT = """
+REQUIRED OUTPUT (this is how your work is assessed; follow it exactly):
+For every level k = 1, 2, 3 write
+    qoi_level<k>.csv
+with the header line `qoi, conservation_residual` and exactly one data row:
+  * qoi -- {qoi_desc}, time-averaged over the stated sampling window, in SI
+    units ({qoi_units});
+  * conservation_residual -- {cons_desc}.
+Also write run_level<k>.log containing at least the line
+    NDOF = <integer>
+where <integer> is the TOTAL number of simulator particles at that level (the
+particle count plays the role the degree-of-freedom count plays elsewhere).
+Then write RESULT.txt with exactly these lines:
+    LEVELS = <number of levels run>
+    FILES = <comma-separated list of the CSV files you wrote>
+    MESH_INDEPENDENCE = <CONVERGED or NOT_CONVERGED>
+    MAX_REL_CHANGE = <largest relative change of the qoi between the two
+finest levels>
+Judge MESH_INDEPENDENCE solely from your own results: the qoi should move by
+less than the statistical scatter between the two finest levels.
+
+INTEGRITY (absolute): every number must come from ACTUALLY RUNNING SPARTA.
+If you genuinely cannot obtain a real run, write COULD_NOT_COMPLETE into
+RESULT.txt and explain why. Inventing numbers is a failure, worse than an
+honest incomplete.
+"""
+
+
+def emit_sparta(problems: Path, keys: Path):
+    import math
+    mu_ref, lam, vmean, tau_c, kth = _sparta_theory()
+    p = _SP
+    Kn = lam / p["H"]
+    dt = 2.0e-8
+    assert dt < tau_c / 5
+    gas = (f"argon, molecular mass m = {p['m']:.3g} kg, VHS/VSS reference "
+           f"diameter d_ref = {p['dref']:.3g} m at T_ref = {p['Tref']:.0f} K, "
+           f"viscosity-temperature exponent omega = {p['omega']}, VSS alpha = "
+           f"{p['alpha']}. Use exactly these species parameters")
+    common = (f"the 2D channel 0 < y < H with H = {p['H']:.1e} m between two "
+              f"infinite parallel walls (model the x direction as periodic, "
+              f"width at least 10 grid cells). Gas: {gas}. Number density "
+              f"n = {p['n']:.3g} 1/m^3, so the hard-sphere mean free path is "
+              f"lambda = 1/(sqrt(2) pi n d_ref^2) = {lam:.3g} m and "
+              f"Kn = lambda/H = {Kn:.3f} (slip regime)")
+    refine = (f"THE GRID IS FIXED AND THE PARTICLE COUNT REFINES. Use a "
+              f"uniform grid with cell size no larger than lambda/3 "
+              f"(at least 60 cells across the channel) at EVERY level, and "
+              f"timestep dt = {dt:.1e} s, which is below a fifth of the mean "
+              f"collision time lambda/vmean = {tau_c:.3g} s. Level 1: at "
+              f"least 20 particles per cell on average. Level 2: 4x the "
+              f"particles of level 1 (quarter the fnum). Level 3: 4x the "
+              f"particles of level 2. DSMC statistical error scales as "
+              f"1/sqrt(particles per cell), so it halves per level while the "
+              f"transport error stays fixed; do NOT refine the grid instead, "
+              f"and do NOT change dt. SAMPLING WINDOW: run 20000 steps to "
+              f"reach steady state without sampling, then average the "
+              f"reported quantities over the next 30000 steps, at every level")
+
+    mkcell = {}
+    tau0 = mu_ref * 100.0 / p["H"]
+    tau_slip = mu_ref * 100.0 / (p["H"] + 2 * 1.14 * lam)
+    mkcell["SP1"] = dict(
+        physics="plane Couette flow, wall shear stress (DSMC)",
+        qoi_desc=("the magnitude of the time-averaged shear stress tau_xy "
+                  "exerted by the gas on EITHER wall (state which; at steady "
+                  "state they agree)"),
+        qoi_units="Pa",
+        cons_desc=("|tau_top - tau_bottom| / (0.5*(|tau_top| + |tau_bottom|)) "
+                   "-- at steady state the momentum flux through the channel "
+                   "is constant, so the two wall shear stresses must balance"),
+        setup=(f"{common}. The two walls are fully diffuse at T_wall = "
+               f"{p['T0']:.0f} K and move in x with velocities +50 m/s (top, "
+               f"y = H) and -50 m/s (bottom, y = 0), so the relative speed is "
+               f"U = 100 m/s. Initialise the gas at rest at {p['T0']:.0f} K"),
+        band=[1.5, 2.3], cons_tol=0.05,
+        derivation=(
+            f"VHS viscosity (Bird 1994 eq. 4.63) from the printed species "
+            f"parameters: mu_ref = 15 sqrt(pi m kB Tref) / (2 pi dref^2 "
+            f"(5-2w)(7-2w)) = {mu_ref:.4g} Pa s at 273 K (true argon: "
+            f"2.12e-5). Continuum Couette: tau0 = mu U / H = {tau0:.4g} Pa. "
+            f"First-order slip with c_m = 1.14: tau = mu U / (H + 2 c_m "
+            f"lambda) = {tau_slip:.4g} Pa at Kn = {Kn:.3f}. Band [1.5, 2.3] "
+            f"Pa brackets the slip value by about +-20% to cover the "
+            f"VSS-vs-VHS transport difference, higher-order Knudsen "
+            f"corrections and residual statistical noise. Derived from "
+            f"theory before any run; no SPARTA run informed these numbers."))
+
+    q0 = kth * 100.0 / p["H"]
+    q_jump = kth * 100.0 / (p["H"] + 2 * 2.18 * lam)
+    mkcell["SP2"] = dict(
+        physics="heat conduction between parallel walls, wall heat flux (DSMC)",
+        qoi_desc=("the magnitude of the time-averaged normal heat flux "
+                  "through EITHER wall (state which; at steady state they "
+                  "agree)"),
+        qoi_units="W/m^2",
+        cons_desc=("|q_hot - q_cold| / (0.5*(|q_hot| + |q_cold|)) -- at "
+                   "steady state no energy accumulates in the gas, so the "
+                   "heat entering at the hot wall must leave at the cold one"),
+        setup=(f"{common}. Both walls are stationary and fully diffuse: the "
+               f"bottom wall (y = 0) at T = 223 K, the top wall (y = H) at "
+               f"T = 323 K. Initialise the gas at rest at 273 K"),
+        band=[1050.0, 1700.0], cons_tol=0.05,
+        derivation=(
+            f"Monatomic-gas conductivity k = (15/4)(kB/m) mu = {kth:.4g} "
+            f"W/(m K) at 273 K from the VHS viscosity {mu_ref:.4g} Pa s. "
+            f"Continuum Fourier: q0 = k dT / H = {q0:.4g} W/m^2 for dT = "
+            f"100 K. Temperature-jump correction with c_t = 2.18 (gamma = "
+            f"5/3, Pr = 2/3, full accommodation): q = k dT / (H + 2 c_t "
+            f"lambda) = {q_jump:.4g} W/m^2. Band [1050, 1700] W/m^2 brackets "
+            f"the jump-corrected value, the k(T) ~ T^omega nonlinearity of "
+            f"the profile across 223..323 K, VSS-vs-VHS differences and "
+            f"noise. Derived from theory before any run; no SPARTA run "
+            f"informed these numbers."))
+
+    for pid, c in mkcell.items():
+        task = "\n".join([
+            f"Using SPARTA (the DSMC code; run the spa_serial binary), "
+            f"simulate the following problem.",
+            "",
+            f"SETUP: {c['setup']}.",
+            f"QUANTITY OF INTEREST: {c['qoi_desc']}, in {c['qoi_units']}.",
+            f"DISCRETISATION AND REFINEMENT: {refine}.",
+            "",
+            SPARTA_CONTRACT.format(qoi_desc=c["qoi_desc"],
+                                   qoi_units=c["qoi_units"],
+                                   cons_desc=c["cons_desc"]),
+        ])
+        spec = dict(
+            id=pid, kind="sparta_band", code="sparta", code_label="SPARTA",
+            physics=c["physics"], regime="DSMC/band", dim=2,
+            coords=["x", "y"], mesh_N=[1, 2, 3],
+            grading="band-only, grade 3, pending grader path",
+            evidence_grade=3,
+            evidence_grade_reason=(
+                "DSMC: no manufactured solution exists. Graded on a "
+                "pre-registered kinetic-theory band plus a conservation "
+                "identity; NEVER pooled with the manufactured-solution "
+                "cells."),
+            refinement_rule="fixed grid, particles x4 per level, dt fixed "
+                            "below the mean collision time",
+            qoi=c["qoi_desc"],
+        )
+        pdir = problems / pid
+        pdir.mkdir(parents=True, exist_ok=True)
+        (pdir / "task.txt").write_text(task, encoding="utf-8")
+        (pdir / "spec_public.json").write_text(
+            json.dumps(spec, indent=2), encoding="utf-8")
+        kdir = keys / pid
+        kdir.mkdir(parents=True, exist_ok=True)
+        (kdir / "key.json").write_text(json.dumps({
+            "id": pid, "kind": "sparta_band", "code": "sparta",
+            "band": c["band"], "band_units": c["qoi_units"],
+            "conservation_tol": c["cons_tol"],
+            "conservation": c["cons_desc"],
+            "derivation": c["derivation"],
+            "evidence_grade": 3,
+            "grading": "band-only, pending grader path",
+        }, indent=2), encoding="utf-8")
+        print(f"wrote problems/{pid}/ and keys/{pid}/ (band-only, "
+              f"pending grader path; NOT path-verified)")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--apply", action="store_true")
