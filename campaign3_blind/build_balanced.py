@@ -643,7 +643,8 @@ def instance_C5(d):
     kv = {(0, 0): sp.Integer(1), (1, 0): sp.Rational(5, 2),
           (1, 1): sp.Integer(5), (0, 1): sp.Integer(2)}
     return s, dict(family="notched", cells=fields, kv=kv, exA=exA,
-                   exB=fields[(1, 0)], iface_var=None), \
+                   exB=fields[(1, 0)], iface_var=None,
+                   avoid_lines=(0.5,)), \
         {"A": exA, "B": fields[(1, 0)]}, sources, co
 
 

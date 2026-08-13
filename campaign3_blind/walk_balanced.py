@@ -172,11 +172,27 @@ def stage(spec, info, sources, level, N, root: Path):
     return parts
 
 
-def node_error(wd: Path, exprs, coords):
-    """RMS error at the participant's own nodes."""
+def node_error(wd: Path, exprs, coords, avoid=()):
+    """RMS error at the participant's own nodes.
+
+    ``avoid`` lists coordinate values a node must not sit exactly on. It exists
+    for the four-material instance, whose exact field on the non-rectangular
+    subdomain is a Piecewise over three material cells selected by STRICT
+    inequalities: a node lying exactly on x = 1/2 or y = 1/2 falls through to
+    the wrong branch, which extrapolates that cell's flux potential across the
+    material line and is simply a different function there. The nodes affected
+    are O(N) out of O(N^2), so the artefact enters the RMS with weight O(h) and
+    an O(1) error -- an observed order of 1/2. MEASURED before this was added:
+    0.791 then 0.628 on the notched subdomain while the rectangular partner gave
+    2.129 and 2.127 on the same run.
+
+    The graded probe grid does not have the problem and does not need this: 44 is
+    chosen precisely so that no probe lands on x = 1/2 or 3/4 (45 would put one
+    at 22.5/45 = 0.5). This is a defect of the WALK's measurement, not of the key.
+    """
     import csv
     fns = [sp.lambdify(coords, sp.sympify(e), "math") for e in exprs]
-    acc, n = 0.0, 0
+    acc, n, skipped = 0.0, 0, 0
     with open(wd / "nodes.csv", newline="") as fh:
         rd = csv.reader(fh)
         next(rd)
@@ -184,6 +200,9 @@ def node_error(wd: Path, exprs, coords):
             v = [float(a) for a in row]
             p = v[:len(coords)]
             got = v[len(coords):]
+            if any(abs(c - a) < 1e-9 for c in p for a in avoid):
+                skipped += 1
+                continue
             for f, g in zip(fns, got):
                 acc += (float(f(*p)) - g) ** 2
                 n += 1
@@ -219,7 +238,8 @@ def walk(pid: str, levels: int, seed=None, max_iter=200):
                 continue
             f = fields[side]
             errs[side] = node_error(
-                wd, f if isinstance(f, (list, tuple)) else [f], coords)
+                wd, f if isinstance(f, (list, tuple)) else [f], coords,
+                avoid=info.get("avoid_lines", ()))
         acc.append(dict(level=k + 1, N=N, converged=r.converged,
                         history=[float(v) for v in (r.history or [])],
                         iterations=r.iterations, residual=r.residual,

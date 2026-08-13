@@ -41,7 +41,10 @@
   "C6": true,
   "C11": true,
   "C12": true,
-  "C7": true
+  "C7": true,
+  "C5": true,
+  "C1": false,
+  "C4": false
  },
  "blocking": "No instance is blocked. All fifteen execution paths were walked non-blind and the results discarded. The two non-path blockers recorded below were REPAIRED after this walk: the B1-B7 task texts were brought to the grader's PROBE_M at 28d29eec, and the grader was taught to honour a non-rectangular subdomain's probe exclusion at 93bede18. Both repairs are gated by tests/test_blind_task_grid_matches_grader.py, which fails if the task text and the grader ever disagree again.",
  "walk_2026_08_09": {
@@ -604,7 +607,53 @@
      }
     ],
     "note": null
+   },
+   "C5": {
+    "converged_every_level": true,
+    "levels": [
+     {
+      "level": 1,
+      "N": 8,
+      "converged": true,
+      "iterations": 93,
+      "residual": 7.264830069755388e-07,
+      "wall_s": 72.3,
+      "errors": {
+       "A": 2.7813105028901527e-05,
+       "B": 5.089069156730737e-06
+      }
+     },
+     {
+      "level": 2,
+      "N": 16,
+      "converged": true,
+      "iterations": 100,
+      "residual": 6.476417513485175e-07,
+      "wall_s": 77.0,
+      "errors": {
+       "A": 7.467220533791725e-06,
+       "B": 1.2562729904546555e-06
+      }
+     },
+     {
+      "level": 3,
+      "N": 32,
+      "converged": true,
+      "iterations": 100,
+      "residual": 3.347683776320618e-07,
+      "wall_s": 79.2,
+      "errors": {
+       "A": 1.9095616438969886e-06,
+       "B": 3.214374590556526e-07
+      }
+     }
+    ],
+    "note": "theta = 0.2 constant: the two legs carry opposite conductance ratios and one global theta must satisfy the stricter"
    }
+  },
+  "not_walked": {
+   "C1": "thermo-mechanical: each subdomain solves a heat equation AND an elasticity equation whose stress carries a thermal term, and the interface transmits temperature, heat flux, displacement and traction together. 4C would need a thermo-structure participant; none ships and none was written. The construction itself is verified (both strong forms exactly zero, all four transmission conditions non-vacuous) and the instance grades CORRECT on a correct submission -- what is missing is only the execution path.",
+   "C4": "transient: no time-dependent participant of any kind ships, for any backend. The FEniCSx walker here carries a Crank-Nicolson branch that exchanges the whole space-time interface trace per iteration, but its deal.II partner does not, and the branch is UNTESTED. Recorded false rather than attempted-and-unreported."
   }
  }
 }
