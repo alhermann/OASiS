@@ -468,8 +468,9 @@ KNOWLEDGE = {
         "(MatrixFree itself does support FE_SimplexP on a tet mesh "
         "on deal.II 9.8 — verified; this entry used to say it did "
         "not.) (This entry "
-        "asserted 'ONLY QUADS — no triangles', false since deal.II "
-        "9.3 added simplex support.)",
+        "carried the earlier claim 'ONLY QUADS — no triangles', false since deal.II "
+        "9.3 added simplex support — that phrasing was this catalog's "
+        "own emphasis, never a deal.II message.)",
         "[API] Gmsh element order != FE polynomial degree. ALWAYS use "
         "first-order geometry elements in Gmsh (default). The FE degree "
         "(Q1, Q2) is set in the C++ code via `FE_Q<dim>(degree)`. Do "
@@ -529,10 +530,14 @@ KNOWLEDGE = {
         "VectorTools::interpolate_boundary_values on "
         "FESystem(FE_RannacherTurek<dim>(), dim) SEGFAULTS on a "
         "Release build (exit 139); on a Debug build the same call "
-        "aborts with 'You are trying to access the support points of "
+        "aborts with ExcFEHasNoSupportPoints, which opens 'You are "
+        "trying to access the support points of a finite' and closes "
+        "'which the corresponding tables have not been implemented.' "
+        "— three adjacent literals at fe/fe.h:2441-2443 that read as "
+        "one sentence: You are trying to access the support points of "
         "a finite element that either has no support points at all, "
         "or for which the corresponding tables have not been "
-        "implemented.' Use VectorTools::project_boundary_values "
+        "implemented. Use VectorTools::project_boundary_values "
         "instead — it works on that element and on every other "
         "non-interpolatory one.",
         "[API] FE_Nothing<dim>() inside an FESystem on a subdomain "

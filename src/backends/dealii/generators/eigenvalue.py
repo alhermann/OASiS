@@ -280,8 +280,10 @@ KNOWLEDGE = {
         "whole file body sits behind `#ifdef DEAL_II_WITH_SLEPC`, "
         "so the failure only appears when you name a class: "
         "\"error: 'dealii::SLEPcWrappers' has not been declared\". "
-        "Verified on deal.II 9.8. Do not use "
-        "'header not found' as the availability test; grep "
+        "Verified on deal.II 9.8. Do not use a header-not-found "
+        "compiler error as the availability test — that text would "
+        "come from the preprocessor, not from deal.II, and on a "
+        "source install it never appears; grep "
         "$DEAL_II_DIR/include/deal.II/base/config.h for "
         "'/* #undef DEAL_II_WITH_SLEPC */' instead.",
         "[Numerical] Inverse-power-iteration deflation must "

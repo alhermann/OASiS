@@ -285,8 +285,14 @@ _DG_KNOWLEDGE = {
         "[API] FacetNormal n is outward; avg/jump operators need '+'/'-' "
         "sides. Signal: [exact text re-measured 2026-08-03 on dolfinx 0.10.0 "
         "/ ufl 2025.2.1] writing dot(b, n) without a side suffix in a dS "
-        "integral raises ValueError 'Discontinuous type Jacobian must be "
-        "restricted.' from fem.form; the same expression with "
+        "integral raises ValueError from fem.form. UFL formats that line at "
+        "run time — ufl/algorithms/apply_restrictions.py:65 raises "
+        "ValueError(f'Discontinuous type {o._ufl_class_.__name__} must be "
+        "restricted.') — so the class name is filled in from the expression "
+        "and only the head and tail are literals. Re-measured 2026-08-13 on "
+        "this form the class is Jacobian, so the line reads: ValueError: "
+        "Discontinuous type Jacobian must be restricted. "
+        "The same expression with "
         "dot(b, n('+')) compiles. The previously quoted string \"side "
         "specifier required on '+' or '-' for restricted facet integrals\" "
         "does NOT appear in current UFL.",
@@ -1919,7 +1925,8 @@ _NONLINEAR_PDE_KNOWLEDGE = {
      "on 'basic' it is -4 (DIVERGED_FNORM_NAN), and only 'l2' reports -6 "
      '(DIVERGED_LINE_SEARCH). An earlier version of this entry quoted -6 alone, which is '
      'the l2 answer - a check that matches on DIVERGED_LINE_SEARCH will miss this failure '
-     'entirely under the default settings, so test `getConvergedReason() < 0` and read the '
+     'entirely under the default settings, so test for a NEGATIVE '
+     'getConvergedReason() and read the '
      'code rather than matching one value. Use abs(u)**q, max(u,0)**q, or an even integer '
      'exponent if u can change sign. (Verified by execution on dolfinx 0.10.0, 2026-08-06.)',
      '[Numerical] Semilinear source terms that grow super-linearly (R(u) = exp(u)) have a '

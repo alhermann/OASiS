@@ -116,13 +116,13 @@ KNOWLEDGE = {
                 "[Syntax] A `fluid` material needs <Module type=\"fluid\"/>, and the first thing that fails if you leave the module as solid is the SOLVER, not the material — so the message points somewhere you did not edit. "
                 "WRONG: <Module type=\"solid\"/> with <solver type=\"fluid\"> and a `fluid` material. "
                 "RIGHT: <Module type=\"fluid\"/> with <solver type=\"fluid\"><symmetric_stiffness>non-symmetric</symmetric_stiffness><linear_solver type=\"bicgstab\"/></solver>. "
-                "Signal: `tag \"solver\" (line N) : invalid value for attribute \"type\"` and `Reading file ...FAILED!`. The solver factory is module-scoped, so an out-of-module solver name is rejected before the <Material> section is ever read. Do not go looking for a material problem. (Executed 2026-08-05, FEBio 4.12.0.86045466d.)"
+                "Signal: tag \"solver\" (line N) : `invalid value for attribute \"type\"` and `Reading file ...FAILED!`. The solver factory is module-scoped, so an out-of-module solver name is rejected before the <Material> section is ever read. Do not go looking for a material problem. (Executed 2026-08-05, FEBio 4.12.0.86045466d.)"
             ),
             (
                 "[Syntax] Fluid velocity DOFs are wx/wy/wz, and a solid-style name is a hard parse error indistinguishable from a made-up one. "
                 "WRONG: <bc type=\"zero fluid velocity\" node_set=\"walls\"><y_dof>1</y_dof></bc>. "
                 "RIGHT: <bc name=\"noslip\" type=\"zero fluid velocity\" node_set=\"walls\"><wy_dof>1</wy_dof><wz_dof>1</wz_dof></bc>. "
-                "Signal: `tag \"y_dof\" (line N) : unrecognized tag` and `Reading file ...FAILED!`. Executed against a deliberately invented name too: the message is byte-identical, so it tells you the tag is unknown and nothing more — it will not hint that you wanted the w prefix. (Executed 2026-08-05, FEBio 4.12.0.86045466d.)"
+                "Signal: tag \"y_dof\" (line N) : `unrecognized tag` and `Reading file ...FAILED!`. Executed against a deliberately invented name too: the message is byte-identical, so it tells you the tag is unknown and nothing more — it will not hint that you wanted the w prefix. (Executed 2026-08-05, FEBio 4.12.0.86045466d.)"
             ),
             (
                 "[Numerical] The `fluid` material's <k> is a bulk modulus, and whether it controls anything depends on how you drive the problem. In a deck whose inlet and outlet PRESCRIBE the fluid dilatation, k does not set the volume ratio at all — the boundary condition does. "

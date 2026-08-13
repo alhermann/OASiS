@@ -2300,8 +2300,12 @@ KNOWLEDGE = {
             'SubModelPart holding the same nodes plus plain Element3D2N 2-node lines '
             'per segment and pass THAT to VtkOutput — the .vtk then carries the '
             'DISPLACEMENT/REACTION nodal fields. '
-            "Signal: 'Error: Modelpart contains elements or conditions with "
-            "geometries for which no VTK-output is implemented!'. (Verified "
+            "Signal: the two literals of kratos/input_output/vtk_output.cpp:451, "
+            "'Modelpart contains elements or conditions with' and "
+            "'geometries for which no VTK-output is implemented!', which the run "
+            "joins and prefixes, so the line reads: Error: Modelpart contains "
+            "elements or conditions with geometries for which no VTK-output is "
+            "implemented! (Verified "
             'empirically 2026-06-12.)',
             '[Numerical] EmpiricalSpringElement3D2N has a uBLAS aliasing bug in its '
             'RHS (GlobalizeVector does noalias(rInputVector) = prod(Matrix(trans(T)), '

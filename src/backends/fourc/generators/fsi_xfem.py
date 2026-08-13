@@ -249,9 +249,11 @@ class FSIXFEMGenerator(BaseGenerator):
                     'traverse more than one fluid element per step; cut-topology '
                     'changes are reconstructed by a semi-Lagrangean search for '
                     'nodes the interface has just uncovered. Signal: too large a '
-                    "step aborts with 'Initial point for node N for finding the "
-                    "Lagrangean origin not in domain!' from "
-                    '4C_xfem_xfluid_timeInt_std_SemiLagrange.cpp. Despite being '
+                    "step aborts with '<<< WARNING! Initial point for node {} for "
+                    "finding the Lagrangean origin not in' plus 'domain! >>>', "
+                    'two adjacent literals at '
+                    '4C_xfem_xfluid_timeInt_std_SemiLagrange.cpp:167-168 with the '
+                    'node id filled in between them. Despite being '
                     'printed with a WARNING prefix it is thrown, not logged: the '
                     'run stops and never reaches its result test. Reduce TIMESTEP '
                     'until the message disappears. (Audit 2026-06-02; corrected by '
@@ -275,8 +277,10 @@ class FSIXFEMGenerator(BaseGenerator):
                     '[Input] Fluid element blocks must use NA: Euler; there is no '
                     'mesh motion in the fluid domain under XFEM. Signal: NA: ALE '
                     'parses cleanly, builds the discretisations, and then aborts '
-                    "with 'Cannot find state dispnp in discretization fluid' from "
-                    '4C_fem_discretization.hpp. The message names neither XFEM nor '
+                    "with 'Cannot find state {} in discretization {}' from "
+                    '4C_fem_discretization.hpp:1849, rendered at run time as '
+                    'Cannot find state dispnp in discretization fluid. '
+                    'The message names neither XFEM nor '
                     'ALE nor the NA keyword that was mis-set, so it is easy to '
                     'misread as an output or restart problem. The quoted '
                     "'kinematic type incompatible' does not exist in 4C, and "

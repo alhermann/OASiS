@@ -156,7 +156,8 @@ KNOWLEDGE = {
             "particles per cell, not fewer. The cell Knudsen number is the "
             "quantity that must be checked. "
             "Signal: 'compute <C> lambda/grid <nrho-src> <temp-src> lambda "
-            "knall' + 'compute reduce min c_C[2]' returns a value below 1 "
+            "knall' reduced by a compute reduce in min mode over c_C[2] "
+            "returns a value below 1 "
             "(cells larger than a mean free path). SPARTA never checks this "
             "for you and never warns.",
 
@@ -172,8 +173,9 @@ KNOWLEDGE = {
             "one particle per cell the maximum stays at 1e+20 forever while "
             "the minimum looks healthy. "
             "Signal: an absurd 1e+20-scale value in the lambda or Kn column. "
-            "Never sample diagnostics at step 0, and reduce with BOTH 'compute "
-            "reduce min' and 'compute reduce max' — a max still pinned at "
+            "Never sample diagnostics at step 0, and reduce with BOTH a "
+            "compute reduce in min mode and one in max mode — a max still "
+            "pinned at "
             "1e+20 after the fix has produced output means empty cells, not a "
             "warm-up transient.",
 
@@ -183,7 +185,8 @@ KNOWLEDGE = {
             "'compute <D> dt/grid ...' computes a recommended per-cell "
             "timestep and reports the SAME value in a well-resolved run and in "
             "one using a hundred times too large a step. "
-            "Signal: reduce compute dt/grid with 'compute reduce min' and "
+            "Signal: reduce compute dt/grid with a compute reduce in min mode "
+            "and "
             "assert your timestep is below it; a run whose recommended dt sits "
             "far below the dt you set exits 0 regardless.",
 
@@ -193,8 +196,9 @@ KNOWLEDGE = {
             "free paths tens of orders of magnitude too large. The collapse is "
             "specifically at sub-particle-per-cell occupancy; around one "
             "particle per cell the diagnostics are still sane. "
-            "Signal: 'compute <C> grid all all n' + 'compute reduce min "
-            "c_C[1]' — require the cell MINIMUM to be >= 1, not just the "
+            "Signal: 'compute <C> grid all all n' reduced by a compute reduce "
+            "in min mode over c_C[1] — require the cell MINIMUM to be >= 1, "
+            "not just the "
             "average, before trusting any per-cell quantity.",
 
             "[Physics] 'compute <ID> temp' sums the kinetic energy of every "

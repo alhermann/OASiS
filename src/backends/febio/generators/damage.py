@@ -163,7 +163,7 @@ KNOWLEDGE = {
                 "as a PLOT variable (FEPLOTDATA_ID) and as a "
                 "mesh-adaptor criterion, not as a material. All "
                 "three were executed on 2026-08-03 and every one "
-                "was rejected with `tag \"material\" (line N) : "
+                "was rejected with tag \"material\" (line N) : `"
                 "invalid value for attribute \"type\"` and "
                 "`Reading file ...FAILED!`. The registered "
                 "damage-bearing FEMATERIAL_ID factories on this "
@@ -190,7 +190,7 @@ KNOWLEDGE = {
                 "[Input] `elastic damage` needs THREE properties, not one, and each missing one is reported by its own name. There is no material type called \"damage\". "
                 "WRONG: <material id=\"1\" name=\"M1\" type=\"damage\">, or an `elastic damage` material with the elastic parameters written flat at the top level. "
                 "RIGHT, complete and runnable: <material id=\"1\" name=\"M1\" type=\"elastic damage\"><density>1.0</density><elastic type=\"neo-Hookean\"><density>1</density><E>10</E><v>0.3</v></elastic><damage type=\"CDF Weibull\"><Dmax>0.9</Dmax><alpha>2.0</alpha><mu>0.5</mu></damage><criterion type=\"DC strain energy density\"/></material>. "
-                "Signal: for the unregistered type, `tag \"material\" (line N) : invalid value for attribute \"type\"`. For a missing property, `Component \"M1\" needs to have property \"elastic\" defined (line N)` — and the quoted property name changes to \"damage\" or \"criterion\" depending on which one is absent, so the message tells you exactly what to add. For flat parameters, `tag \"E\" (line N) : unrecognized tag`. All five variants executed. Note the criterion names are prefixed DC — `DC strain energy density`, `DC von Mises stress`, `DC max shear stress` and so on — so the bare physics name is rejected. "
+                "Signal: for the unregistered type, tag \"material\" (line N) : `invalid value for attribute \"type\"`. For a missing property, `Component \"M1\" needs to have property \"elastic\" defined (line N)` — and the quoted property name changes to \"damage\" or \"criterion\" depending on which one is absent, so the message tells you exactly what to add. For flat parameters, tag \"E\" (line N) : `unrecognized tag`. All five variants executed. Note the criterion names are prefixed DC — `DC strain energy density`, `DC von Mises stress`, `DC max shear stress` and so on — so the bare physics name is rejected. "
                 "(Executed 2026-08-03, FEBio 4.12.0.86045466d.)"
             ),
             (

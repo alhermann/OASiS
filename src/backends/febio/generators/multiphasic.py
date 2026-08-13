@@ -150,13 +150,13 @@ KNOWLEDGE = {
                 "[Input] <Globals><Solutes> is REQUIRED: it is what creates the concentration degrees of freedom c1, c2, ... Without it the solutes do not exist, and the failure surfaces on the first thing that REFERENCES one. "
                 "WRONG: omitting the <Globals><Solutes> block while a <bc type=\"prescribed concentration\"> uses <dof>c1</dof>. "
                 "RIGHT: <Globals><Solutes><solute id=\"1\" name=\"Na\"><charge_number>1</charge_number><molar_mass>22.99</molar_mass><density>1.0</density></solute></Solutes></Globals> BEFORE the <Material> section. "
-                "Signal: `tag \"dof\" (line N) : invalid value: c1` and `Reading file ...FAILED!` — the line number points at the BOUNDARY CONDITION, not at the missing Globals block, so the message sends you to the wrong section. The same message with a different suffix appears for a solute index that was never declared, e.g. invalid value: c9. (Executed 2026-08-05, FEBio 4.12.0.86045466d.)"
+                "Signal: tag \"dof\" (line N) : invalid value: c1 and `Reading file ...FAILED!` — the line number points at the BOUNDARY CONDITION, not at the missing Globals block, so the message sends you to the wrong section. The same message with a different suffix appears for a solute index that was never declared, e.g. invalid value: c9. (Executed 2026-08-05, FEBio 4.12.0.86045466d.)"
             ),
             (
                 "[Syntax] A `biphasic` material does not accept <solute> children; solutes require the `multiphasic` material and the `multiphasic` module. "
                 "WRONG: a <material type=\"biphasic\"> with a <solute> child. "
                 "RIGHT: <Module type=\"multiphasic\"/> with <material type=\"multiphasic\"> holding <phi0>, <solid>, <permeability>, <osmotic_coefficient> and one <solute> per species. "
-                "Signal: `tag \"solute\" (line N) : unrecognized tag` and `Reading file ...FAILED!`. It is reported as an unknown TAG rather than as an unsupported feature, so nothing in the message mentions multiphasic. (Executed 2026-08-05, FEBio 4.12.0.86045466d.)"
+                "Signal: tag \"solute\" (line N) : `unrecognized tag` and `Reading file ...FAILED!`. It is reported as an unknown TAG rather than as an unsupported feature, so nothing in the message mentions multiphasic. (Executed 2026-08-05, FEBio 4.12.0.86045466d.)"
             ),
             (
                 "[Numerical] For charged tissue, set "
@@ -172,7 +172,7 @@ KNOWLEDGE = {
                 "[Input] A `prescribed concentration` BC selects its species with a <dof> child naming the concentration DOF — c1 for the first declared solute, c2 for the second — NOT with a <sol> child and not by position. "
                 "WRONG: <bc type=\"prescribed concentration\" node_set=\"top\"><sol>1</sol><value lc=\"1\">1.0</value></bc>. "
                 "RIGHT: <bc name=\"c_top\" type=\"prescribed concentration\" node_set=\"top\"><dof>c1</dof><value lc=\"1\">1.0</value></bc>. "
-                "Signal: `tag \"sol\" (line N) : unrecognized tag`, and for an undeclared species `tag \"dof\" (line N) : invalid value: c9`. Both are parse-time and both name the offending tag. (Executed 2026-08-05, FEBio 4.12.0.86045466d.)"
+                "Signal: tag \"sol\" (line N) : `unrecognized tag`, and for an undeclared species tag \"dof\" (line N) : invalid value: c9. Both are parse-time and both name the offending tag. (Executed 2026-08-05, FEBio 4.12.0.86045466d.)"
             ),
         ],
     },

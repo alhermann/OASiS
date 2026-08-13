@@ -395,7 +395,7 @@ KNOWLEDGE = {
         "Signal: build both patterns for the same DoFHandler and "
         "compare DynamicSparsityPattern::n_nonzero_elements() — the "
         "flux pattern must be substantially larger; if they are equal "
-        "you built the wrong one. This check works in either build. (This entry used to promise "
+        "you built the wrong one. This check works in either build. (This entry used to quote "
         "ExcMessage('matrix entry at i,j does not exist in sparsity "
         "pattern'); no such string exists in the library.)",
         "[Syntax] FEInterfaceValues needed for face integrals "
@@ -507,7 +507,7 @@ KNOWLEDGE = {
         "DoFHandler over a globally refined hypercube with one "
         "extra locally refined cell: n_constraints() == 0, no "
         "exception, in Debug and Release alike — there is no Assert "
-        "here to switch on. (This entry used to promise ExcMessage('DG "
+        "here to switch on. (This entry used to quote ExcMessage('DG "
         "discretisation has no hanging-node constraints'); no such "
         "message exists.)",
         "[Physics] Inflow BCs: weakly enforced via numerical "
@@ -528,7 +528,7 @@ KNOWLEDGE = {
         "DataOut shows the prescribed Dirichlet value NOT appearing "
         "at the inflow boundary. Check bv.size() (or "
         "constraints.n_constraints()) immediately after the call. "
-        "(This entry used to promise ExcMessage('strong boundary "
+        "(This entry used to quote ExcMessage('strong boundary "
         "conditions not supported for DG').)",
     ],
 }
