@@ -282,9 +282,10 @@ KNOWLEDGE = {
         "call instead exhausted its iteration budget and threw "
         "SolverControl::NoConvergence at step 300 with the "
         "residual blown up to 3.0e+17. Both outcomes are possible; "
-        "an early 'breakdown on iteration 2-3 with a negative "
-        "inner product' is NOT — that Signal never reproduced and "
-        "has been removed. Diagnose by definiteness or by "
+        "the earlier claim 'breakdown on iteration 2-3 with a "
+        "negative inner product' is NOT — it did not reproduce, and "
+        "SolverCG has no breakdown message of that shape to print. "
+        "Diagnose by definiteness or by "
         "cross-checking against MinRes/UMFPACK, not by waiting for "
         "CG to complain.",
         "[Syntax] Block structure: use "

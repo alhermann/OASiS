@@ -223,7 +223,7 @@ KNOWLEDGE = {
         "INDEFINITE — and SolverCG with PreconditionSSOR still "
         "CONVERGED in 126 iterations to residual 7.0e-11, while "
         "SolverGMRES on the same system took 1718. There was no "
-        "breakdown of any kind. (This entry used to promise "
+        "breakdown of any kind. (This entry used to quote "
         "\"SolverCG reports 'breakdown' immediately\"; it does "
         "not.) Test definiteness explicitly if it matters; do not "
         "use CG's silence as evidence the system is SPD.",

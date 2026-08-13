@@ -383,7 +383,7 @@ KNOWLEDGE = {
         "with an active FE index of <N>, but the finite element "
         "collection only has <M> elements'; in Release, a SIGSEGV "
         "(exit 139) inside distribute_dofs with no output at all. "
-        "(This entry used to promise ExcMessage('Index in "
+        "(This entry used to quote ExcMessage('Index in "
         "FECollection out of range'); no such string exists.)",
         "[Numerical] hp::QCollection must carry one rule per element "
         "in the FECollection, each sized for ITS element: FE_Q(p) "
