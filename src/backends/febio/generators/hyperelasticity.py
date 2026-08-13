@@ -323,11 +323,11 @@ KNOWLEDGE = {
                 "<qn_method type=\"BFGS\"><max_ups>10</max_ups>"
                 "</qn_method></solver>, or type=\"Broyden\" in place of "
                 "BFGS. "
-                "Signal: `tag \"max_ups\" (line N) : unrecognized tag` "
+                "Signal: tag \"max_ups\" (line N) : `unrecognized tag` "
                 "with `Reading file ...FAILED!` and exit 1, both for the "
                 "flat form and for the three strategies that do not own "
                 "the parameter; an unregistered strategy name gives "
-                "`tag \"qn_method\" (line N) : invalid value for "
+                "tag \"qn_method\" (line N) : `invalid value for "
                 "attribute \"type\"` instead. "
                 "(Executed 2026-08-03, FEBio 4.12.0.86045466d.)"
             ),

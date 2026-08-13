@@ -142,7 +142,7 @@ KNOWLEDGE = {
                 "CORRECTION. `transversely isotropic` was listed "
                 "here as a material type. It is NOT registered in "
                 "FEBio 4.12 — executed 2026-08-03, a deck using it "
-                "is rejected with `tag \"material\" (line N) : "
+                "is rejected with tag \"material\" (line N) : `"
                 "invalid value for attribute \"type\"`. The "
                 "registered trans-iso FEMATERIAL_ID factories on "
                 "this build are `trans iso Mooney-Rivlin`, `trans "

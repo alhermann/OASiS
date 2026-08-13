@@ -164,7 +164,7 @@ KNOWLEDGE = {
                 "[Syntax] `fluid-FSI` is both a MODULE name and a MATERIAL name, and the material only works inside the module. Naming the wrong module fails on the SOLVER first. "
                 "WRONG: <Module type=\"fluid\"/> with a `fluid-FSI` material. "
                 "RIGHT: <Module type=\"fluid-FSI\"/> with <solver type=\"fluid-FSI\">, and the material as <material id=\"1\" name=\"FSIBlock\" type=\"fluid-FSI\"> holding a <solid> and a <fluid> property. "
-                "Signal: `tag \"solver\" (line N) : invalid value for attribute \"type\"` and `Reading file ...FAILED!` — the solver factory is module-scoped and is checked before the materials. (Executed 2026-08-05, FEBio 4.12.0.86045466d.)"
+                "Signal: tag \"solver\" (line N) : `invalid value for attribute \"type\"` and `Reading file ...FAILED!` — the solver factory is module-scoped and is checked before the materials. (Executed 2026-08-05, FEBio 4.12.0.86045466d.)"
             ),
             (
                 "[Numerical] The ALE solid material inside the FSI "
