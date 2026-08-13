@@ -203,6 +203,16 @@ def iface_mask(pts, axis, xi, tol=1e-9):
 
 
 def outward_sign(extent, axis, xi):
-    """+1 if the interface is this subdomain's upper face along ``axis``."""
+    """+1 if the interface is this subdomain's upper face along ``axis``.
+
+    ``axis`` is None for a BENT interface, which has a different outward normal
+    on each leg and therefore no single sign. Nothing that runs on a bent
+    interface needs one: the Dirichlet side recovers its flux variationally from
+    the discrete residual, and the Neumann side applies the partner's number as a
+    natural term. That is not a refinement, it is what makes the bend tractable
+    at all -- the leg-to-leg normal flip and the corner then cost nothing.
+    """
+    if axis is None:
+        return float("nan")
     lo, hi = extent[axis]
     return 1.0 if abs(hi - xi) < abs(lo - xi) else -1.0

@@ -36,7 +36,12 @@
   "C8": true,
   "C9": true,
   "C10": true,
-  "C2": true
+  "C2": true,
+  "C3": true,
+  "C6": true,
+  "C11": true,
+  "C12": true,
+  "C7": true
  },
  "blocking": "No instance is blocked. All fifteen execution paths were walked non-blind and the results discarded. The two non-path blockers recorded below were REPAIRED after this walk: the B1-B7 task texts were brought to the grader's PROBE_M at 28d29eec, and the grader was taught to honour a non-rectangular subdomain's probe exclusion at 93bede18. Both repairs are gated by tests/test_blind_task_grid_matches_grader.py, which fails if the task text and the grader ever disagree again.",
  "walk_2026_08_09": {
@@ -412,7 +417,193 @@
       }
      }
     ],
-    "note": "flux recovery: 4C exposes no reaction, so the Q1 system is re-assembled in numpy on 4C's own mesh at 4C's own solution"
+    "note": null
+   },
+   "C3": {
+    "converged_every_level": true,
+    "levels": [
+     {
+      "level": 1,
+      "N": 8,
+      "converged": true,
+      "iterations": 88,
+      "residual": 9.549134579447723e-07,
+      "wall_s": 655.6,
+      "errors": {
+       "A": 0.0003301896104073057,
+       "B": 0.00019341040415981806
+      }
+     },
+     {
+      "level": 2,
+      "N": 16,
+      "converged": true,
+      "iterations": 88,
+      "residual": 9.892799472596753e-07,
+      "wall_s": 307.4,
+      "errors": {
+       "A": 8.727189049478606e-05,
+       "B": 4.959738452195181e-05
+      }
+     }
+    ],
+    "note": null
+   },
+   "C6": {
+    "converged_every_level": true,
+    "levels": [
+     {
+      "level": 1,
+      "N": 8,
+      "converged": true,
+      "iterations": 21,
+      "residual": 9.734669728962417e-07,
+      "wall_s": 32.9,
+      "errors": {
+       "A": 0.0010247742031244227,
+       "B": 0.0005072475257535125
+      }
+     },
+     {
+      "level": 2,
+      "N": 16,
+      "converged": true,
+      "iterations": 22,
+      "residual": 9.857130924703754e-07,
+      "wall_s": 33.0,
+      "errors": {
+       "A": 0.0002854874300501462,
+       "B": 0.0001590318649023056
+      }
+     }
+    ],
+    "note": null
+   },
+   "C11": {
+    "converged_every_level": true,
+    "levels": [
+     {
+      "level": 1,
+      "N": 8,
+      "converged": true,
+      "iterations": 24,
+      "residual": 8.985380265490525e-07,
+      "wall_s": 16.8,
+      "errors": {
+       "A": 4.522744075230603e-09,
+       "B": 4.544101641321212e-09
+      }
+     },
+     {
+      "level": 2,
+      "N": 16,
+      "converged": true,
+      "iterations": 27,
+      "residual": 7.113373909419848e-07,
+      "wall_s": 22.1,
+      "errors": {
+       "A": 1.1642816769992833e-09,
+       "B": 1.2517118974085058e-09
+      }
+     },
+     {
+      "level": 3,
+      "N": 32,
+      "converged": true,
+      "iterations": 29,
+      "residual": 6.706242674122244e-07,
+      "wall_s": 113.7,
+      "errors": {
+       "A": 2.8207222616866437e-10,
+       "B": 3.1917273543290847e-10
+      }
+     }
+    ],
+    "note": null
+   },
+   "C12": {
+    "converged_every_level": true,
+    "levels": [
+     {
+      "level": 1,
+      "N": 8,
+      "converged": true,
+      "iterations": 35,
+      "residual": 2.4468460551140357e-07,
+      "wall_s": 129.4,
+      "errors": {
+       "A": 8.869000063054636e-09,
+       "B": 8.528700430466597e-09
+      }
+     },
+     {
+      "level": 2,
+      "N": 16,
+      "converged": true,
+      "iterations": 40,
+      "residual": 5.379714768085829e-07,
+      "wall_s": 103.1,
+      "errors": {
+       "A": 2.3829582106031316e-09,
+       "B": 2.6006031998652375e-09
+      }
+     },
+     {
+      "level": 3,
+      "N": 32,
+      "converged": true,
+      "iterations": 40,
+      "residual": 7.185292273478928e-07,
+      "wall_s": 189.2,
+      "errors": {
+       "A": 6.215721119827067e-10,
+       "B": 7.197807033776354e-10
+      }
+     }
+    ],
+    "note": null
+   },
+   "C7": {
+    "converged_every_level": true,
+    "levels": [
+     {
+      "level": 1,
+      "N": 8,
+      "converged": true,
+      "iterations": 27,
+      "residual": 1.1807185626555196e-07,
+      "wall_s": 35.0,
+      "errors": {
+       "A": 1.0069367140166468e-09,
+       "B": 1.156592306927502e-09
+      }
+     },
+     {
+      "level": 2,
+      "N": 16,
+      "converged": true,
+      "iterations": 27,
+      "residual": 5.105081245042389e-07,
+      "wall_s": 35.5,
+      "errors": {
+       "A": 2.681518653349498e-10,
+       "B": 3.441642241345195e-10
+      }
+     },
+     {
+      "level": 3,
+      "N": 32,
+      "converged": true,
+      "iterations": 27,
+      "residual": 7.094232225974559e-07,
+      "wall_s": 56.7,
+      "errors": {
+       "A": 6.825890808684005e-11,
+       "B": 9.376106517274096e-11
+      }
+     }
+    ],
+    "note": null
    }
   }
  }

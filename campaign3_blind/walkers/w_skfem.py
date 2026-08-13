@@ -133,9 +133,22 @@ for a in range(dim):
         if _is_iface_face(a, val):
             continue
         outer |= np.abs(P[:, a] - val) < 1e-9
-for box in cfg.get("remove", []):                    # the notch faces are outer
+# The faces of a REMOVED region are outer boundary -- for the notch, whose two
+# faces carry the stated datum -- EXCEPT where the removed region is the other
+# SUBDOMAIN, whose faces are the interface itself.
+#
+# Without that exception the whole interface is marked outer, every interface
+# node is constrained to the outer datum instead of to the partner's value, and
+# NOTHING SAYS SO: the partitioned iteration still converges (55 iterations to
+# 8.5e-07 here), because the two subproblems agree on a consistent wrong
+# interface state. Measured: the coupled error then sat at 1.5e-04 and 1.3e-04
+# on two levels, an observed order of 0.21 against a solution whose own RMS is
+# 2.5e-04. A converged residual is not evidence of a correct boundary set.
+for box in cfg.get("remove", []):
     for a, (lo, hi) in enumerate(box):
         for val in (lo, hi):
+            if _is_iface_face(a, val):
+                continue
             on = np.abs(P[:, a] - val) < 1e-9
             for b, (blo, bhi) in enumerate(box):
                 if b != a:
@@ -162,18 +175,49 @@ if vec:
 else:
     K = np.asarray(cfg["K"], float)
     react = float(cfg.get("reaction") or 0.0)
+    # A SUBDOMAIN MAY CARRY SEVERAL MATERIALS. The notched cell's subdomain A
+    # spans three material cells with three conductivities and three different
+    # sources; every shipped participant assumes one of each. Both are selected
+    # per QUADRATURE POINT from the box the point falls in, so nothing depends on
+    # how the mesh happened to be cut.
+    CELLS = cfg.get("cells")
+    if CELLS:
+        _funs = [W.make_fun(c["source"], dim) for c in CELLS]
 
-    @BilinearForm
-    def bilin(u, v, w):
-        gu, gv = grad(u), grad(v)
-        return sum(K[i, j] * gu[j] * gv[i]
-                   for i in range(dim) for j in range(dim)) + react * u * v
+        def _mask(w, box):
+            m = np.ones_like(w.x[0])
+            for a, (lo, hi) in enumerate(box):
+                m = m * ((w.x[a] > lo) & (w.x[a] < hi))
+            return m
 
-    fun = W.make_fun(src, dim)
+        @BilinearForm
+        def bilin(u, v, w):
+            gu, gv = grad(u), grad(v)
+            gg = sum(gu[i] * gv[i] for i in range(dim))
+            out = 0.0
+            for c in CELLS:
+                out = out + c["k"] * _mask(w, c["box"]) * gg
+            return out
 
-    @LinearForm
-    def lin(v, w):
-        return fun(*[w.x[i] for i in range(dim)]) * v
+        @LinearForm
+        def lin(v, w):
+            out = 0.0
+            for c, f in zip(CELLS, _funs):
+                out = out + (_mask(w, c["box"])
+                             * f(*[w.x[i] for i in range(dim)]) * v)
+            return out
+    else:
+        @BilinearForm
+        def bilin(u, v, w):
+            gu, gv = grad(u), grad(v)
+            return sum(K[i, j] * gu[j] * gv[i]
+                       for i in range(dim) for j in range(dim)) + react * u * v
+
+        fun = W.make_fun(src, dim)
+
+        @LinearForm
+        def lin(v, w):
+            return fun(*[w.x[i] for i in range(dim)]) * v
 
 
 A = asm(bilin, basis)

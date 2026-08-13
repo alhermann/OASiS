@@ -89,6 +89,8 @@ def make_cfg(spec, info, sources, side, level, N):
     extent = [list(map(float, a))
               for a in (spec["extent_a"] if side == "A" else spec["extent_b"])]
     axis = {"x": 0, "y": 1}.get(spec.get("interface_axis"))
+    if axis is None and info["family"] != "notched":
+        raise NotImplementedError(f"no interface axis for {spec['id']}")
     cfg = dict(side=spec["roles"][side], sidename=side,
                partner="B" if side == "A" else "A",
                code=codes[idx], level=level, dim=spec["dim"], axis=axis,
@@ -109,6 +111,38 @@ def make_cfg(spec, info, sources, side, level, N):
         if info.get("transient"):
             cfg.update(transient=dict(t_end=float(info["t_end"]),
                                       dt=float(info["t_end"]) / (2 * N)))
+    elif fam == "notched":
+        # The NON-RECTANGULAR subdomain and the BENT interface. A is the unit
+        # square minus subdomain B minus the notch, and carries THREE material
+        # cells with three different sources; B is the rectangle (1/2,1)x(0,1/2)
+        # and carries one. The interface is the polyline that separates them, so
+        # it has two outward normals and no single axis -- `axis` is None and
+        # every participant that reads it must cope.
+        half = 0.5
+        legs = [[0, half, [0.0, half]], [1, half, [half, 1.0]]]
+        kv, cells = info["kv"], info["cells"]
+        cfg.update(axis=None, xi=half, bent=legs, dim=2, physics="scalar")
+        if side == "A":
+            cfg.update(
+                extent=[[0.0, 1.0], [0.0, 1.0]], n=[N, N],
+                remove=[[[0.5, 1.0], [0.0, 0.5]], [[0.75, 1.0], [0.75, 1.0]]],
+                cells=[{"box": [[0.0, 0.5], [0.0, 0.5]],
+                        "k": float(kv[(0, 0)]),
+                        "source": sp.sstr(sources[(0, 0)])},
+                       {"box": [[0.0, 0.5], [0.5, 1.0]],
+                        "k": float(kv[(0, 1)]),
+                        "source": sp.sstr(sources[(0, 1)])},
+                       {"box": [[0.5, 1.0], [0.5, 1.0]],
+                        "k": float(kv[(1, 1)]),
+                        "source": sp.sstr(sources[(1, 1)])}],
+                K=[[float(kv[(0, 0)]), 0.0], [0.0, float(kv[(0, 0)])]],
+                reaction=0.0, source=sp.sstr(sources[(0, 0)]))
+        else:
+            k = float(kv[(1, 0)])
+            cfg.update(extent=[[0.5, 1.0], [0.0, 0.5]],
+                       n=[N // 2, N // 2],
+                       K=[[k, 0.0], [0.0, k]], reaction=0.0,
+                       source=sp.sstr(sources[(1, 0)]))
     else:
         raise NotImplementedError(f"walk config for family {fam!r}")
     return cfg

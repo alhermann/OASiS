@@ -282,19 +282,27 @@ else:
         # The reaction formula must NOT be used here: these dofs are free, r is
         # ~0, and it would silently export zero. The Dirichlet partner reads this
         # side's values, so an O(h) projection here is harmless.
-        p_, w_ = ufl.TrialFunction(V), ufl.TestFunction(V)
-        nrm = ufl.as_vector([default_scalar_type(S if i == axis else 0.0)
-                             for i in range(dim)])
-        if vec:
-            rhs = ufl.inner(-ufl.dot(sig(uh), nrm), w_) * ufl.dx
-            mass = ufl.inner(p_, w_) * ufl.dx
+        if axis is None:
+            # A BENT interface has a different outward normal on each leg, so
+            # there is no single n to project onto -- and none is needed: the
+            # Dirichlet partner reads this side's VALUES, never its flux.
+            # Exporting zeros is honest; projecting onto a normal that does not
+            # exist produced an integrand with no integration domain at all.
+            Q = np.zeros((len(inode), ncomp))
         else:
-            rhs = (-ufl.dot(K * ufl.grad(uh), nrm)) * w_ * ufl.dx
-            mass = p_ * w_ * ufl.dx
-        qh = LinearProblem(mass, rhs, petsc_options_prefix="flx",
-                           petsc_options=OPTS).solve()
-        Q = np.column_stack([qh.x.array[ncomp * inode + c]
-                             for c in range(ncomp)])
+            p_, w_ = ufl.TrialFunction(V), ufl.TestFunction(V)
+            nrm = ufl.as_vector([default_scalar_type(S if i == axis else 0.0)
+                                 for i in range(dim)])
+            if vec:
+                rhs = ufl.inner(-ufl.dot(sig(uh), nrm), w_) * ufl.dx
+                mass = ufl.inner(p_, w_) * ufl.dx
+            else:
+                rhs = (-ufl.dot(K * ufl.grad(uh), nrm)) * w_ * ufl.dx
+                mass = p_ * w_ * ufl.dx
+            qh = LinearProblem(mass, rhs, petsc_options_prefix="flx",
+                               petsc_options=OPTS).solve()
+            Q = np.column_stack([qh.x.array[ncomp * inode + c]
+                                 for c in range(ncomp)])
     U = np.column_stack([sol.x.array[ncomp * inode + c] for c in range(ncomp)])
 
 allU = np.column_stack([sol.x.array[ncomp * np.arange(len(XY)) + c]
