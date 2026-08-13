@@ -125,8 +125,8 @@ KNOWLEDGE = {
             "the one driving the adaptation) becomes noise, which can drive "
             "further refinement. Use 'maxlevel'. "
             "Signal: the Ngrid and Maxlevel columns keep climbing while Np is "
-            "flat; check 'compute reduce min' on a per-cell particle count and "
-            "require it to stay >= 1.",
+            "flat; reduce a per-cell particle count with a compute reduce in "
+            "min mode (doc/compute_reduce.txt) and require it to stay >= 1.",
 
             "[Setup] 'fix adapt' can only act on steps where the fix it reads "
             "has produced output, so its Nevery must be a multiple of that "
@@ -159,8 +159,9 @@ KNOWLEDGE = {
             "hypersonic case that means the post-shock region, not the shock "
             "itself. Adapting on the cell Knudsen number from 'compute "
             "lambda/grid ... knall' targets under-resolution directly. "
-            "Signal: after adaptation the cell Knudsen minimum from 'compute "
-            "reduce min c_lam[2]' has not improved — that alone is the "
+            "Signal: after adaptation the cell Knudsen minimum, reduced with a "
+            "compute reduce in min mode over c_lam[2], has not improved — "
+            "that alone is the "
             "observable, and the refinement went to the wrong cells. Do NOT "
             "also require Ngrid to have grown several-fold; an earlier wording "
             "bundled the two and only the first holds. Refining on particle "
