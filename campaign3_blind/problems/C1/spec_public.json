@@ -1,0 +1,100 @@
+{
+  "id": "C1",
+  "kind": "coupled",
+  "codes": [
+    "4C",
+    "fenics"
+  ],
+  "dim": 2,
+  "coords": [
+    "x",
+    "y"
+  ],
+  "code_a_label": "4C (write a YAML input file and run the 4C binary)",
+  "code_b_label": "FEniCSx (dolfinx)",
+  "physics": "steady thermoelasticity, decomposed: temperature and displacement transmitted together",
+  "physics_family": "thermo_mechanical",
+  "pooled": true,
+  "roles": {
+    "A": "dirichlet",
+    "B": "neumann"
+  },
+  "domain": "the {2: 'rectangle', 3: 'box'}[2] (0, 1.5) x (0, 1)",
+  "interface": "the line x = 5/8, where the two materials meet",
+  "interface_axis": "x",
+  "interface_value": "5/8",
+  "mesh_text": "uniform meshes, h halved per level: h = 1/8, 1/16, 1/32",
+  "interface_tol": "1e-6 relative",
+  "probe_iface": "the 44 points (x, y) = (5/8, 1/4 + (i+0.5)*1/2/44) for i = 0, 1, ..., 43. These cover the INTERIOR of the interface only: where the interface meets the outer boundary the split problem has a Dirichlet-Neumann corner, the recovered flux there does not converge under refinement, and those points are therefore not graded",
+  "mesh_N": [
+    8,
+    16,
+    32
+  ],
+  "theoretical_order": 2.0,
+  "tol": 0.4,
+  "band": [
+    0.8,
+    3.2
+  ],
+  "extent_a": [
+    [
+      0.0,
+      0.625
+    ],
+    [
+      0.0,
+      1.0
+    ]
+  ],
+  "extent_b": [
+    [
+      0.625,
+      1.5
+    ],
+    [
+      0.0,
+      1.0
+    ]
+  ],
+  "probe_M": 44,
+  "iface_graded_band": [
+    0.25,
+    0.75
+  ],
+  "iface_clearance_reason": "the interface ends are Dirichlet-Neumann corners of the split problem; the recovered flux there does not converge under refinement, so grading them would fail a correct submission",
+  "material_contrast": "k 3:1, mu 1:4, lambda and beta shared",
+  "evidence_grade": 1,
+  "evidence_grade_reason": "exact manufactured solution: proves the answer is CORRECT",
+  "graded_against": "hidden manufactured solution (true error) AND reference-free mesh halving",
+  "notes_public": "the two transmitted fields have very different interface stiffnesses (both follow from the conductivities, Lame parameters and subdomain widths above). A single scalar relaxation factor chosen for one can diverge in the other; a per-block or worst-block choice is safer.",
+  "flux_word": "flux and traction",
+  "components": [
+    "T",
+    "ux",
+    "uy"
+  ],
+  "subdomain_a": "A = (0, 0.625) x (0, 1), k = 3, lambda = 600, mu = 400",
+  "subdomain_b": "B = (0.625, 1.5) x (0, 1), k = 1, lambda = 600, mu = 1600",
+  "equation": "in each subdomain, BOTH of\n           -div(k grad T) = f_T\n           -div(sigma_tot(u, T)) = (f_x, f_y), with\n           sigma_tot = 2*mu*sym(grad(u)) + lambda*div(u)*I - beta*T*I   (plane strain, small strain)",
+  "coefficients": "subdomain A: k = 3, lambda = 600, mu = 400 (E = 1040, nu = 3/10); subdomain B: k = 1, lambda = 600, mu = 1600 (E = 40000/11, nu = 3/22). The thermal stress coefficient is beta = 1 in BOTH subdomains, so the linear expansion coefficients differ: alpha = beta/(3*lambda + 2*mu) = 1/2600 in A and 1/5000 in B.",
+  "interface_condition": "the temperature, the displacement vector, the normal heat flux and the traction sigma_tot.n (all components)",
+  "element": "Lagrange P1 for the temperature and vector Lagrange P1 for the displacement, in both codes",
+  "bc_text": "T = 0 and u = 0 (both components) on the entire outer boundary",
+  "iface_header": "x, y, T, ux, uy, qn, tx, ty",
+  "qn_name": "(qn, tx, ty)",
+  "qn_desc": "heat flux qn = -(k grad T) . n_out and traction t = sigma_tot(u, T) . n_out",
+  "qoi": "convergence order of the coupled temperature and displacement, plus the two-sided interface flux and traction jumps",
+  "source_public": {
+    "A": [
+      "-4*x**3*y/15 + 8*x**3/45 + 31*x**2*y/15 - 14*x**2/45 - 4*x*y**3/15 + 8*x*y**2/15 - 25*x*y/6 - 13*x/15 + 31*y**3/45 - 14*y**2/45 - 17*y/45",
+      "-322*x**2*y**3/45 + 3544*x**2*y**2/225 - 2096*x**2*y/225 + 6*x**2/5 + 2197*x*y**3/27 - 121106*x*y**2/675 + 71689*x*y/675 - 68*x/5 - 63*y**5/25 + 231*y**4/25 - 5011*y**3/300 + 1579*y**2/90 - 1469*y/180 + 1",
+      "2*x**3*y**2/45 - 8*x**3*y/135 + 2*x**3/135 + 13577*x**2*y**2/90 - 149618*x**2*y/675 + 88537*x**2/1350 - 9*x*y**4 + 132*x*y**3/5 - 959*x*y**2/20 + 9731*x*y/225 - 10153*x/900 + 66*y**4/5 - 968*y**3/25 + 858*y**2/25 - 44*y/5"
+    ],
+    "B": [
+      "-12*x**3*y/5 + 8*x**3/5 + 46*x**2*y/5 - 44*x**2/15 - 12*x*y**3/5 + 24*x*y**2/5 - 763*x*y/60 + 67*x/90 + 46*y**3/15 - 44*y**2/15 + 329*y/120 + 1/12",
+      "-76638*x**2*y**3/4655 + 848604*x**2*y**2/23275 - 506526*x**2*y/23275 + 13704*x**2/4655 - 6518111*x*y**3/111720 + 69569093*x*y**2/558600 - 80132579*x*y/1117200 + 686167*x/74480 - 5139*y**5/1225 + 18843*y**4/1225 + 1234460033*y**3/26812800 - 3509227327*y**2/26812800 + 612112063*y/7660800 - 1773313/170240",
+      "6*x**3*y**2/5 - 8*x**3*y/5 + 2*x**3/5 - 812669*x**2*y**2/3920 + 8827247*x**2*y/29400 - 10322441*x**2/117600 - 56529*x*y**4/4655 + 829092*x*y**3/23275 + 344728031*x*y**2/1276800 - 5729653543*x*y/13406400 + 358717771*x/2822400 - 117897*y**4/18620 + 432289*y**3/23275 - 38182829*y**2/5958400 - 22731529*y/1787520 + 2069989/376320"
+    ]
+  }
+}

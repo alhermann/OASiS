@@ -1,0 +1,96 @@
+{
+  "id": "C10",
+  "kind": "coupled",
+  "codes": [
+    "kratos",
+    "dune"
+  ],
+  "dim": 3,
+  "coords": [
+    "x",
+    "y",
+    "z"
+  ],
+  "code_a_label": "Kratos Multiphysics",
+  "code_b_label": "DUNE-fem",
+  "physics": "two-material conduction in 3-D, planar interface",
+  "physics_family": "diffusion",
+  "pooled": true,
+  "roles": {
+    "A": "dirichlet",
+    "B": "neumann"
+  },
+  "domain": "the {2: 'rectangle', 3: 'box'}[3] (0, 1.5) x (0, 1) x (0, 1)",
+  "interface": "the plane x = 5/8, where the two materials meet",
+  "interface_axis": "x",
+  "interface_value": "5/8",
+  "mesh_text": "uniform meshes, h halved per level: h = 1/8, 1/16, 1/32",
+  "interface_tol": "1e-6 relative",
+  "probe_iface": "the 441 points (x, y, z) = (5/8, 1/4 + (i+0.5)*1/2/21, 1/4 + (j+0.5)*1/2/21) for i, j = 0, 1, ..., 20, ordered with j varying fastest. These cover the INTERIOR of the interface only: where the interface meets the outer boundary the split problem has a Dirichlet-Neumann corner, the recovered flux there does not converge under refinement, and those points are therefore not graded",
+  "mesh_N": [
+    8,
+    16,
+    32
+  ],
+  "theoretical_order": 2.0,
+  "tol": 0.4,
+  "band": [
+    0.8,
+    3.2
+  ],
+  "extent_a": [
+    [
+      0.0,
+      0.625
+    ],
+    [
+      0.0,
+      1.0
+    ],
+    [
+      0.0,
+      1.0
+    ]
+  ],
+  "extent_b": [
+    [
+      0.625,
+      1.5
+    ],
+    [
+      0.0,
+      1.0
+    ],
+    [
+      0.0,
+      1.0
+    ]
+  ],
+  "probe_M": 21,
+  "iface_graded_band": [
+    0.25,
+    0.75
+  ],
+  "iface_clearance_reason": "the interface ends are Dirichlet-Neumann corners of the split problem; the recovered flux there does not converge under refinement, so grading them would fail a correct submission",
+  "material_contrast": "1:4",
+  "evidence_grade": 1,
+  "evidence_grade_reason": "exact manufactured solution: proves the answer is CORRECT",
+  "graded_against": "hidden manufactured solution (true error) AND reference-free mesh halving",
+  "notes_public": null,
+  "flux_word": "flux",
+  "subdomain_a": "A = (0, 0.625) x (0, 1) x (0, 1), thermal conductivity k = 1",
+  "subdomain_b": "B = (0.625, 1.5) x (0, 1) x (0, 1), thermal conductivity k = 4",
+  "equation": "-div(k grad u) = f in each subdomain",
+  "coefficients": "thermal conductivity k = 1 in subdomain A; thermal conductivity k = 4 in subdomain B",
+  "interface_condition": "the field and its normal flux",
+  "element": "Lagrange P1 elements in both codes",
+  "bc_text": "u = 0 on the entire outer boundary",
+  "iface_header": "x, y, z, u, qn",
+  "qn_name": "qn",
+  "qn_desc": "conductive flux qn = -(K grad u) . n_out",
+  "qoi": "convergence order of the coupled field, plus the two-sided interface flux jump",
+  "source_public": {
+    "A": "x**3*y**3 + 3*x**3*y*z**2 - 3*x**3*y*z - x**3*y - 167*x**2*y**3/160 - 4*x**2*y**2/5 - 501*x**2*y*z**2/160 + 501*x**2*y*z/160 + 59*x**2*y/32 - 4*x**2*z**2/5 + 4*x**2*z/5 + 3*x*y**3*z**2 - 3*x*y**3*z + 27*x*y**3/160 + 27*x*y**2/40 - 399*x*y*z**2/160 + 399*x*y*z/160 - 27*x*y/32 + 27*x*z**2/40 - 27*x*z/40 - 167*y**3*z**2/160 + 167*y**3*z/160 - 4*y**2*z**2/5 + 4*y**2*z/5 + 59*y*z**2/32 - 59*y*z/32",
+    "B": "x**3*y**3/16 + 3*x**3*y*z**2/16 - 3*x**3*y*z/16 - x**3*y/16 + 29*x**2*y**3/320 - x**2*y**2/5 + 87*x**2*y*z**2/320 - 87*x**2*y*z/320 + 7*x**2*y/64 - x**2*z**2/5 + x**2*z/5 + 3*x*y**3*z**2/16 - 3*x*y**3*z/16 - 771*x*y**3/5120 - 3*x*y**2/40 - 3273*x*y*z**2/5120 + 3273*x*y*z/5120 + 231*x*y/1024 - 3*x*z**2/40 + 3*x*z/40 + 29*y**3*z**2/320 - 29*y**3*z/320 - 387*y**3/2048 - y**2*z**2/5 + y**2*z/5 + 9*y**2/16 - 937*y*z**2/2048 + 937*y*z/2048 - 765*y/2048 + 9*z**2/16 - 9*z/16"
+  }
+}

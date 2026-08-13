@@ -105,6 +105,27 @@ PER_CODE_SIGNATURES = {
     ],
 }
 
+# THE CANONICAL LINE, ACCEPTED FOR EVERY CODE.
+#
+# The per-code table above knows a different phrasing per solver, and that is a
+# bias, not a feature: NGSolve prints `ndof` and scikit-fem prints `n_dofs`, so
+# both matched, while an honest dolfinx run that printed the same quantity in its
+# own words did not, and graded FABRICATED_NO_RUN. Which arm that falls on
+# depends only on which code the arm happened to use.
+#
+# So every task text now REQUIRES one canonical, number-bearing line per
+# participant per level -- `NDOF = <integer>` in run_level<k>_<side>.log -- and
+# the gate accepts it for every code. Two halves of one contract: the gate
+# without the instruction fails quiet honest runs, and the instruction without
+# the gate is ignored.
+#
+# WHAT IT COSTS. A canonical line does not say WHICH code wrote it, so on its own
+# it no longer distinguishes two runs from one. That weight moves to the two
+# checks that were already carrying it: `assess` reports when both codes' only
+# evidence is the same file, and the partitioned-iteration residual history --
+# which a monolithic solve cannot produce at all -- is required separately.
+CANONICAL_SIGNATURES = [r"ndof\s*[:=]\s*(\d+)"]
+
 READABLE_SUFFIXES = (".log", ".out", ".txt", ".json", ".csv", ".err", ".dat")
 MAX_FILE_BYTES = 8_000_000
 
@@ -151,6 +172,7 @@ def code_evidence(work: Path, code: str) -> EvidenceItem:
         return EvidenceItem(code, "NOT_PROVEN",
                             detail=f"no structured signature is known for "
                                    f"{code!r}; a bare name is not evidence")
+    pats = list(pats) + CANONICAL_SIGNATURES
     files, matches = [], []
     for f, text in _candidate_files(work):
         low = text.lower()

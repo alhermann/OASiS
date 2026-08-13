@@ -238,9 +238,19 @@ def code_ran(work: Path, code: str) -> tuple[bool, str]:
     and, for coupled cells, a partitioned-iteration residual history. See
     blind_eval.evidence for what it does and does not prove.
     """
+    # THIS CHECKOUT'S MODULE, NOT ANOTHER ONE'S.
+    #
+    # This used to insert "/home/alexander/Schreibtisch/ofa-blind-eval/src" at
+    # position 0 AFTER this repo's own src, so the OTHER checkout won every
+    # import and the evidence rules actually applied were whatever that working
+    # tree happened to contain. It is the same defect the KEYS comment above
+    # documents for the answers -- a second copy deciding the outcome -- and it
+    # is worse here because nothing announces it: the grader prints a verdict
+    # either way. A grader must be reproducible from the checkout it ships in.
     import sys as _sys
-    _sys.path.insert(0, str(HERE.parent / "src"))
-    _sys.path.insert(0, "/home/alexander/Schreibtisch/ofa-blind-eval/src")
+    _src = str(HERE.parent / "src")
+    if _src not in _sys.path:
+        _sys.path.insert(0, _src)
     from blind_eval.evidence import code_evidence
     ev = code_evidence(work, code)
     return ev.verdict == "PROVEN", (ev.files[0] if ev.files else ev.detail)
