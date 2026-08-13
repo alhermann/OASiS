@@ -1235,9 +1235,129 @@ def cell_FC2(d):
     return s, u, f, co, dict(kind="mixed_elasticity", mu=mu, lam=lam, p=p)
 
 
+def cell_FC1(d):
+    """4C, TRANSIENT heat conduction MMS, integrator and dt sequence pinned.
+
+    The D8 lesson applies: T(t) = t*exp(t/2) is deliberately not a low-degree
+    polynomial, because a quadratic T makes one-step-theta at theta = 1/2
+    exact in time and the cell silently stops testing the integrator.
+    """
+    kappa = sp.Integer(1)
+    tend = sp.Rational(1, 4)
+    u, f, co, u_tend = transient_diffusion(d, kappa, tend)
+    s = _base("FC1", "4C", "4C (write a .4C.yaml input file and run the 4C "
+              "binary)",
+              "transient heat conduction", "transient", 2, [8, 16, 32], 2.0,
+              0.4, BAND_P1,
+              domain="the unit square (0,1) x (0,1)",
+              equation="dT/dt - div(k grad T) = f  (transient heat conduction "
+                       "with volumetric heat capacity 1)",
+              coefficients="conductivity k = 1, volumetric heat capacity 1",
+              initial_condition="T = 0 everywhere at t = 0",
+              bc_text="T = 0 on the entire boundary at all times",
+              element="THERMO QUAD4 elements (bilinear, continuous) on "
+                      "quadrilaterals",
+              time_grid="one-step-theta with THETA = 1/2 (Crank-Nicolson), "
+                        "integrated to t_end = 1/4 with dt = h/4, i.e. "
+                        "dt = 1/32, 1/64, 1/128 on the three levels (8, 16 and "
+                        "32 steps). Use exactly this integrator, this theta and "
+                        "these step counts: the temporal order is part of what "
+                        "is assessed, and a different theta has a different "
+                        "one. Report the solution at t = t_end.",
+              mesh_text="uniform meshes of the unit square with N = 8, 16, 32 "
+                        "elements per side (h = 1/N), with dt halved alongside "
+                        "h as stated above, all three levels",
+              graded_note="\nReport the temperature at t = t_end = 1/4 at the "
+                          "probe points.\n")
+    return s, u, f, co, dict(kind="transient_scalar", K=kappa * sp.eye(2),
+                             u_tend=u_tend, tend=tend)
+
+
+def cell_FB2(d):
+    """FEBio, transient quasi-static VISCOELASTICITY, manufactured history.
+
+    u(x,t) = g(t) U(x) with g(t) = (t/tend)^2. At small strain the FEBio
+    viscoelastic stress (G(t) = g0 + g1 exp(-t/t1) convolving the FULL elastic
+    PK2 stress -- read off FEViscoElasticMaterial::Stress) separates:
+    S(t) = Gconv(t) * sigma_e(U), so equilibrium gives the body force
+    f(x,t) = Gconv(t) * f_spatial(x) with f_spatial = -div(sigma_e(U)) and
+
+        Gconv(t) = g0 g(t) + g1 * int_0^t exp(-(t-s)/t1) g'(s) ds
+                 = [g0 t^2 + 2 g1 t1 (t - t1 (1 - e^(-t/t1)))] / tend^2.
+
+    g quadratic, NOT linear, for the D8 reason in viscoelastic form: FEBio's
+    recurrence integrates the exponential exactly for a stress history that is
+    linear over the step, so a linear g would make the time integration exact
+    and the cell would silently stop testing it. Quadratic g leaves the O(dt^2)
+    per-history error in place, matching the spatial order with dt = h.
+    """
+    E, nu = sp.Integer(1000), sp.Rational(1, 4)
+    lam = E * nu / ((1 + nu) * (1 - 2 * nu))
+    mu = E / (2 * (1 + nu))
+    g0, g1, t1 = sp.Rational(1, 2), sp.Rational(1, 2), sp.Rational(1, 4)
+    tend = sp.Integer(1)
+    U, f_spatial, co = elasticity(d, lam, mu, 2, amp=sp.Rational(1, 100000))
+    gt = (t / tend) ** 2
+    Gconv = sp.expand(g0 * t ** 2
+                      + 2 * g1 * t1 * (t - t1 * (1 - sp.exp(-t / t1)))) / tend ** 2
+    u_tend = [sp.expand(c * 1) for c in U]          # g(tend) = 1
+    s = _base("FB2", "febio",
+              "FEBio (write a .feb input file and run the febio4 binary)",
+              "quasi-static viscoelasticity, transient load", "transient", 2,
+              [8, 16, 32], 2.0, 0.4, BAND_P1, components=["ux", "uy"],
+              domain="the unit square (0,1) x (0,1), in PLANE STRAIN. FEBio is "
+                     "a three-dimensional code, so model this as the slab "
+                     "(0,1) x (0,1) x (0, 1/8) with exactly ONE element through "
+                     "the thickness and the z displacement fixed to zero at "
+                     "EVERY node.",
+              equation="QUASI-STATIC VISCOELASTICITY: div(sigma(t)) + f(x,t) = "
+                       "0 at every instant, with the viscoelastic stress "
+                       "sigma(t) = integral_0^t G(t-s) d/ds sigma_e(u(s)) ds, "
+                       "relaxation function G(t) = g0 + g1*exp(-t/t1), and "
+                       "sigma_e the small-strain elastic stress "
+                       "2*mu*eps(u) + lambda*tr(eps(u))*I. The body starts "
+                       "unloaded and at rest: u = 0 and sigma = 0 at t = 0.",
+              coefficients=f"elastic part: E = {E}, nu = 1/4 (lambda = {lam}, "
+                           f"mu = {mu}). Viscoelastic part: g0 = 1/2, "
+                           f"g1 = 1/2, t1 = 1/4 (so G(0) = 1 and "
+                           f"G(inf) = 1/2). Mass density 1.",
+              initial_condition="u = 0 everywhere at t = 0; the load below is "
+                                "zero at t = 0 and grows in time",
+              bc_text="u = 0 (both in-plane components) on the four lateral "
+                      "faces x = 0, x = 1, y = 0 and y = 1 at all times; and "
+                      "uz = 0 at every node of the model",
+              element="hex8 trilinear elements, ONE element through the "
+                      "thickness, standard displacement formulation, "
+                      "quasi-static (no inertia)",
+              time_grid="integrate from t = 0 to t_end = 1 with UNIFORM steps "
+                        "dt = h, i.e. dt = 1/8, 1/16, 1/32 on the three levels "
+                        "(8, 16 and 32 steps). Use exactly these step counts; "
+                        "the time discretisation of the relaxation integral is "
+                        "part of what is assessed. Report the solution at "
+                        "t = t_end.",
+              notes_public="two things are deliberate and must not be 'fixed'. "
+                           "(1) The displacement scale is small, of order "
+                           "1e-6; do not rescale the load, and do report full "
+                           "precision. (2) f is defined by the equilibrium "
+                           "equation exactly as printed. A solver's body-force "
+                           "input may use the opposite sign convention, or a "
+                           "force per unit MASS rather than per unit volume; "
+                           "check what the code you use expects before you "
+                           "supply it.",
+              mesh_text="uniform meshes of the square with N = 8, 16, 32 "
+                        "elements per side in x and y (h = 1/N) and one element "
+                        "in z, with dt = h as stated above, all three levels",
+              graded_note="\nReport the two IN-PLANE displacement components "
+                          "ux and uy AT t = t_end = 1. They may be taken at "
+                          "any z: the solution does not depend on it.\n")
+    return s, u_tend, (f_spatial, Gconv), co, dict(
+        kind="viscoelastic", lam=lam, mu=mu, U=U, gt=gt,
+        expr_limit=FEBIO_EXPR_LIMIT)
+
+
 CELLS = [cell_FE1, cell_FE2, cell_DL1, cell_DL2, cell_NG1, cell_NG2,
          cell_SK1, cell_SK2, cell_KR1, cell_KR2, cell_DU1, cell_DU2,
-         cell_FB1, cell_FC2]
+         cell_FB1, cell_FC2, cell_FC1, cell_FB2]
 
 
 # ── build, verify, seal ───────────────────────────────────────────────────
@@ -1262,7 +1382,35 @@ def build_one(fn, seed=None):
 
     kind = aux["kind"]
     checks, numeric = {}, {}
-    if kind == "scalar":
+    src_override, f_text_override = None, None
+    if kind == "transient_scalar":
+        sym, num = check_scalar(u, f, coords, aux["K"], transient=True)
+        checks["strong_form"] = (sym == 0)
+        numeric["residual"] = num
+        graded = [aux["u_tend"]]
+        src_override = sp.sstr(f)
+        f_text_override = f"f(x, y, t) = {src_override}"
+    elif kind == "viscoelastic":
+        f_spatial, GC = f
+        ok, num = check_vector(aux["U"], f_spatial, coords, aux["lam"],
+                               aux["mu"])
+        checks["spatial_strong_form"] = ok
+        numeric["residual"] = num
+        # The time factor must satisfy the convolution ODE it claims to:
+        # for I(t) = int_0^t e^{-(t-s)/t1} g'(s) ds,  I' + I/t1 = g'(t), I(0)=0.
+        g0v, g1v, t1v = (sp.Rational(1, 2), sp.Rational(1, 2),
+                         sp.Rational(1, 4))
+        part = sp.expand(GC - g0v * aux["gt"])
+        ode = sp.simplify(sp.diff(part, t) + part / t1v
+                          - g1v * sp.diff(aux["gt"], t))
+        checks["relaxation_ode"] = (ode == 0 and sp.simplify(GC.subs(t, 0)) == 0)
+        graded = list(u)                       # u here is u(., t_end)
+        GCs = sp.sstr(GC)
+        src_override = [f"({GCs})*({sp.sstr(c)})" for c in f_spatial]
+        f_text_override = ("f_ux(x, y, t) = " + src_override[0]
+                           + "\n               f_uy(x, y, t) = "
+                           + src_override[1])
+    elif kind == "scalar":
         sym, num = check_scalar(u, f, coords, aux["K"],
                                 reaction=aux.get("reaction", 0),
                                 advect=aux.get("advect"),
@@ -1334,8 +1482,11 @@ def build_one(fn, seed=None):
     checks["boundary_data"] = (bmax == 0.0)
 
     exprs = [sp.sstr(e) for e in graded]
-    src = ([sp.sstr(e) for e in f] if isinstance(f, (list, tuple))
-           else sp.sstr(f))
+    if src_override is not None:
+        src = src_override
+    else:
+        src = ([sp.sstr(e) for e in f] if isinstance(f, (list, tuple))
+               else sp.sstr(f))
     lim = aux.get("expr_limit")
     if lim:
         for i, e in enumerate(src if isinstance(src, list) else [src]):
@@ -1346,7 +1497,8 @@ def build_one(fn, seed=None):
                     f"This is a hard property of the installed build, not a "
                     f"style preference: it segfaults after reporting the input "
                     f"read successfully.")
-    f_text = _fmt_source(spec, f)
+    f_text = (f_text_override if f_text_override is not None
+              else _fmt_source(spec, f))
     task = build_task(spec, f_text)
     gate = scan(task, {"exact_solution": exprs, "source_term": src},
                 spec["id"])
