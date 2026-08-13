@@ -33,7 +33,8 @@
   "D6": true,
   "D7": true,
   "D8": true,
-  "FE1": true
+  "FE1": true,
+  "NG1": true
  },
  "blocking": "No instance is blocked. All fifteen execution paths were walked non-blind and the results discarded. The two non-path blockers recorded below were REPAIRED after this walk: the B1-B7 task texts were brought to the grader's PROBE_M at 28d29eec, and the grader was taught to honour a non-rectangular subdomain's probe exclusion at 93bede18. Both repairs are gated by tests/test_blind_task_grid_matches_grader.py, which fails if the task text and the grader ever disagree again.",
  "walk_2026_08_09": {
@@ -230,7 +231,8 @@
   "D2": "SUPERSEDES the 2026-08-08 entry, which read: 'NO 3-D COUPLED SOLVER RUN EXISTS ... its path remains unproven.' A 3-D scalar coupled solve now exists and has run: FEniCSx <-> deal.II through the registered `couple` tool, two mesh levels, converged in 24 iterations both times, cross-checked against an independent un-split 3-D solve.",
   "D4": "FEniCSx <-> deal.II vector exchange through `couple`, executed 2026-08-08 and passed, both arrangements. Unchanged.",
   "scalar_instances": "D1, D3, D5, D6, D7 were the pre-existing conduction exchange with fixtures but no throwaway run recorded against these instances. Each now has one.",
-  "FE1": "single-code cell, walked end to end by the builder before it was committed: solved in FE1 at every prescribed level, probe values submitted to grade_blind.py with the run_level<k>.log NDOF contract lines, verdict CORRECT at observed order 1.988 against a theoretical 2.0 (tolerance 0.4), R2 = 1.0, errors 0.005015 -> 0.001277 -> 0.0003209 -> 8.03e-05."
+  "FE1": "single-code cell, walked end to end by the builder before it was committed: solved in FE1 at every prescribed level, probe values submitted to grade_blind.py with the run_level<k>.log NDOF contract lines, verdict CORRECT at observed order 1.988 against a theoretical 2.0 (tolerance 0.4), R2 = 1.0, errors 0.005015 -> 0.001277 -> 0.0003209 -> 8.03e-05.",
+  "NG1": "single-code cell, walked end to end by the builder before it was committed: solved in NG1 at every prescribed level, probe values submitted to grade_blind.py with the run_level<k>.log NDOF contract lines, verdict CORRECT at observed order 2.063 against a theoretical 2.0 (tolerance 0.4), R2 = 0.9995, errors 0.001849 -> 0.0004059 -> 0.0001027 -> 2.536e-05."
  },
  "d4_measured_here": {
   "rho_normal": 0.6532,
