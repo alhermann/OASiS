@@ -1726,7 +1726,18 @@ def main():
     ap.add_argument("--apply", action="store_true")
     ap.add_argument("--only", nargs="*", default=None)
     ap.add_argument("--seed", type=int, default=None)
+    ap.add_argument("--sparta", action="store_true",
+                    help="emit the two band-only SPARTA cells (task + spec + "
+                         "sealed band key); they carry no manufactured "
+                         "solution and are NOT recorded path-verified")
     a = ap.parse_args()
+
+    if a.sparta:
+        keys = Path(os.environ.get(
+            "OASIS_BLIND_KEYS",
+            "/home/alexander/Schreibtisch/qwen_uplift_test/campaign3_blind/keys"))
+        emit_sparta(HERE / "problems", keys)
+        return 0
 
     built, failed = [], []
     for fn in CELLS:
