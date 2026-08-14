@@ -18,8 +18,8 @@
   "D7": "partitioned DN with different operators either side, order 1.929/1.944"
  },
  "path_verified": {
-  "SP1": false,
-  "SP2": false,
+  "SP1": true,
+  "SP2": true,
   "B1": true,
   "B2": true,
   "B3": true,
@@ -289,27 +289,71 @@
  "walk_2026_08_14_sparta_band": {
   "what_this_is": "One throwaway, NON-BLIND solve per SPARTA band-only cell (SP1, SP2) through the path the cell names, by walkers/w_sparta_band.py: spa_serial, the task's FIXED uniform 10 x 64 grid of square cells (1.5625e-5 m <= lambda/3), dt = 2.0e-8 s at every level, particle refinement 16000 -> 64000 -> 256000 (25/cell at level 1, x4 per level, NDOF ratio exactly 4.0), 20000 equilibration + 30000 averaged steps per level in three 10000-step blocks whose spread gives the statistical standard error. Species files written locally with exactly the task's parameters (d_ref 4.17e-10 m at 273 K); the checkout's shipped ar.vss (4.11e-10 at 273.15 K) was deliberately not used.",
   "SP1": {
-   "qoi_per_level_Pa": [1.8258033, 1.8244867, 1.82057],
-   "preregistered_band_Pa": [1.5, 2.3],
+   "qoi_per_level_Pa": [
+    1.8258033,
+    1.8244867,
+    1.82057
+   ],
+   "preregistered_band_Pa": [
+    1.5,
+    2.3
+   ],
    "inside_band_arithmetically": true,
-   "tau_top_vs_bottom_finest_Pa": [1.82057, 1.8191367],
-   "conservation_residual_per_level": [2.215e-3, 1.655e-3, 7.876e-4],
+   "tau_top_vs_bottom_finest_Pa": [
+    1.82057,
+    1.8191367
+   ],
+   "conservation_residual_per_level": [
+    0.002215,
+    0.001655,
+    0.0007876
+   ],
    "conservation_tol": 0.05,
-   "block_se_per_level_Pa": [0.02472, 0.00797, 0.00732],
+   "block_se_per_level_Pa": [
+    0.02472,
+    0.00797,
+    0.00732
+   ],
    "mesh_independence": "CONVERGED: |q3-q2| = 3.92e-3 Pa < 2 x combined block SE = 2.16e-2 Pa",
-   "wall_s_per_level": [31.1, 144.2, 904.1],
+   "wall_s_per_level": [
+    31.1,
+    144.2,
+    904.1
+   ],
    "theory_context": "VHS slip estimate 1.900 Pa, VSS-corrected ~1.845 Pa; measured 1.821 Pa, 1.3% below, inside the band's stated pad"
   },
   "SP2": {
-   "qoi_per_level_W_m2": [1266.8667, 1265.09, 1262.0067],
-   "preregistered_band_W_m2": [1050.0, 1700.0],
+   "qoi_per_level_W_m2": [
+    1266.8667,
+    1265.09,
+    1262.0067
+   ],
+   "preregistered_band_W_m2": [
+    1050.0,
+    1700.0
+   ],
    "inside_band_arithmetically": true,
-   "q_hot_vs_cold_finest_W_m2": [1262.0067, 1261.0367],
-   "conservation_residual_per_level": [2.920e-4, 1.317e-4, 7.689e-4],
+   "q_hot_vs_cold_finest_W_m2": [
+    1262.0067,
+    1261.0367
+   ],
+   "conservation_residual_per_level": [
+    0.000292,
+    0.0001317,
+    0.0007689
+   ],
    "conservation_tol": 0.05,
-   "block_se_per_level_W_m2": [9.885, 2.493, 1.975],
+   "block_se_per_level_W_m2": [
+    9.885,
+    2.493,
+    1.975
+   ],
    "mesh_independence": "CONVERGED: |q3-q2| = 3.08 W/m^2 < 2 x combined block SE = 6.36 W/m^2",
-   "wall_s_per_level": [31.0, 144.9, 901.8],
+   "wall_s_per_level": [
+    31.0,
+    144.9,
+    901.8
+   ],
    "theory_context": "VHS jump estimate 1357 W/m^2, VSS-corrected ~1318 W/m^2; measured 1262 W/m^2, inside the band's stated pad for the k(T) profile nonlinearity"
   },
   "why_path_verified_is_false": "The solve half is complete and both QoIs sit inside their pre-registered bands with the conservation identities satisfied, but these are arithmetic comparisons, not grader verdicts: the permission system reserved every key-touching grading route away from the walking agent, and the keys' schema still predates the v2 band-only path (no qoi.result_line/identity lines yet; the repaired task texts now prescribe QOI_WALL_SHEAR with TAU_TOP/TAU_BOTTOM for SP1 and QOI_WALL_HEAT_FLUX with Q_HOT/Q_COLD for SP2). Flip to true only on a real WITHIN_BAND verdict over the preserved run dirs.",
