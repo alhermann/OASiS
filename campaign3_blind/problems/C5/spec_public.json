@@ -25,6 +25,24 @@
   "interface": "the bent polyline consisting of the segment x = 1/2, 0 < y < 1/2 and the segment y = 1/2, 1/2 < x < 1. Its two legs have different outward normals AND different material contrasts",
   "interface_axis": "polyline",
   "interface_value": "1/2",
+  "iface_legs": [
+    {
+      "axis": 0,
+      "value": 0.5,
+      "band": [
+        0.125,
+        0.375
+      ]
+    },
+    {
+      "axis": 1,
+      "value": 0.5,
+      "band": [
+        0.625,
+        0.875
+      ]
+    }
+  ],
   "equation": "-div(k grad u) = f, with k piecewise constant",
   "coefficients": "k = 1 on (0,1/2)x(0,1/2); k = 5/2 on (1/2,1)x(0,1/2); k = 5 on (1/2,1)x(1/2,1); k = 2 on (0,1/2)x(1/2,1). The contrast is 1:5/2 across the vertical leg of the interface and 1:2 across the horizontal leg.",
   "interface_condition": "the field and its normal flux",
@@ -104,9 +122,9 @@
   "arrangement": "notched (non-convex) domain, non-rectangular subdomain, bent interface with two normals and two contrasts, four material cells meeting at a cross point",
   "notes_public": "the two legs of the interface carry OPPOSITE conductance ratios, so a single global relaxation factor must satisfy the stricter of the two; the values follow from the conductivities and subdomain widths above.",
   "source_public": {
-    "cell00": "-3*x**4*y + 11*x**4/8 + 8*x**3*y**2 - 188*x**3*y/5 + 1227*x**3/80 - 6*x**2*y**3 - 43*x**2*y**2/20 + 19951*x**2*y/400 - 4337*x**2/200 + 4*x*y**4 - 188*x*y**3/5 + 19749*x*y**2/400 - 51963*x*y/1600 + 2877*x/400 - 26*y**4/15 + 5269*y**3/300 - 4337*y**2/200 + 2277*y/320",
-    "cell01": "-3*x**4*y/4 + 5*x**4/16 + x**3*y**2 - 42*x**3*y/5 + 103*x**3/32 - 3*x**2*y**3/2 + 23*x**2*y**2/40 + 603*x**2*y/50 - 823*x**2/160 + x*y**4/2 - 42*x*y**3/5 + 8061*x*y**2/800 - 889*x*y/320 - 2229*x/1600 - 13*y**4/60 + 1583*y**3/400 - 733*y**2/160 - 1301*y/2400 + 553/400",
-    "cell10": "-24*x**4*y/125 + 11*x**4/125 + 32*x**3*y**2/25 - 824*x**3*y/125 + 1359*x**3/500 - 48*x**2*y**3/125 - 94*x**2*y**2/125 + 839*x**2*y/125 - 5711*x**2/2000 + 16*x*y**4/25 - 824*x*y**3/125 + 3717*x*y**2/500 + 2061*x*y/2000 - 12231*x/8000 - 16*y**4/75 + 1723*y**3/750 - 4271*y**2/2000 - 23013*y/8000 + 12627/8000",
-    "cell11": "-6*x**4*y/125 + x**4/50 + 4*x**3*y**2/25 - 186*x**3*y/125 + 23*x**3/40 - 12*x**2*y**3/125 - x**2*y**2/25 + 63*x**2*y/40 - 2569*x**2/4000 + 2*x*y**4/25 - 186*x*y**3/125 + 327*x*y**2/200 + 2081*x*y/2000 - 13503*x/16000 - 2*y**4/75 + 521*y**3/1000 - 413*y**2/800 - 22439*y/24000 + 8281/16000"
+    "cell00": "3*x**4*y - 11*x**4/8 + 12*x**3*y**2 - 123*x**3*y/20 - x**3/40 + 6*x**2*y**3 - 477*x**2*y**2/20 + 2799*x**2*y/400 + 1423*x**2/800 + 6*x*y**4 - 123*x*y**3/20 + 993*x*y**2/200 + 63*x*y/1600 - 609*x/800 - 13*y**4/5 + 279*y**3/200 + 1423*y**2/800 - 327*y/320",
+    "cell01": "3*x**4*y/4 - 5*x**4/16 + 3*x**3*y**2/2 - 3*x**3*y/80 - 13*x**3/32 + 3*x**2*y**3/2 - 153*x**2*y**2/40 - 873*x**2*y/800 + 119*x**2/80 + 3*x*y**4/4 - 3*x*y**3/80 - 471*x*y**2/800 + 9*x*y/16 - 3*x/800 - 13*y**4/40 - 241*y**3/800 + 37*y**2/40 - 107*y/3200 - 849/3200",
+    "cell10": "24*x**4*y/125 - 11*x**4/125 + 48*x**3*y**2/25 - 51*x**3*y/125 - 67*x**3/250 + 48*x**2*y**3/125 - 306*x**2*y**2/125 + 36*x**2*y/125 + 811*x**2/2000 + 24*x*y**4/25 - 51*x*y**3/125 - 471*x*y**2/250 + 657*x*y/1000 + 603*x/4000 - 8*y**4/25 + 9*y**3/250 + 2971*y**2/2000 - 2487*y/8000 - 801/4000",
+    "cell11": "6*x**4*y/125 - x**4/50 + 6*x**3*y**2/25 + 69*x**3*y/500 - x**3/8 + 12*x**2*y**3/125 - 9*x**2*y**2/25 - 9*x**2*y/40 + 769*x**2/4000 + 3*x*y**4/25 + 69*x*y**3/500 - 51*x*y**2/100 - 549*x*y/8000 + 2853*x/16000 - y**4/25 - 71*y**3/1000 + 233*y**2/800 + 419*y/4000 - 2031/16000"
   }
 }

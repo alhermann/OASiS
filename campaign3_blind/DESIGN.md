@@ -1022,17 +1022,55 @@ reading two different sources and have disagreed for eight of fifteen instances
 at once. All twelve pass, C5 included at 1331 points on its non-rectangular
 subdomain.
 
-## 7. What is NOT done, stated plainly
+## 7. What was NOT done at the time of this amendment — since REPAIRED
 
-* **C13 (FEniCSx + SPARTA, FEM-DSMC, grade 3) and C14 (4C + FEniCSx FSI, grade
-  2) are not built.** They sit outside the pooled twelve by construction -- the
-  pool's arithmetic is exact at 24 slots -- and both need a grading path that
-  does not exist: `grade_run` opens `key["exact_solution"]` unconditionally, so
-  a grade-3 band-only instance and a grade-2 QoI-against-monolithic instance
-  cannot be graded by it as written.
-* **C1 and C4 have no recorded walk.** C1 needs a 4C thermo-structure
-  participant and C4 a transient deal.II one; neither exists and neither was
-  written. `run_blind.py` refuses them, which is the correct state.
+Everything in this section was true when the amendment was written and is
+retained for the record; the follow-up work landed in the commits named.
+
+* **C13 and C14 were not built** because no grading path existed for them.
+  Grader v2 (branch `feature/grader-rebuild`) added the band-only and
+  reference paths, and both cells are now built by `build_offpool.py`, walked,
+  and verified against v2: C13 (FEniCSx + SPARTA conjugate heat transfer,
+  grade 3) with its theta-band PRE-REGISTERED from slip/free-molecular theory
+  and committed BEFORE its walk ran — the walk landed inside it at 0.6576
+  against [0.5508, 0.6587], with the interface energy balance at 1.8% of its
+  8% tolerance (commits 555d4a1f, 1c0b0292); C14 (4C + FEniCSx steady FSI,
+  grade 2) against a sealed Newton-Krylov re-solve of the coupled interface
+  system, split-vs-Newton agreement 1.6e-9 (commit 555d4a1f).
+* **C1 and C4 had no recorded walk.** Both do now (commit efd2086a): C1
+  through a 4C participant that runs Scalar_Transport with 4C's own
+  CALCFLUX_BOUNDARY consistent flux plus a one-way-TSI one-element-thick slab
+  for the displacement (order 1.84/1.83); C4 through a transient deal.II
+  participant (mode 2 of iface_dealii.cc) under Crank-Nicolson waveform
+  relaxation (order 1.95/2.12). All fourteen cells now have recorded walks.
 * The walks measure the error at each participant's own NODES against the
   manufactured field. That is weaker than the graded probe grid and stronger
   than an un-split reference solve, and it is what the recorded orders mean.
+  (Unchanged.)
+
+### Cross-grader acceptance, added after the amendment
+
+The twelve pooled cells were re-verified against grader v2 as well as v1:
+12/12 grade CORRECT under both. Getting there surfaced one real cell defect
+and two defects of the acceptance harness itself, all fixed:
+
+* **C5's public spec could not describe its bent interface to v2.** v2's
+  structured interface machinery takes `iface_legs` ({axis, value, band} per
+  leg) and refuses to guess geometry; C5 carried only
+  `interface_axis: "polyline"`. The spec now records both legs with their
+  graded bands.
+* **The harness's synthetic NDOF did not grow.** v2 requires the per-level
+  NDOF sequence to grow like 2^dim under the prescribed halving — a constant
+  sequence reads as the same mesh submitted three times — and rightly graded
+  the old synthetic MALFORMED_SUBMISSION.
+* **The harness's synthetic error was pooled, not per-field.** On the
+  thermoelastic cell the pooled offset was ~1000x the displacement's own
+  scale and v2's per-field magnitude bounds rightly graded it
+  CONFIDENTLY_WRONG. Each component now carries an error proportional to its
+  own RMS — which is also what a real second-order error looks like.
+* **Interface traces are the limit from inside the subdomain.** The notched
+  cell's Piecewise selects by strict inequalities, so evaluating it exactly ON
+  the material line — where the interface probes definitionally sit — returned
+  the wrong cell's polynomial, and v2's two-sided jump gate refused it. The
+  harness now evaluates each side's trace a nudge inside its own region, which
+  is what a finite element submission's trace is.

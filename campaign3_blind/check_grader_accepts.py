@@ -76,12 +76,33 @@ def build_submission(pid: str, key: dict, spec: dict, work: Path,
     dim, coords = key["dim"], key["coords"]
     comps = key.get("components", ["u"])
     ncomp = len(comps)
-    ref = float(key.get("exact_rms") or 1.0)
-    c0 = rel * ref
     tol = float(spec.get("interface_tol", "1e-6").split()[0])
     info = {}
+    # THE SYNTHETIC ERROR IS SCALED PER COMPONENT. A single pooled offset is
+    # what a correct run does NOT look like when the fields have different
+    # scales: on the thermoelastic cell (T ~ 2.7e-2 RMS, u ~ 1e-5) the pooled
+    # offset is ~1000x the displacement's own magnitude, and grader v2's
+    # per-field magnitude bounds rightly graded that CONFIDENTLY_WRONG /
+    # IMPLAUSIBLE_MAGNITUDE(ux, uy). Each component gets rel x its OWN RMS
+    # over the probe grid, decaying 4x per level — which is what a real
+    # second-order error does.
+    comp_rms = {}
+    for side in ("A", "B"):
+        bounds = G.subdomain_bounds(key, side, dim)
+        excl = G.probe_exclusions(pid, side)
+        pts = G.probe_grid(dim, bounds, excl)
+        src = key["exact_solution"][side]
+        ex = (src if isinstance(src, list) else [src])
+        for c, e in enumerate(ex):
+            f = sp.lambdify([SYMS[cc] for cc in coords],
+                            sp.sympify(e, locals=SYMS), "math")
+            acc = sum(float(f(*p)) ** 2 for p in pts)
+            comp_rms.setdefault(c, []).append((acc, len(pts)))
+    comp_rms = {c: (sum(a for a, _ in v) / sum(n for _, n in v)) ** 0.5
+                for c, v in comp_rms.items()}
     for lvl in range(1, len(key["mesh_N"]) + 1):
-        off = c0 * 4.0 ** -(lvl - 1) / (ncomp ** 0.5)
+        offs = {c: rel * max(r, 1e-300) * 4.0 ** -(lvl - 1)
+                for c, r in comp_rms.items()}
         for side in ("A", "B"):
             bounds = G.subdomain_bounds(key, side, dim)
             excl = G.probe_exclusions(pid, side)
@@ -95,16 +116,22 @@ def build_submission(pid: str, key: dict, spec: dict, work: Path,
             with open(work / f"solution_level{lvl}_{side}.csv", "w") as fh:
                 fh.write(",".join(coords + comps) + "\n")
                 for p in pts:
-                    vals = [float(f(*p)) + off for f in fns]
+                    vals = [float(f(*p)) + offs[c]
+                            for c, f in enumerate(fns)]
                     fh.write(",".join(f"{v:.17g}" for v in list(p) + vals)
                              + "\n")
             info[f"n_{side}"] = len(pts)
             # The execution log both codes must write. `NDOF = <n>` is the
-            # canonical, number-bearing line the evidence gate accepts for every
-            # code; the task text asks for exactly this file.
+            # canonical, number-bearing line the evidence gate accepts for
+            # every code, and grader v2 additionally requires the per-level
+            # sequence to GROW like 2**dim under the prescribed halving — a
+            # constant NDOF reads as the same mesh submitted as a sequence.
+            # The first version of this builder wrote 12345 + lvl and v2
+            # rightly graded it MALFORMED_SUBMISSION.
             code = key["codes"][0 if side == "A" else 1]
             (work / f"run_level{lvl}_{side}.log").write_text(
-                f"code = {code}\nside = {side}\nNDOF = {12345 + lvl}\n")
+                f"code = {code}\nside = {side}\n"
+                f"NDOF = {1200 * (2 ** dim) ** (lvl - 1)}\n")
         # A partitioned-iteration residual history: at least three iterations,
         # positive, falling by more than 10x, ending at or below the prescribed
         # interface tolerance. A monolithic solve has none at all.
@@ -117,6 +144,114 @@ def build_submission(pid: str, key: dict, spec: dict, work: Path,
                 i += 1
             fh.write(f"{i},{r:.6e}\n")
             info["iters"] = i
+    # ── the interface files, from the spec's own probe rules ──────────
+    #
+    # v1 never read these; grader v2 does, and a correct submission without
+    # them is MALFORMED there (measured: all twelve graded
+    # MALFORMED_SUBMISSION / INTERFACE_CONTRACT before this block existed).
+    # The VALUES are the sealed solution's exact interface trace. The FLUXES
+    # are a nonzero equal-and-opposite pair: the two-sided gate checks
+    # u_A - u_B = 0 and q_A + q_B = 0 and refuses all-zero fluxes — it cannot
+    # check the flux against truth (that is the whole reference-free design) —
+    # so an equal-and-opposite placeholder is exactly what the CONTRACT check
+    # needs, and this harness verifies the contract, not the physics.
+    M = 44 if dim == 2 else 21
+    legs = spec.get("iface_legs")
+    if not legs and spec.get("interface_axis") in ("x", "y", "z"):
+        legs = [{"axis": {"x": 0, "y": 1, "z": 2}[spec["interface_axis"]],
+                 "value": float(sp.Rational(spec["interface_value"])),
+                 "band": spec.get("iface_graded_band")}]
+    ipts = []                     # (point, leg axis) pairs
+    if legs and dim == 2:
+        for leg in legs:
+            a, b = leg["band"]
+            w_ = b - a
+            for i in range(M):
+                pt = [0.0, 0.0]
+                pt[leg["axis"]] = float(leg["value"])
+                pt[1 - leg["axis"]] = a + (i + 0.5) * w_ / M
+                ipts.append((pt, leg["axis"]))
+    elif legs and dim == 3:
+        leg = legs[0]
+        a, b = leg["band"]
+        w_ = b - a
+        free = [i for i in range(3) if i != leg["axis"]]
+        for i in range(M):
+            for j in range(M):
+                pt = [0.0, 0.0, 0.0]
+                pt[leg["axis"]] = float(leg["value"])
+                pt[free[0]] = a + (i + 0.5) * w_ / M
+                pt[free[1]] = a + (j + 0.5) * w_ / M
+                ipts.append((pt, leg["axis"]))
+    if ipts:
+        header = spec.get("iface_header") or ", ".join(
+            coords + comps + ["qn"])
+        names = [c.strip() for c in header.split(",")]
+        nval = len(comps)
+        nflux = len(names) - dim - nval
+        exprs_by_side = {}
+        for side in ("A", "B"):
+            src = key["exact_solution"][side]
+            ex = (src if isinstance(src, list) else [src])
+            exprs_by_side[side] = [
+                sp.lambdify([SYMS[c] for c in coords],
+                            sp.sympify(e, locals=SYMS), "math") for e in ex]
+
+        # THE TRACE IS THE LIMIT FROM INSIDE THE SUBDOMAIN. A key whose
+        # non-rectangular side is a Piecewise over STRICT inequalities selects
+        # the wrong branch exactly ON a material line — and the interface IS a
+        # material line, so evaluating the stored expression at the on-line
+        # point returned the wrong cell's polynomial and the two-sided jump
+        # gate rightly refused it (measured on the notched cell:
+        # INTERFACE_NOT_SATISFIED with an O(1) field jump). A real FE
+        # submission reports its trace, which is the inside limit; so each
+        # side's values are evaluated a nudge INSIDE its own region, while the
+        # written coordinates stay exactly on the line.
+        def _inside(side, q):
+            def inbox(qq, box):
+                return all(lo - 1e-12 <= c <= hi + 1e-12
+                           for c, (lo, hi) in zip(qq, box))
+
+            def strictly(qq, box):
+                return all(lo + 1e-12 < c < hi - 1e-12
+                           for c, (lo, hi) in zip(qq, box))
+            ea = [tuple(a) for a in key["extent_a"]]
+            eb = [tuple(a) for a in key["extent_b"]]
+            if side == "B":
+                return inbox(q, eb)
+            if not inbox(q, ea):
+                return False
+            if strictly(q, eb):
+                return False
+            for box in (spec.get("probe_a_exclude") or []):
+                if strictly(q, [tuple(a) for a in box]):
+                    return False
+            return True
+
+        def _eval_pt(side, pt, leg_axis):
+            eps = 1e-9
+            for sgn in (-1.0, +1.0):
+                q = list(pt)
+                q[leg_axis] += sgn * eps
+                if _inside(side, q):
+                    return q
+            return list(pt)
+        for lvl in range(1, len(key["mesh_N"]) + 1):
+            for side in ("A", "B"):
+                sgn = 1.0 if side == "A" else -1.0
+                with open(work / f"interface_level{lvl}_{side}.csv",
+                          "w") as fh:
+                    fh.write(header + "\n")
+                    for pt, laxis in ipts:
+                        q = _eval_pt(side, pt, laxis)
+                        vals = [float(f(*q))
+                                for f in exprs_by_side[side][:nval]]
+                        flux = [sgn * (1.0 + abs(vals[0]) + 0.1 * c)
+                                for c in range(nflux)]
+                        fh.write(",".join(f"{v:.17g}"
+                                          for v in list(pt) + vals + flux)
+                                 + "\n")
+
     (work / "RESULT.txt").write_text(
         f"LEVELS = {len(key['mesh_N'])}\n"
         f"FILES = {', '.join(sorted(p.name for p in work.glob('*.csv')))}\n"

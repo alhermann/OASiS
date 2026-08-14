@@ -591,7 +591,14 @@ def instance_C5(d):
                   "0 < y < 1/2 and the segment y = 1/2, 1/2 < x < 1. Its two "
                   "legs have different outward normals AND different material "
                   "contrasts",
+        # A BENT interface cannot be described by one axis; grader v2's
+        # structured interface machinery takes `iface_legs` — one
+        # {axis, value, band} per leg, matching the INTERFACE PROBE POINTS the
+        # task text states. Leg 1 runs along y at x = 1/2, graded on
+        # y in (1/8, 3/8); leg 2 along x at y = 1/2, graded on x in (5/8, 7/8).
         interface_axis="polyline", interface_value="1/2",
+        iface_legs=[{"axis": 0, "value": 0.5, "band": [0.125, 0.375]},
+                    {"axis": 1, "value": 0.5, "band": [0.625, 0.875]}],
         equation="-div(k grad u) = f, with k piecewise constant",
         coefficients="k = 1 on (0,1/2)x(0,1/2); k = 5/2 on (1/2,1)x(0,1/2); "
                      "k = 5 on (1/2,1)x(1/2,1); k = 2 on (0,1/2)x(1/2,1). "
