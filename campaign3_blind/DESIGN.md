@@ -901,3 +901,176 @@ Sealing needs no secret, so this work could have done it — and deliberately di
 not. Another actor is mid-lifecycle on this tree, a concurrent seal is exactly
 what produced the PARTIAL-state race in §5, and re-creating it for whoever is
 working there would be worse than leaving one documented step undone.
+
+# Amendment 4 — 2026-08-13. The coupled set was a claim about FEniCSx
+
+Made before any evaluation run against these instances. Nothing is invalidated:
+the campaign has produced no result from the coupled set, and no key was opened
+while this was built.
+
+## 1. What was wrong with the eight
+
+`build_coupled_v2.py` builds eight coupled instances. SEVEN of them have FEniCSx
+on one side. 4C, DUNE, FEBio and SPARTA appear in NONE. A number computed from
+that matrix and reported as multi-code coupling is a number about FEniCSx with
+four partners, and no amount of care in the grading changes what it measures.
+
+## 2. The replacement, balanced by count and checked rather than asserted
+
+Twelve pooled instances, in which each of the eight FEM backends appears in
+EXACTLY three pairs:
+
+| id | codes | roles (A,B) | family | physics |
+|---|---|---|---|---|
+| C1 | 4C + FEniCSx | D,N | thermo-mechanical | steady thermoelasticity, decomposed |
+| C2 | 4C + Kratos | D,N | diffusion | conduction, contrast 1:200 |
+| C3 | DUNE + 4C | D,N | reaction-diffusion | different operators, HORIZONTAL interface |
+| C4 | FEniCSx + deal.II | D,N | transient diffusion | transient two-material heat |
+| C5 | scikit-fem + FEniCSx | D,N | diffusion | notched domain, bent L-interface, four materials |
+| C6 | deal.II + NGSolve | D,N | conjugate heat transfer | anisotropic tensor jump |
+| C7 | FEBio + deal.II | D,N | elasticity | mu 1:5 |
+| C8 | NGSolve + Kratos | D,N | diffusion | contrast 1:1000, role FORCED |
+| C9 | NGSolve + scikit-fem | N,D | elasticity | horizontal interface |
+| C10 | Kratos + DUNE | D,N | diffusion | 3-D, planar interface |
+| C11 | FEBio + scikit-fem | D,N | elasticity | mu 1:4 |
+| C12 | DUNE + FEBio | D,N | elasticity | mu 1:5/2 |
+
+`verify_balance()` re-derives the whole claim from the built specs and refuses
+the set if it does not hold: 8 backends x 3 pairs, 24 slots split 12 Dirichlet /
+12 Neumann, every backend carrying both roles, FEniCSx and deal.II on the harder
+Neumann side twice each, 4C / DUNE / FEBio there at most once.
+
+**Four constructions are carried over** because they are the most discriminating
+the old set had and count-balance is not a reason to lose them. They keep their
+original code pair and original roles, so their recorded walks carry over as
+evidence about the arrangement: the notched non-convex domain with a bent
+L-polyline interface and four materials (C5, was D5); the 1:1000 contrast whose
+role assignment is forced (C8, was D6); the transient exchange (C4, was D8); and
+genuinely different operators either side (C3, was D7's idea, moved to a pair
+that had no instance of it and put on a horizontal interface).
+
+## 3. Three things the old set left free, now prescribed
+
+**The Dirichlet/Neumann role of each subdomain is in the task text.** It was the
+agent's choice, and it is not a free one: the shipped Kratos participant is
+Dirichlet-only, and D6 measured that the instance needing it on the Neumann side
+cannot converge in the other role at all (60 iterations, residual 0.988). A free
+role correlates difficulty with an unrecorded decision.
+
+**Every cell carries a two-material contrast**, verified NON-VACUOUS by the
+transmission checks rather than assumed.
+
+**Every cell excludes the interface ends from grading**, derived by
+`_iface_band` and never hand-written.
+
+## 4. The conductance ratio is a design variable, and the driver decides it
+
+The shipped driver is JACOBI and relaxes both exchanged blocks with ONE scalar
+theta. In the error variables its amplification eigenvalues are
+`(1 - theta) ± theta*sqrt(rho)` with `rho = c_D/c_N`, `c = k/L`. The plus branch
+is `1 + theta*(sqrt(rho) - 1)`, which exceeds 1 for EVERY theta in (0,1] as soon
+as `rho > 1`. An instance whose DIRICHLET side carries the higher interface
+conductance therefore cannot be made to converge with this driver by any choice
+of relaxation factor.
+
+Measured on C9 as first built (rho = 3.6): at theta = 0.5 and again at 0.2 the
+residual oscillated between 0.39 and 1.75 for 30 iterations and never fell,
+while both fields were already within 2% of the manufactured solution.
+Exchanging the two shear moduli gives rho = 0.14 and convergence in 25
+iterations at every level.
+
+The corollary is that rho near ONE is also impractical: the best achievable
+contraction is `sqrt(rho)` whatever theta is, so C7 at mu 1:2 measured 0.97 per
+iteration and would have needed ~700 iterations per level. Both C1 and C9 were
+rebuilt to put the lower conductance on the Dirichlet side, and C7's contrast
+was moved from 1:2 to 1:5. The remaining spread is deliberate: C3 and C7 sit
+near the slow end and C8 converges in seven iterations.
+
+## 5. Defects found and fixed, each of which rejects a correct submission
+
+* **A transient key stored the SPACE-TIME field.** The grader lambdifies
+  `exact_solution` over the SPATIAL coordinates only, so an expression still
+  carrying `t` produces a function with an unbound global; `rms_error` catches
+  the NameError and returns None and `grade_run` reports INVALID_SUBMISSION,
+  "error not computable", before any comparison against truth. D8 has this. C4
+  stores the field at `t_end`, which is what the task asks for.
+* **A four-material key stored per-CELL fields and no A/B entry.** `grade_run`
+  reads `key["exact_solution"]["A"]` and raises KeyError. D5 has this. C5 stores
+  one Piecewise per SUBDOMAIN; the probe grid never lands on a material line, so
+  the strict inequalities are unambiguous at every graded point.
+* **`grade_blind.code_ran` imported `blind_eval.evidence` from ANOTHER
+  checkout**, inserted at sys.path position 0 after this repo's own, so that
+  copy won every import and the evidence rules actually applied were whatever
+  that working tree contained. Same shape as the two-copies defect the KEYS
+  comment documents, and worse because nothing announces it.
+* **The evidence gate knew a different phrasing per code.** NGSolve's `ndof` and
+  scikit-fem's `n_dofs` matched; dolfinx's did not, so an honest quiet dolfinx
+  run graded FABRICATED_NO_RUN on print phrasing alone, and which arm that falls
+  on depends only on which code the arm used. The gate now accepts one canonical
+  `NDOF = <n>` line for every code, and EVERY generated task text requires
+  `run_level<k>_<side>.log` carrying it. Two halves of one contract.
+
+## 6. What the acceptance check is, and why it is not optional
+
+`check_grader_accepts.py` builds, for each instance, the submission a correct run
+would produce -- the exact field at the prescribed probe points plus a synthetic
+`c*4^-k` error, a converging partitioned-residual history, the NDOF logs both
+codes must write, and RESULT.txt -- and requires the verdict to be CORRECT. It
+also compares the probe count the TASK TEXT prescribes against the count
+`grade_blind.probe_grid()` BUILDS, which are two independent pieces of code
+reading two different sources and have disagreed for eight of fifteen instances
+at once. All twelve pass, C5 included at 1331 points on its non-rectangular
+subdomain.
+
+## 7. What was NOT done at the time of this amendment — since REPAIRED
+
+Everything in this section was true when the amendment was written and is
+retained for the record; the follow-up work landed in the commits named.
+
+* **C13 and C14 were not built** because no grading path existed for them.
+  Grader v2 (branch `feature/grader-rebuild`) added the band-only and
+  reference paths, and both cells are now built by `build_offpool.py`, walked,
+  and verified against v2: C13 (FEniCSx + SPARTA conjugate heat transfer,
+  grade 3) with its theta-band PRE-REGISTERED from slip/free-molecular theory
+  and committed BEFORE its walk ran — the walk landed inside it at 0.6576
+  against [0.5508, 0.6587], with the interface energy balance at 1.8% of its
+  8% tolerance (commits 555d4a1f, 1c0b0292); C14 (4C + FEniCSx steady FSI,
+  grade 2) against a sealed Newton-Krylov re-solve of the coupled interface
+  system, split-vs-Newton agreement 1.6e-9 (commit 555d4a1f).
+* **C1 and C4 had no recorded walk.** Both do now (commit efd2086a): C1
+  through a 4C participant that runs Scalar_Transport with 4C's own
+  CALCFLUX_BOUNDARY consistent flux plus a one-way-TSI one-element-thick slab
+  for the displacement (order 1.84/1.83); C4 through a transient deal.II
+  participant (mode 2 of iface_dealii.cc) under Crank-Nicolson waveform
+  relaxation (order 1.95/2.12). All fourteen cells now have recorded walks.
+* The walks measure the error at each participant's own NODES against the
+  manufactured field. That is weaker than the graded probe grid and stronger
+  than an un-split reference solve, and it is what the recorded orders mean.
+  (Unchanged.)
+
+### Cross-grader acceptance, added after the amendment
+
+The twelve pooled cells were re-verified against grader v2 as well as v1:
+12/12 grade CORRECT under both. Getting there surfaced one real cell defect
+and two defects of the acceptance harness itself, all fixed:
+
+* **C5's public spec could not describe its bent interface to v2.** v2's
+  structured interface machinery takes `iface_legs` ({axis, value, band} per
+  leg) and refuses to guess geometry; C5 carried only
+  `interface_axis: "polyline"`. The spec now records both legs with their
+  graded bands.
+* **The harness's synthetic NDOF did not grow.** v2 requires the per-level
+  NDOF sequence to grow like 2^dim under the prescribed halving — a constant
+  sequence reads as the same mesh submitted three times — and rightly graded
+  the old synthetic MALFORMED_SUBMISSION.
+* **The harness's synthetic error was pooled, not per-field.** On the
+  thermoelastic cell the pooled offset was ~1000x the displacement's own
+  scale and v2's per-field magnitude bounds rightly graded it
+  CONFIDENTLY_WRONG. Each component now carries an error proportional to its
+  own RMS — which is also what a real second-order error looks like.
+* **Interface traces are the limit from inside the subdomain.** The notched
+  cell's Piecewise selects by strict inequalities, so evaluating it exactly ON
+  the material line — where the interface probes definitionally sit — returned
+  the wrong cell's polynomial, and v2's two-sided jump gate refused it. The
+  harness now evaluates each side's trace a nudge inside its own region, which
+  is what a finite element submission's trace is.

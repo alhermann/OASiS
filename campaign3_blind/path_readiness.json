@@ -48,7 +48,21 @@
   "FB1": true,
   "FC2": true,
   "FC1": true,
-  "FB2": true
+  "FB2": true,
+  "C8": true,
+  "C9": true,
+  "C10": true,
+  "C2": true,
+  "C3": true,
+  "C6": true,
+  "C11": true,
+  "C12": true,
+  "C7": true,
+  "C5": true,
+  "C1": true,
+  "C4": true,
+  "C14": true,
+  "C13": true
  },
  "blocking": "No instance is blocked. All fifteen execution paths were walked non-blind and the results discarded. The two non-path blockers recorded below were REPAIRED after this walk: the B1-B7 task texts were brought to the grader's PROBE_M at 28d29eec, and the grader was taught to honour a non-rectangular subdomain's probe exclusion at 93bede18. Both repairs are gated by tests/test_blind_task_grid_matches_grader.py, which fails if the task text and the grader ever disagree again.",
  "walk_2026_08_09": {
@@ -269,5 +283,521 @@
   "note": "D4's own component spread is mild, so the worst-component theta coincides with the normal-component one and the instance is not in the regime the relaxation fixture warns about. Recorded as a measurement, not a reassurance."
  },
  "single_code_set_2026_08_13": "The single-code half was rebuilt as a GENERATED set (build_single_v2.py), two cells per backend, because the seven hand-written predecessors had drifted away from the grader: their probe rule and grade_blind's probe grid no longer agreed, so every submission would have been rejected as INVALID_SUBMISSION whatever its physics. The generator imports PROBE_M, probe_grid and MAX_COARSE_REL from grade_blind and asserts, per cell, that the rule printed in the task rebuilds the grader's evaluation set exactly. Every id below was walked end to end before it was committed: solved in its own named code at every prescribed level, submitted to grade_blind.py together with the run_level<k>.log NDOF contract lines, and confirmed to grade CORRECT. The finest error of every cell clears the stated 12-significant-digit output floor by at least 1e7, against a requirement of 100x.",
- "single_code_final_sweep_2026_08_13": "Structural sweep over all fourteen committed single-code cells, run after the last one was written: every task carries the run_level<k>.log NDOF = <integer> contract line; the probe rule printed in every task rebuilds grade_blind.probe_grid exactly (1936 points in 2D, 9261 in 3D); every key carries code, mesh_N, theoretical_order, tol, band, sig_digits and exact_rms, so no cell degrades to the grader's rate-only path; the sealed exact solution of every cell vanishes on the boundary it is claimed to (checked by substitution, not asserted); and every id is recorded verified here. Result: SWEEP CLEAN, 14/14. Blindness is enforced upstream instead: build_single_v2 refuses to write a cell whose leak gate is not clean, and all fourteen were written."
+ "single_code_final_sweep_2026_08_13": "Structural sweep over all fourteen committed single-code cells, run after the last one was written: every task carries the run_level<k>.log NDOF = <integer> contract line; the probe rule printed in every task rebuilds grade_blind.probe_grid exactly (1936 points in 2D, 9261 in 3D); every key carries code, mesh_N, theoretical_order, tol, band, sig_digits and exact_rms, so no cell degrades to the grader's rate-only path; the sealed exact solution of every cell vanishes on the boundary it is claimed to (checked by substitution, not asserted); and every id is recorded verified here. Result: SWEEP CLEAN, 14/14. Blindness is enforced upstream instead: build_single_v2 refuses to write a cell whose leak gate is not clean, and all fourteen were written.",
+ "walk_2026_08_13_balanced": {
+  "what_this_is": "One throwaway, NON-BLIND run per instance through the path that instance names, for the BALANCED coupled set C1-C12. Nothing here is a result. The walk does not open the published instance: it rebuilds the same builder with a FRESH CSPRNG draw, so geometry, materials, roles, mesh sequence, transmission conditions and both participants are identical while the hidden coefficients are different ones. No sealed key was touched. The field the error is measured against exists only in the walking process and is never written to the run tree.",
+  "driver": "core.coupling_driver.run_coupling, the same driver the registered `couple` tool calls, with probe=False.",
+  "measured_where": "RMS error at each participant's OWN NODES against the manufactured field, so the number is the solver's and not an interpolator's.",
+  "finding_that_changed_the_design": {
+   "what": "The shipped driver is JACOBI and relaxes both exchanged blocks with ONE scalar theta. In the error variables the amplification eigenvalues are (1 - theta) +/- theta*sqrt(rho) with rho = c_D/c_N, c = k/L. The PLUS branch is 1 + theta*(sqrt(rho) - 1), which exceeds 1 for EVERY theta in (0,1] as soon as rho > 1: an instance whose DIRICHLET side carries the higher interface conductance cannot be made to converge with this driver by any choice of relaxation factor.",
+   "measured_on": "C9 as first built (mu 1:5, Dirichlet on the stiff subdomain, rho = 3.6): at theta = 0.5 and again at theta = 0.2 the driver residual oscillated between 0.39 and 1.75 for 30 iterations and never fell, with all eight exchanged blocks moving by more than 100% per iteration, while both fields were already within 2% of the manufactured solution. Exchanging the two shear moduli (rho = 0.14) gives convergence in 25 iterations at every level.",
+   "consequence": "C1 and C9 were rebuilt with the lower conductance on the prescribed Dirichlet side. It is the same finding D6 recorded from the other direction (Kratos as Dirichlet at rho = 714: 60 iterations, residual stuck at 0.988)."
+  },
+  "participants_written_for_this_set": {
+   "note": "None of these ship; absence of a participant is work the agent under test has to do.",
+   "ngsolve": "scalar tensor-K + reaction and VECTOR elasticity, both roles, interface on either axis",
+   "skfem": "same, plus a NON-RECTANGULAR subdomain and a BENT interface",
+   "kratos": "the NEUMANN role (participant_kratos.py is Dirichlet-only) and the 3-D branch",
+   "dune": "the VECTOR (elasticity) participant, which does not exist at all: participant_dune.py is scalar-only",
+   "fenics": "spatially varying source, transient, bent interface, thermoelastic pair"
+  },
+  "per_instance": {
+   "C8": {
+    "converged_every_level": true,
+    "levels": [
+     {
+      "level": 1,
+      "N": 8,
+      "converged": true,
+      "iterations": 6,
+      "residual": 9.806114995248662e-07,
+      "wall_s": 4.6,
+      "errors": {
+       "A": 0.0002992390318276121,
+       "B": 1.4301546973845716e-06
+      }
+     },
+     {
+      "level": 2,
+      "N": 16,
+      "converged": true,
+      "iterations": 7,
+      "residual": 3.361046250795334e-07,
+      "wall_s": 5.6,
+      "errors": {
+       "A": 8.130096102530795e-05,
+       "B": 3.7698996423293625e-07
+      }
+     },
+     {
+      "level": 3,
+      "N": 32,
+      "converged": true,
+      "iterations": 7,
+      "residual": 3.553874885397261e-07,
+      "wall_s": 5.9,
+      "errors": {
+       "A": 2.1173456437556173e-05,
+       "B": 9.642895343808873e-08
+      }
+     }
+    ],
+    "note": null
+   },
+   "C9": {
+    "converged_every_level": true,
+    "levels": [
+     {
+      "level": 1,
+      "N": 8,
+      "converged": true,
+      "iterations": 25,
+      "residual": 6.407034709893269e-07,
+      "wall_s": 20.1,
+      "errors": {
+       "A": 4.518379109435e-08,
+       "B": 3.8013234399795435e-08
+      }
+     },
+     {
+      "level": 2,
+      "N": 16,
+      "converged": true,
+      "iterations": 25,
+      "residual": 8.255617925968704e-07,
+      "wall_s": 20.5,
+      "errors": {
+       "A": 1.2049875848261089e-08,
+       "B": 9.928249702107438e-09
+      }
+     },
+     {
+      "level": 3,
+      "N": 32,
+      "converged": true,
+      "iterations": 26,
+      "residual": 6.694302750958952e-07,
+      "wall_s": 26.6,
+      "errors": {
+       "A": 3.027794303508922e-09,
+       "B": 2.470686476222904e-09
+      }
+     }
+    ],
+    "note": null
+   },
+   "C10": {
+    "converged_every_level": true,
+    "levels": [
+     {
+      "level": 1,
+      "N": 8,
+      "converged": true,
+      "iterations": 21,
+      "residual": 9.558503797924371e-07,
+      "wall_s": 75.8,
+      "errors": {
+       "A": 0.000126875242864847,
+       "B": 9.013259903877101e-06
+      }
+     },
+     {
+      "level": 2,
+      "N": 16,
+      "converged": true,
+      "iterations": 21,
+      "residual": 4.504139124695667e-07,
+      "wall_s": 63.5,
+      "errors": {
+       "A": 3.656253706074688e-05,
+       "B": 2.348202070031006e-06
+      }
+     }
+    ],
+    "note": null
+   },
+   "C2": {
+    "converged_every_level": true,
+    "levels": [
+     {
+      "level": 1,
+      "N": 8,
+      "converged": true,
+      "iterations": 11,
+      "residual": 3.5850875860423476e-07,
+      "wall_s": 16.3,
+      "errors": {
+       "A": 3.2368796022221635e-05,
+       "B": 2.7630191718095007e-05
+      }
+     },
+     {
+      "level": 2,
+      "N": 16,
+      "converged": true,
+      "iterations": 11,
+      "residual": 4.1535445856768677e-07,
+      "wall_s": 16.9,
+      "errors": {
+       "A": 9.049840493929686e-06,
+       "B": 7.616267716536375e-06
+      }
+     },
+     {
+      "level": 3,
+      "N": 32,
+      "converged": true,
+      "iterations": 11,
+      "residual": 4.4151511396062256e-07,
+      "wall_s": 20.6,
+      "errors": {
+       "A": 2.3780815842653892e-06,
+       "B": 1.98804906134269e-06
+      }
+     }
+    ],
+    "note": null
+   },
+   "C3": {
+    "converged_every_level": true,
+    "levels": [
+     {
+      "level": 1,
+      "N": 8,
+      "converged": true,
+      "iterations": 88,
+      "residual": 9.549134579447723e-07,
+      "wall_s": 655.6,
+      "errors": {
+       "A": 0.0003301896104073057,
+       "B": 0.00019341040415981806
+      }
+     },
+     {
+      "level": 2,
+      "N": 16,
+      "converged": true,
+      "iterations": 88,
+      "residual": 9.892799472596753e-07,
+      "wall_s": 307.4,
+      "errors": {
+       "A": 8.727189049478606e-05,
+       "B": 4.959738452195181e-05
+      }
+     }
+    ],
+    "note": null
+   },
+   "C6": {
+    "converged_every_level": true,
+    "levels": [
+     {
+      "level": 1,
+      "N": 8,
+      "converged": true,
+      "iterations": 21,
+      "residual": 9.734669728962417e-07,
+      "wall_s": 32.9,
+      "errors": {
+       "A": 0.0010247742031244227,
+       "B": 0.0005072475257535125
+      }
+     },
+     {
+      "level": 2,
+      "N": 16,
+      "converged": true,
+      "iterations": 22,
+      "residual": 9.857130924703754e-07,
+      "wall_s": 33.0,
+      "errors": {
+       "A": 0.0002854874300501462,
+       "B": 0.0001590318649023056
+      }
+     }
+    ],
+    "note": null
+   },
+   "C11": {
+    "converged_every_level": true,
+    "levels": [
+     {
+      "level": 1,
+      "N": 8,
+      "converged": true,
+      "iterations": 24,
+      "residual": 8.985380265490525e-07,
+      "wall_s": 16.8,
+      "errors": {
+       "A": 4.522744075230603e-09,
+       "B": 4.544101641321212e-09
+      }
+     },
+     {
+      "level": 2,
+      "N": 16,
+      "converged": true,
+      "iterations": 27,
+      "residual": 7.113373909419848e-07,
+      "wall_s": 22.1,
+      "errors": {
+       "A": 1.1642816769992833e-09,
+       "B": 1.2517118974085058e-09
+      }
+     },
+     {
+      "level": 3,
+      "N": 32,
+      "converged": true,
+      "iterations": 29,
+      "residual": 6.706242674122244e-07,
+      "wall_s": 113.7,
+      "errors": {
+       "A": 2.8207222616866437e-10,
+       "B": 3.1917273543290847e-10
+      }
+     }
+    ],
+    "note": null
+   },
+   "C12": {
+    "converged_every_level": true,
+    "levels": [
+     {
+      "level": 1,
+      "N": 8,
+      "converged": true,
+      "iterations": 35,
+      "residual": 2.4468460551140357e-07,
+      "wall_s": 129.4,
+      "errors": {
+       "A": 8.869000063054636e-09,
+       "B": 8.528700430466597e-09
+      }
+     },
+     {
+      "level": 2,
+      "N": 16,
+      "converged": true,
+      "iterations": 40,
+      "residual": 5.379714768085829e-07,
+      "wall_s": 103.1,
+      "errors": {
+       "A": 2.3829582106031316e-09,
+       "B": 2.6006031998652375e-09
+      }
+     },
+     {
+      "level": 3,
+      "N": 32,
+      "converged": true,
+      "iterations": 40,
+      "residual": 7.185292273478928e-07,
+      "wall_s": 189.2,
+      "errors": {
+       "A": 6.215721119827067e-10,
+       "B": 7.197807033776354e-10
+      }
+     }
+    ],
+    "note": null
+   },
+   "C7": {
+    "converged_every_level": true,
+    "levels": [
+     {
+      "level": 1,
+      "N": 8,
+      "converged": true,
+      "iterations": 27,
+      "residual": 1.1807185626555196e-07,
+      "wall_s": 35.0,
+      "errors": {
+       "A": 1.0069367140166468e-09,
+       "B": 1.156592306927502e-09
+      }
+     },
+     {
+      "level": 2,
+      "N": 16,
+      "converged": true,
+      "iterations": 27,
+      "residual": 5.105081245042389e-07,
+      "wall_s": 35.5,
+      "errors": {
+       "A": 2.681518653349498e-10,
+       "B": 3.441642241345195e-10
+      }
+     },
+     {
+      "level": 3,
+      "N": 32,
+      "converged": true,
+      "iterations": 27,
+      "residual": 7.094232225974559e-07,
+      "wall_s": 56.7,
+      "errors": {
+       "A": 6.825890808684005e-11,
+       "B": 9.376106517274096e-11
+      }
+     }
+    ],
+    "note": null
+   },
+   "C5": {
+    "converged_every_level": true,
+    "levels": [
+     {
+      "level": 1,
+      "N": 8,
+      "converged": true,
+      "iterations": 93,
+      "residual": 7.264830069755388e-07,
+      "wall_s": 72.3,
+      "errors": {
+       "A": 2.7813105028901527e-05,
+       "B": 5.089069156730737e-06
+      }
+     },
+     {
+      "level": 2,
+      "N": 16,
+      "converged": true,
+      "iterations": 100,
+      "residual": 6.476417513485175e-07,
+      "wall_s": 77.0,
+      "errors": {
+       "A": 7.467220533791725e-06,
+       "B": 1.2562729904546555e-06
+      }
+     },
+     {
+      "level": 3,
+      "N": 32,
+      "converged": true,
+      "iterations": 100,
+      "residual": 3.347683776320618e-07,
+      "wall_s": 79.2,
+      "errors": {
+       "A": 1.9095616438969886e-06,
+       "B": 3.214374590556526e-07
+      }
+     }
+    ],
+    "note": "theta = 0.2 constant: the two legs carry opposite conductance ratios and one global theta must satisfy the stricter"
+   },
+   "C1": {
+    "converged_every_level": true,
+    "levels": [
+     {
+      "level": 1,
+      "N": 8,
+      "converged": true,
+      "iterations": 39,
+      "residual": 8.863478337818226e-07,
+      "wall_s": 96.3,
+      "errors": {
+       "A": 0.00021760223189918858,
+       "B": 0.00017641435048585367
+      }
+     },
+     {
+      "level": 2,
+      "N": 16,
+      "converged": true,
+      "iterations": 49,
+      "residual": 9.742986206119335e-07,
+      "wall_s": 130.7,
+      "errors": {
+       "A": 6.156156256481301e-05,
+       "B": 4.979680807824059e-05
+      }
+     },
+     {
+      "level": 3,
+      "N": 32,
+      "converged": true,
+      "iterations": 58,
+      "residual": 5.892642184065155e-07,
+      "wall_s": 208.1,
+      "errors": {
+       "A": 1.7194264766570317e-05,
+       "B": 1.3977455380197536e-05
+      }
+     }
+    ],
+    "note": "two 4C runs per iteration: Scalar_Transport with CALCFLUX_BOUNDARY diffusive for T and its consistent flux, one-way-TSI one-element-thick slab for u; traction by interior-residual-checked reassembly"
+   },
+   "C4": {
+    "converged_every_level": true,
+    "levels": [
+     {
+      "level": 1,
+      "N": 8,
+      "converged": true,
+      "iterations": 30,
+      "residual": 3.79519781109874e-07,
+      "wall_s": 42.6,
+      "errors": {
+       "A": 8.018521301765175e-05,
+       "B": 3.217140008599742e-05
+      }
+     },
+     {
+      "level": 2,
+      "N": 16,
+      "converged": true,
+      "iterations": 26,
+      "residual": 7.640196023665785e-07,
+      "wall_s": 44.8,
+      "errors": {
+       "A": 2.1149532120219954e-05,
+       "B": 7.2066972081137735e-06
+      }
+     },
+     {
+      "level": 3,
+      "N": 32,
+      "converged": true,
+      "iterations": 24,
+      "residual": 8.095506018334559e-07,
+      "wall_s": 63.0,
+      "errors": {
+       "A": 5.4601150325236924e-06,
+       "B": 1.660206403923881e-06
+      }
+     }
+    ],
+    "note": "Crank-Nicolson waveform relaxation: whole space-time trace exchanged per iteration; transient deal.II participant written (mode 2 of iface_dealii.cc)"
+   },
+   "C14": {
+    "converged_every_level": true,
+    "what_ran": "participant_fsi_fluid_fenics.py (Taylor-Hood P2/P1 Navier-Stokes, harmonic ALE lift) + participant_fsi_solid_fourc.py (4C plane-strain QUAD4 wall) through core.coupling_driver.run_coupling, Aitken from 0.5",
+    "iterations": 17,
+    "residual": 2.7834298511741458e-09,
+    "coupled_uy_midpoint": 0.009602269974447698,
+    "newton_krylov_uy_midpoint": 0.00960226999006514,
+    "split_vs_newton_relative": 1.6264322273866874e-09,
+    "note": "the partitioned split and the Newton-Krylov root of the same coupled interface system agree to 1.6e-9 relative; the sealed reference in the key is the Newton-Krylov value"
+   },
+   "C13": {
+    "converged_every_level": true,
+    "what_ran": "w_fenics_c13.py (P1 solid, consistent x=0 reaction for FLUX_SOLID) + w_sparta_c13.py (closed DSMC conduction cell, boundary etot tally) through core.coupling_driver.run_coupling, constant theta = 1.0, tol 2e-2 = the DSMC noise level",
+    "iterations": 16,
+    "residual": 0.016223149452533094,
+    "wall_s": 129.1,
+    "theta_interface": 0.65761,
+    "frozen_band": [
+     0.5508,
+     0.6587
+    ],
+    "inside_band": true,
+    "flux_solid": 1369.56,
+    "flux_gas": 1345.29,
+    "identity_rel": 0.017721019889599565,
+    "dsmc_steady_imbalance": 0.001321,
+    "honesty_note": "the band was computed and COMMITTED (555d4a1f) before this walk first ran, and the walk landed INSIDE it \u2014 but 0.0089 above the un-padded zeta=2.5*lambda theory value (0.6487), i.e. the pre-registered BAND_PAD=0.01 for DSMC statistics is what held it. Consistent with a jump coefficient at the high end of published values plus tally noise; a longer average would separate the two. The band is frozen and is NOT adjusted after the fact."
+   }
+  }
+ }
 }
