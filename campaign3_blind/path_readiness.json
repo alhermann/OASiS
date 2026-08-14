@@ -45,7 +45,8 @@
   "C5": true,
   "C1": true,
   "C4": true,
-  "C14": true
+  "C14": true,
+  "C13": true
  },
  "blocking": "No instance is blocked. All fifteen execution paths were walked non-blind and the results discarded. The two non-path blockers recorded below were REPAIRED after this walk: the B1-B7 task texts were brought to the grader's PROBE_M at 28d29eec, and the grader was taught to honour a non-rectangular subdomain's probe exclusion at 93bede18. Both repairs are gated by tests/test_blind_task_grid_matches_grader.py, which fails if the task text and the grader ever disagree again.",
  "walk_2026_08_09": {
@@ -744,6 +745,24 @@
     "newton_krylov_uy_midpoint": 0.00960226999006514,
     "split_vs_newton_relative": 1.6264322273866874e-09,
     "note": "the partitioned split and the Newton-Krylov root of the same coupled interface system agree to 1.6e-9 relative; the sealed reference in the key is the Newton-Krylov value"
+   },
+   "C13": {
+    "converged_every_level": true,
+    "what_ran": "w_fenics_c13.py (P1 solid, consistent x=0 reaction for FLUX_SOLID) + w_sparta_c13.py (closed DSMC conduction cell, boundary etot tally) through core.coupling_driver.run_coupling, constant theta = 1.0, tol 2e-2 = the DSMC noise level",
+    "iterations": 16,
+    "residual": 0.016223149452533094,
+    "wall_s": 129.1,
+    "theta_interface": 0.65761,
+    "frozen_band": [
+     0.5508,
+     0.6587
+    ],
+    "inside_band": true,
+    "flux_solid": 1369.56,
+    "flux_gas": 1345.29,
+    "identity_rel": 0.017721019889599565,
+    "dsmc_steady_imbalance": 0.001321,
+    "honesty_note": "the band was computed and COMMITTED (555d4a1f) before this walk first ran, and the walk landed INSIDE it \u2014 but 0.0089 above the un-padded zeta=2.5*lambda theory value (0.6487), i.e. the pre-registered BAND_PAD=0.01 for DSMC statistics is what held it. Consistent with a jump coefficient at the high end of published values plus tally noise; a longer average would separate the two. The band is frozen and is NOT adjusted after the fact."
    }
   }
  }
