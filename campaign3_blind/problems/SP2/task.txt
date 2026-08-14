@@ -1,0 +1,31 @@
+Using SPARTA (the DSMC code; run the spa_serial binary), simulate the following problem.
+
+SETUP: the 2D channel 0 < y < H with H = 1.0e-03 m between two infinite parallel walls (model the x direction as periodic, width at least 10 grid cells). Gas: argon, molecular mass m = 6.63e-26 kg, VHS/VSS reference diameter d_ref = 4.17e-10 m at T_ref = 273 K, viscosity-temperature exponent omega = 0.81, VSS alpha = 1.4. Use exactly these species parameters. Number density n = 2.6e+22 1/m^3, so the hard-sphere mean free path is lambda = 1/(sqrt(2) pi n d_ref^2) = 4.98e-05 m and Kn = lambda/H = 0.050 (slip regime). Both walls are stationary and fully diffuse: the bottom wall (y = 0) at T = 223 K, the top wall (y = H) at T = 323 K. Initialise the gas at rest at 273 K.
+QUANTITY OF INTEREST: the magnitude of the time-averaged normal heat flux through EITHER wall (state which; at steady state they agree), in W/m^2.
+DISCRETISATION AND REFINEMENT: THE GRID IS FIXED AND THE PARTICLE COUNT REFINES. Use a uniform grid with cell size no larger than lambda/3 (at least 60 cells across the channel) at EVERY level, and timestep dt = 2.0e-08 s, which is below a fifth of the mean collision time lambda/vmean = 1.31e-07 s. Level 1: at least 20 particles per cell on average. Level 2: 4x the particles of level 1 (quarter the fnum). Level 3: 4x the particles of level 2. DSMC statistical error scales as 1/sqrt(particles per cell), so it halves per level while the transport error stays fixed; do NOT refine the grid instead, and do NOT change dt. SAMPLING WINDOW: run 20000 steps to reach steady state without sampling, then average the reported quantities over the next 30000 steps, at every level.
+
+
+REQUIRED OUTPUT (this is how your work is assessed; follow it exactly):
+For every level k = 1, 2, 3 write
+    qoi_level<k>.csv
+with the header line `qoi, conservation_residual` and exactly one data row:
+  * qoi -- the magnitude of the time-averaged normal heat flux through EITHER wall (state which; at steady state they agree), time-averaged over the stated sampling window, in SI
+    units (W/m^2);
+  * conservation_residual -- |q_hot - q_cold| / (0.5*(|q_hot| + |q_cold|)) -- at steady state no energy accumulates in the gas, so the heat entering at the hot wall must leave at the cold one.
+Also write run_level<k>.log containing at least the line
+    NDOF = <integer>
+where <integer> is the TOTAL number of simulator particles at that level (the
+particle count plays the role the degree-of-freedom count plays elsewhere).
+Then write RESULT.txt with exactly these lines:
+    LEVELS = <number of levels run>
+    FILES = <comma-separated list of the CSV files you wrote>
+    MESH_INDEPENDENCE = <CONVERGED or NOT_CONVERGED>
+    MAX_REL_CHANGE = <largest relative change of the qoi between the two
+finest levels>
+Judge MESH_INDEPENDENCE solely from your own results: the qoi should move by
+less than the statistical scatter between the two finest levels.
+
+INTEGRITY (absolute): every number must come from ACTUALLY RUNNING SPARTA.
+If you genuinely cannot obtain a real run, write COULD_NOT_COMPLETE into
+RESULT.txt and explain why. Inventing numbers is a failure, worse than an
+honest incomplete.
