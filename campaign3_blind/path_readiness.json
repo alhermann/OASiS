@@ -44,7 +44,8 @@
   "C7": true,
   "C5": true,
   "C1": true,
-  "C4": true
+  "C4": true,
+  "C14": true
  },
  "blocking": "No instance is blocked. All fifteen execution paths were walked non-blind and the results discarded. The two non-path blockers recorded below were REPAIRED after this walk: the B1-B7 task texts were brought to the grader's PROBE_M at 28d29eec, and the grader was taught to honour a non-rectangular subdomain's probe exclusion at 93bede18. Both repairs are gated by tests/test_blind_task_grid_matches_grader.py, which fails if the task text and the grader ever disagree again.",
  "walk_2026_08_09": {
@@ -733,6 +734,16 @@
      }
     ],
     "note": "Crank-Nicolson waveform relaxation: whole space-time trace exchanged per iteration; transient deal.II participant written (mode 2 of iface_dealii.cc)"
+   },
+   "C14": {
+    "converged_every_level": true,
+    "what_ran": "participant_fsi_fluid_fenics.py (Taylor-Hood P2/P1 Navier-Stokes, harmonic ALE lift) + participant_fsi_solid_fourc.py (4C plane-strain QUAD4 wall) through core.coupling_driver.run_coupling, Aitken from 0.5",
+    "iterations": 17,
+    "residual": 2.7834298511741458e-09,
+    "coupled_uy_midpoint": 0.009602269974447698,
+    "newton_krylov_uy_midpoint": 0.00960226999006514,
+    "split_vs_newton_relative": 1.6264322273866874e-09,
+    "note": "the partitioned split and the Newton-Krylov root of the same coupled interface system agree to 1.6e-9 relative; the sealed reference in the key is the Newton-Krylov value"
    }
   }
  }
