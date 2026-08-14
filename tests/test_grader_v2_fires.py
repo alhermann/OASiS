@@ -1062,7 +1062,13 @@ def _graded_on_a_probe_grid(problem_dir) -> bool:
     # `graded_against`. Keying on only one form is the same field-name drift
     # this suite exists to catch — C13 failed the sweep for spelling its grade
     # the other way. Grade 3 IS the band-only grade; honour either spelling.
-    if spec.get("evidence_grade") == 3:
+    # Probe-grid grading is exactly the grade-1 path. Grade 2 (QoI against a
+    # sealed reference — C14, FSI) and grade 3 (QoI against a pre-registered
+    # band — C13, SP1, SP2) are graded on a result line, not a field at probe
+    # points; demanding a probe statement of them fails cells for being what
+    # their grade means. First C13 failed for spelling grade 3 one way, then
+    # C14 for being grade 2 — the general rule, not another special case.
+    if spec.get("evidence_grade") in (2, 3):
         return False
     return "band-only" not in str(spec.get("grading", ""))
 
