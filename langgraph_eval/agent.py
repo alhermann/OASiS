@@ -259,9 +259,27 @@ def _load_oasis_mcp_tools() -> list[BaseTool]:
         "LD_LIBRARY_PATH", "/opt/4C-dependencies/lib")
     env["PYTHONPATH"] = str(REPO / "src")
 
+    # THE SERVER INTERPRETER, RESOLVED — NOT ASSUMED.
+    #
+    # This was REPO/".venv/bin/python". A git worktree has no .venv, so on any
+    # worktree checkout every MCP-arm run crashed at agent construction with
+    # FileNotFoundError before the model was ever called — while the BARE arm
+    # ran fine. A fleet launched that way silently becomes one-armed, which is
+    # the worst possible shape for an A/B campaign. Third instance of this
+    # exact defect class (backend_imports.json, the fixture runner) — same
+    # fix: explicit env var first, then the repo venv, then the primary
+    # checkout's venv, and REFUSE loudly rather than launch a crippled arm.
+    _cands = [os.environ.get("OASIS_PYTHON"),
+              str(REPO / ".venv/bin/python"),
+              str(Path.home() / "Schreibtisch/open-fem-agent/.venv/bin/python")]
+    _server_py = next((c for c in _cands if c and Path(c).is_file()), None)
+    if _server_py is None:
+        raise RuntimeError(
+            "no interpreter found for the OASiS MCP server; set OASIS_PYTHON. "
+            "Refusing to build a silently crippled MCP arm.")
     client = MultiServerMCPClient({
         "oasis": {
-            "command": str(REPO / ".venv/bin/python"),
+            "command": _server_py,
             "args": ["-m", "server"],
             "cwd": str(REPO / "src"),
             "env": env,
