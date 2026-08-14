@@ -1034,8 +1034,29 @@ PROBLEMS = REPO / "campaign3_blind" / "problems"
 
 def _real_cells_with_spec():
     for d in sorted(PROBLEMS.iterdir()):
+        if not _graded_on_a_probe_grid(d):
+            continue
         if (d / "task.txt").is_file() and (d / "spec_public.json").is_file():
             yield d.name
+
+
+
+def _graded_on_a_probe_grid(problem_dir) -> bool:
+    """Band-only (grade 3) cells are graded on a scalar QoI line, not a field
+    at probe points — DSMC has no manufactured solution and therefore no probe
+    deliverable. The two sweep tests below assert probe-grid agreement, which
+    is a property only of grid-graded cells; demanding it of SP1/SP2 fails
+    them for being what their spec says they are. Keyed on the spec's own
+    declaration, never on the problem id."""
+    import json
+    sp = problem_dir / "spec_public.json"
+    if not sp.is_file():
+        return True          # missing spec is a hard error elsewhere; sweep it
+    try:
+        g = str(json.load(sp.open()).get("grading", ""))
+    except Exception:
+        return True
+    return "band-only" not in g
 
 
 def test_ported_every_committed_sheet_agrees_with_v2():
