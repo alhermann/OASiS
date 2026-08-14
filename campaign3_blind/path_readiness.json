@@ -18,6 +18,8 @@
   "D7": "partitioned DN with different operators either side, order 1.929/1.944"
  },
  "path_verified": {
+  "SP1": false,
+  "SP2": false,
   "B1": true,
   "B2": true,
   "B3": true,
@@ -284,6 +286,35 @@
  },
  "single_code_set_2026_08_13": "The single-code half was rebuilt as a GENERATED set (build_single_v2.py), two cells per backend, because the seven hand-written predecessors had drifted away from the grader: their probe rule and grade_blind's probe grid no longer agreed, so every submission would have been rejected as INVALID_SUBMISSION whatever its physics. The generator imports PROBE_M, probe_grid and MAX_COARSE_REL from grade_blind and asserts, per cell, that the rule printed in the task rebuilds the grader's evaluation set exactly. Every id below was walked end to end before it was committed: solved in its own named code at every prescribed level, submitted to grade_blind.py together with the run_level<k>.log NDOF contract lines, and confirmed to grade CORRECT. The finest error of every cell clears the stated 12-significant-digit output floor by at least 1e7, against a requirement of 100x.",
  "single_code_final_sweep_2026_08_13": "Structural sweep over all fourteen committed single-code cells, run after the last one was written: every task carries the run_level<k>.log NDOF = <integer> contract line; the probe rule printed in every task rebuilds grade_blind.probe_grid exactly (1936 points in 2D, 9261 in 3D); every key carries code, mesh_N, theoretical_order, tol, band, sig_digits and exact_rms, so no cell degrades to the grader's rate-only path; the sealed exact solution of every cell vanishes on the boundary it is claimed to (checked by substitution, not asserted); and every id is recorded verified here. Result: SWEEP CLEAN, 14/14. Blindness is enforced upstream instead: build_single_v2 refuses to write a cell whose leak gate is not clean, and all fourteen were written.",
+ "walk_2026_08_14_sparta_band": {
+  "what_this_is": "One throwaway, NON-BLIND solve per SPARTA band-only cell (SP1, SP2) through the path the cell names, by walkers/w_sparta_band.py: spa_serial, the task's FIXED uniform 10 x 64 grid of square cells (1.5625e-5 m <= lambda/3), dt = 2.0e-8 s at every level, particle refinement 16000 -> 64000 -> 256000 (25/cell at level 1, x4 per level, NDOF ratio exactly 4.0), 20000 equilibration + 30000 averaged steps per level in three 10000-step blocks whose spread gives the statistical standard error. Species files written locally with exactly the task's parameters (d_ref 4.17e-10 m at 273 K); the checkout's shipped ar.vss (4.11e-10 at 273.15 K) was deliberately not used.",
+  "SP1": {
+   "qoi_per_level_Pa": [1.8258033, 1.8244867, 1.82057],
+   "preregistered_band_Pa": [1.5, 2.3],
+   "inside_band_arithmetically": true,
+   "tau_top_vs_bottom_finest_Pa": [1.82057, 1.8191367],
+   "conservation_residual_per_level": [2.215e-3, 1.655e-3, 7.876e-4],
+   "conservation_tol": 0.05,
+   "block_se_per_level_Pa": [0.02472, 0.00797, 0.00732],
+   "mesh_independence": "CONVERGED: |q3-q2| = 3.92e-3 Pa < 2 x combined block SE = 2.16e-2 Pa",
+   "wall_s_per_level": [31.1, 144.2, 904.1],
+   "theory_context": "VHS slip estimate 1.900 Pa, VSS-corrected ~1.845 Pa; measured 1.821 Pa, 1.3% below, inside the band's stated pad"
+  },
+  "SP2": {
+   "qoi_per_level_W_m2": [1266.8667, 1265.09, 1262.0067],
+   "preregistered_band_W_m2": [1050.0, 1700.0],
+   "inside_band_arithmetically": true,
+   "q_hot_vs_cold_finest_W_m2": [1262.0067, 1261.0367],
+   "conservation_residual_per_level": [2.920e-4, 1.317e-4, 7.689e-4],
+   "conservation_tol": 0.05,
+   "block_se_per_level_W_m2": [9.885, 2.493, 1.975],
+   "mesh_independence": "CONVERGED: |q3-q2| = 3.08 W/m^2 < 2 x combined block SE = 6.36 W/m^2",
+   "wall_s_per_level": [31.0, 144.9, 901.8],
+   "theory_context": "VHS jump estimate 1357 W/m^2, VSS-corrected ~1318 W/m^2; measured 1262 W/m^2, inside the band's stated pad for the k(T) profile nonlinearity"
+  },
+  "why_path_verified_is_false": "The solve half is complete and both QoIs sit inside their pre-registered bands with the conservation identities satisfied, but these are arithmetic comparisons, not grader verdicts: the permission system reserved every key-touching grading route away from the walking agent, and the keys' schema still predates the v2 band-only path (no qoi.result_line/identity lines yet; the repaired task texts now prescribe QOI_WALL_SHEAR with TAU_TOP/TAU_BOTTOM for SP1 and QOI_WALL_HEAT_FLUX with Q_HOT/Q_COLD for SP2). Flip to true only on a real WITHIN_BAND verdict over the preserved run dirs.",
+  "builder_drift_note": "build_single_v2.py emit_sparta still emits the pre-walk task text and spec/key grading strings; a --sparta rebuild would clobber the repaired cells. Out of the walk's scope; flagged."
+ },
  "walk_2026_08_13_balanced": {
   "what_this_is": "One throwaway, NON-BLIND run per instance through the path that instance names, for the BALANCED coupled set C1-C12. Nothing here is a result. The walk does not open the published instance: it rebuilds the same builder with a FRESH CSPRNG draw, so geometry, materials, roles, mesh sequence, transmission conditions and both participants are identical while the hidden coefficients are different ones. No sealed key was touched. The field the error is measured against exists only in the walking process and is never written to the run tree.",
   "driver": "core.coupling_driver.run_coupling, the same driver the registered `couple` tool calls, with probe=False.",

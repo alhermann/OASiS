@@ -15,7 +15,7 @@
     2,
     3
   ],
-  "grading": "band-only, grade 3, pending grader path",
+  "grading": "band-only, grade 3",
   "evidence_grade": 3,
   "evidence_grade_reason": "DSMC: no manufactured solution exists. Graded on a pre-registered kinetic-theory band plus a conservation identity; NEVER pooled with the manufactured-solution cells.",
   "refinement_rule": "fixed grid, particles x4 per level, dt fixed below the mean collision time",
