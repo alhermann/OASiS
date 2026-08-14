@@ -123,7 +123,22 @@ def keys_are_sealed() -> bool:
     imported rather than restated here -- Amendment 1 declared this fixed while
     the runner still carried the broken copy and never imported the fix.
     """
-    return _kv.is_sealed(HERE / "keys")
+    return _kv.is_sealed(_keys_dir())
+
+
+def _keys_dir():
+    """The ONE answer-key location, shared with grade_blind_v2.
+
+    The custody preflight checked HERE/"keys", which does not exist in this
+    checkout — the keys deliberately live outside the repository. Result: the
+    preflight failed on exists=False in every configuration, including the
+    correct one. Same defect class as the grader loading its evidence gate
+    from another worktree: two components resolving the same thing two ways.
+    OASIS_BLIND_KEYS is the single authority, exactly as in the grader.
+    """
+    import os as _os
+    v = _os.environ.get("OASIS_BLIND_KEYS")
+    return Path(v) if v else HERE / "keys"
 
 
 def preflight_or_die(problems: list) -> None:
@@ -135,7 +150,7 @@ def preflight_or_die(problems: list) -> None:
     it refuses on anything it cannot verify.
     """
     import subprocess
-    keys = HERE / "keys"
+    keys = _keys_dir()
     failures = []
 
     if not keys_are_sealed():
