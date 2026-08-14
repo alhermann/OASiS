@@ -54,7 +54,7 @@ sys.path.insert(0, str(CAMPAIGN))
 from blind_eval import keyvault, selfconv                       # noqa: E402
 from blind_eval import evidence as EV                           # noqa: E402
 from blind_eval import interface as IF                          # noqa: E402
-import grade_blind as GB                                        # noqa: E402
+import grade_blind_v2 as grade_blind   # SWAP: v2, rebuilt from the design, 62 firing tests as GB                                        # noqa: E402
 
 # The three grades of evidence are NOT interchangeable and must never be pooled
 # into one aggregate number.

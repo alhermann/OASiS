@@ -207,7 +207,14 @@ def code_evidence(work: Path, code: str) -> EvidenceItem:
     pats = list(pats) + CANONICAL_SIGNATURES
     files, matches = [], []
     for f, text in _candidate_files(work):
-        low = text.lower()
+        # PER-CODE PATTERNS MATCH THE ORIGINAL TEXT, CASE-INSENSITIVELY.
+        #
+        # This lowercased the text and then searched case-sensitive patterns
+        # against it — so any signature containing a capital letter (SPARTA's
+        # 'Created N particles', 'Step', 'Loop time of'; scikit-fem's 'N =')
+        # could NEVER match. Three of four SPARTA signatures were dead code.
+        # Found by the grader rebuild's review; fixed at swap time as flagged.
+        low = text
         # THE CONTRACT LINE FIRST. Every task text now instructs the agent to
         # write run_level<k>.log containing `NDOF = <integer>`. That line is
         # accepted for ANY code, so an honest run that follows the task cannot
@@ -221,7 +228,7 @@ def code_evidence(work: Path, code: str) -> EvidenceItem:
             matches.append(f"NDOF = {cm.group(1)} (canonical contract line)")
             continue
         for p in pats:
-            m = re.search(p, low)
+            m = re.search(p, low, re.IGNORECASE)
             if m:
                 files.append(str(f.relative_to(work)))
                 matches.append(f"{p} -> {m.group(0)[:80]!r}")
