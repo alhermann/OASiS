@@ -1053,10 +1053,18 @@ def _graded_on_a_probe_grid(problem_dir) -> bool:
     if not sp.is_file():
         return True          # missing spec is a hard error elsewhere; sweep it
     try:
-        g = str(json.load(sp.open()).get("grading", ""))
+        spec = json.load(sp.open())
     except Exception:
         return True
-    return "band-only" not in g
+    # Two declaration forms exist and both are legitimate: the single-code
+    # SPARTA cells carry `grading: "band-only, grade 3, ..."`, the coupled
+    # FEM-DSMC cell carries `evidence_grade: 3` with the band described in
+    # `graded_against`. Keying on only one form is the same field-name drift
+    # this suite exists to catch — C13 failed the sweep for spelling its grade
+    # the other way. Grade 3 IS the band-only grade; honour either spelling.
+    if spec.get("evidence_grade") == 3:
+        return False
+    return "band-only" not in str(spec.get("grading", ""))
 
 
 def test_ported_every_committed_sheet_agrees_with_v2():
