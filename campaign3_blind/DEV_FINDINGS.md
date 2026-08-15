@@ -31,6 +31,56 @@ evaluation phase. This file is deliberately OUTSIDE the frozen commitment.
     own. This is the exact reviewer attack surface: "did the named backend
     actually produce the numbers?"
 
+- **SP2 BARE: TimeoutError, produced NOTHING** — 88 calls, 5.1 M tokens
+  burned, work dir empty (only trajectory logs). A bare 27B on SPARTA/DSMC:
+  45 minutes of activity, zero artifacts. The starkest bare-arm datapoint
+  yet.
+
+- **SP2 MCP: TimeoutError, SPARTA executed but no submission** — 76 calls,
+  3.4 M tokens; `log.sparta` in the work dir proves the real binary ran
+  (bare produced nothing at all on the same cell), but no RESULT.txt inside
+  budget → likely HONEST_INCOMPLETE.
+  - POST-MORTEM: check whether MCP-arm runs leave artifacts in the OASiS
+    server's own workspace instead of the cell work dir the grader reads —
+    KR1 MCP delivered files into work/ correctly, so the path exists; the
+    question is whether serving/instructions make copy-back reliable.
+
+## Grading-day instrument defects (2026-08-15, all found by refusing to
+## believe uniform failure patterns)
+
+- **Wrapper "v2 swap" was cosmetic and broke the wrapper** — the recorded
+  swap renamed the import out from under every `GB.*` call site
+  (`NameError` on any run with solution files); v2 exports none of those
+  helpers. The grader of record is `grade_blind_v2.grade_run` (62→66 firing
+  tests); the wrapper is restored as a key-free diagnostic. Fixed 645b3eb3.
+- **Probe-grid check rejected correct data over row order** — six runs,
+  five backends, BOTH arms submitted the complete correct grid transposed
+  (x varying fastest); every row carries its own coordinates, so positional
+  comparison manufactured MALFORMED verdicts. Now tolerance-bucketed set
+  matching; off-grid/duplicate/count still fire (4 new firing tests).
+  Regrade flipped FE1-BARE, DU1-BARE, NG1-MCP, FB2-MCP → CORRECT and
+  SK2/FC2/C12 variants to their numeric verdicts. Single-code tally moved
+  bare 2/18→4/18, OASiS 5/18→7/18. Honest in both directions.
+- **Sandbox scatter voided 19 runs** — 13/14 coupled MCP, 4 coupled BARE,
+  2 single BARE wrote deliverables to /tmp or $HOME (C1-MCP's honest
+  could-not-complete RESULT.txt sat in /tmp/tsi_final → graded FAILED,
+  indistinguishable from silent emptiness; C14-MCP even produced
+  residual_level1.csv there). Served knowledge grepped: it teaches no /tmp
+  paths — model habit. write_file now refuses out-of-sandbox writes with a
+  corrective message; 119 scattered files preserved under each quarantined
+  run's `out_of_sandbox_evidence/`; 19-run re-fleet launched 17:16 under
+  the confined harness. SP1-BARE strays on the user's Desktop
+  (~/Schreibtisch/sparta_runs) still need removal after the re-fleet.
+
+## Clean-half signals (single-code, post-repair, pre-re-fleet)
+- OASiS CORRECT on six different backends (FEniCSx ×2, deal.II, NGSolve,
+  Kratos, DUNE, FEBio); bare CORRECT on four (FEniCSx, deal.II, Kratos,
+  DUNE). KR2 CORRECT in both arms: Kratos is solvable in-budget.
+- Fabrication gate caught three bare coupled fabrications (C6/C8/C10
+  FABRICATED_NO_RUN); SK1/SK2-MCP graded CONFIDENTLY_WRONG by numbers;
+  SP1-MCP within band but conservation identity violated → the adverse
+  labels are earned by checks, not prose.
+
 ## Emerging pattern (watch, do not conclude yet)
 - All four errored runs so far sit in KR*/DU* cells — the two least-known
   backends — and both arms hit the 45-minute wall there. Post-mortem
