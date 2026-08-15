@@ -1387,6 +1387,38 @@ Full contract, relaxation guidance and failure modes: `knowledge(topic='coupling
 '''
 
 
+def _vector_block(script_name: str) -> str:
+    """The VECTOR (elasticity) participant, when one ships for this backend.
+
+    Four of these — fenics, ngsolve, skfem, dealii — sat in
+    data/coupling_participants/ and were served to nobody: the per-backend
+    payload only ever carried the scalar heat script, so an agent asked to
+    couple ELASTICITY was handed a temperature participant and one line of
+    prose ("replace temperature with displacement, flux with traction"). Four
+    coupled cells of round 1 are vector problems; the agents rewrote from
+    scratch and ran out of budget.
+
+    Appended automatically wherever the file exists, so adding a backend's
+    vector participant to the directory is enough to serve it.
+    """
+    p = _PARTICIPANT_DIR / f"participant_{script_name}_elastic.py"
+    if not p.is_file():
+        return ""
+    return (
+        "\n## VECTOR (ELASTICITY) VARIANT — use this one when the coupled "
+        "field is displacement\n\n"
+        "The exchanged quantity is a TRACTION vector, not a scalar flux: "
+        "`values` and `normal_fluxes` carry one entry PER COMPONENT per "
+        "interface point, in the same node order on both sides. The Dirichlet "
+        "side imports displacements and exports the traction it needed; the "
+        "Neumann side imports that traction and exports the displacement it "
+        "produced. Recover the traction variationally (the interface "
+        "reactions of the assembled residual), never by differencing the "
+        "displacement field — a differenced traction converges one order too "
+        "slowly and drags the coupled field order down with it.\n\n"
+        f"```python\n{p.read_text()}```\n")
+
+
 def _payload(title: str, sides: str, script_name: str, launch: str,
              traps: str, extra: str = "") -> str:
     return (f"# Coupling participant: {title}\n\n"
@@ -1395,7 +1427,8 @@ def _payload(title: str, sides: str, script_name: str, launch: str,
             f"## COMPLETE PARTICIPANT SCRIPT — copy verbatim, edit the marked "
             f"block only\n\n```python\n{_script(script_name)}```\n\n"
             f"## Launching it\n\n{launch}\n"
-            f"## {title}-specific traps\n\n{traps}\n{extra}")
+            f"## {title}-specific traps\n\n{traps}\n{extra}"
+            f"{_vector_block(script_name)}")
 
 
 _RIGHT_BLOCK = """\

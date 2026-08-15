@@ -1145,3 +1145,55 @@ def test_probe_grid_count_mismatch_still_fires():
     grid = GB2.probe_grid(2)
     good, why = GB2.matches_probe_grid(grid[:-1], grid)
     assert not good and "expected" in why
+
+
+def test_submission_found_in_a_subdirectory(tmp_path):
+    """Five round-1 cells organised output into work/results/ etc. and were
+    graded as having submitted nothing, while the evidence check (rglob) saw
+    their solver run in the same tree."""
+    work = tmp_path / "work"
+    (work / "results").mkdir(parents=True)
+    (work / "results" / "solution_level1_A.csv").write_text("0,0,1\n")
+    (work / "results" / "solution_level1_B.csv").write_text("0,0,2\n")
+    levels, problems = GB2.sub.discover_levels(work, True, tmp_path)
+    assert set(levels) == {1} and set(levels[1]) == {"A", "B"}, (levels, problems)
+
+
+def test_result_txt_found_one_directory_down(tmp_path):
+    work = tmp_path / "work"
+    (work / "coupled_elasticity").mkdir(parents=True)
+    (work / "coupled_elasticity" / "RESULT.txt").write_text("COULD_NOT_COMPLETE\n")
+    assert "COULD_NOT_COMPLETE" in GB2.sub.result_text(tmp_path, work)
+
+
+def test_submission_beside_the_sandbox_is_found(tmp_path):
+    """C3-BARE wrote a complete converged set to the run root, not work/."""
+    work = tmp_path / "work"
+    work.mkdir()
+    for lvl in (1, 2, 3):
+        for side in ("A", "B"):
+            (tmp_path / f"solution_level{lvl}_{side}.csv").write_text("0,0,1\n")
+    levels, _ = GB2.sub.discover_levels(work, True, tmp_path)
+    assert sorted(levels) == [1, 2, 3]
+
+
+def test_preserved_evidence_is_never_graded(tmp_path):
+    """out_of_sandbox_evidence/ holds files WE copied aside; grading them
+    would let a quarantined scatter re-enter as a submission."""
+    work = tmp_path / "work"
+    work.mkdir()
+    ev = tmp_path / "out_of_sandbox_evidence" / "tmp"
+    ev.mkdir(parents=True)
+    (ev / "solution_level1_A.csv").write_text("0,0,9\n")
+    levels, _ = GB2.sub.discover_levels(work, True, tmp_path)
+    assert levels == {}
+
+
+def test_differing_duplicate_copies_are_reported(tmp_path):
+    work = tmp_path / "work"
+    (work / "a").mkdir(parents=True)
+    (work / "b").mkdir(parents=True)
+    (work / "a" / "solution_level1_A.csv").write_text("0,0,1\n")
+    (work / "b" / "solution_level1_A.csv").write_text("0,0,2\n")
+    _, problems = GB2.sub.discover_levels(work, True, tmp_path)
+    assert any("more than one differing copy" in p for p in problems)

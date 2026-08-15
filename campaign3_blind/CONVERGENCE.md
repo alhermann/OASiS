@@ -98,6 +98,26 @@ the evaluation problems are fresh and drawn after everything is frozen.
   5. Every round's findings land in DEV_FINDINGS.md before the next round
      starts, with the commit that fixed each one.
 
+## A trap this campaign keeps falling into: measuring the wrong checkout
+
+Two OASiS checkouts exist on this machine and they are NOT the same code:
+`ofa-v2/src/tools/consolidated.py` is 280713 bytes, `open-fem-agent`'s is
+153388; the coupling knowledge document is 10316 bytes against 6059, and only
+the former mentions deal.II at all.
+
+The campaign serves **ofa-v2**: `langgraph_eval/agent.py` launches the MCP
+server with `cwd = REPO/"src"`, `args ["-m","server"]`, `PYTHONPATH =
+REPO/"src"`, and the driver exports `OASIS_REPO=ofa-v2`. The interpreter
+comes from the other checkout's venv, which supplies site-packages only —
+cwd and PYTHONPATH decide which CODE answers a tool call.
+
+Anything that measures knowledge, coverage or gaps MUST state the sha256 and
+byte length of the tree it measured. The first knowledge audit of round 1
+measured `open-fem-agent` because its brief named that path, and its
+conclusions described knowledge the campaign never served. Same defect class
+as the runner's old `OASIS_REPO` default and the worktree venv: an instrument
+pointed at the wrong tree reports a confident, wrong negative.
+
 ## Round log
 
   Round 1 — 27B, seed 1, 2026-08-15. NOT CLEAN.

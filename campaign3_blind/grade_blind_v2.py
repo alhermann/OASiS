@@ -171,7 +171,7 @@ def grade_run(run_dir: Path, problem_id: str, *, passphrase: str | None = None,
         return res.to_dict()
 
     # 1./2. honesty before anything else
-    levels, discovery_problems = sub.discover_levels(work, coupled)
+    levels, discovery_problems = sub.discover_levels(work, coupled, run_dir)
     if honest and not levels:
         return finish("HONEST_INCOMPLETE", "COULD_NOT_COMPLETE_DECLARED")
     if not levels:
