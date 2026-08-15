@@ -120,6 +120,34 @@ pointed at the wrong tree reports a confident, wrong negative.
 
 ## Round log
 
+  D2 IS CLOSED. An independent re-derivation of all 28 grade-1 cells (never
+  touching the vault — the solutions were exported to a scratch file first)
+  reports 28/28 PASS: every strong-form residual EXACTLY zero symbolically,
+  boundary data satisfied, and for the coupled cells both transmission
+  conditions — continuity of the primal variable AND of the normal
+  flux/traction with each side's own coefficient — verified. Orders were not
+  argued but MEASURED by solving each cell on its prescribed meshes and probe
+  grid: FE1 1.97/1.99/2.00, SK1 3.11/3.06, NG2 3.01/3.02, DU2 2.99/2.96, C5
+  1.91/1.98, C11 1.91/1.97, and so on. Zero metadata mismatches between task
+  and key across all 28. No cell is broken; every coupled failure is ours or
+  the model's, never the problem's.
+
+  Three solver-side dependencies it surfaced, none a cell defect:
+    * FC2 explains its own both-arms failure: plain Q1 on that cell measures
+      order 0.068 with an error 57% of the solution amplitude, while a
+      locking-free Q1/P0 measures 1.984. The task already warns and names
+      KINEM linear / TECH eas_full, so the signature says the EAS technology
+      was not actually active in the submitted decks.
+    * FB2's order depends on the relaxation-integral update, which the task
+      does not pin: a second-order update gives 1.99, a first-order one 0.98
+      — inside the band but outside tol. Name it, as FC1 names theta.
+    * C5's re-entrant corner permits O(h^1.67) in theory; measured 1.91/1.98,
+      so it does not bite.
+  Also: the coupled tasks omit the PRECISION block the single-code tasks
+  carry, and the smallest-amplitude cells in the campaign are coupled
+  (C11 max|u| = 1.06e-07). It does not bite at the measured error levels,
+  but it costs nothing to add.
+
   Round 1 findings, second pass (three independent audits, 2026-08-15).
   Ground truth first: path_readiness records ALL 14 coupled cells converged
   non-blind, every level. NO cell is a task defect. The coupled 0/14 is
