@@ -306,10 +306,20 @@ def test_blindspec_round_trips_and_has_no_answer_shaped_field():
 # ══════════════════════════════════════════════════════════════════════
 # 8. Key custody
 # ══════════════════════════════════════════════════════════════════════
+# NEVER put the campaign's real vault passphrase in a test literal. These
+# tests used it verbatim, in a tracked file: the branch was unpushed and the
+# vault stayed chmod-000 through every run, so nothing leaked — but publishing
+# the repo would have published the passphrase, and a reviewer could then say
+# the sealed keys were decryptable by anyone the whole time, which is exactly
+# the claim the seal exists to make unarguable.
+TEST_PASSPHRASE = "test-only-passphrase-never-the-campaign-one"
+
+
 def test_encrypt_decrypt_round_trip_and_wrong_passphrase(tmp_path):
-    blob = keyvault.encrypt_bytes(b'{"exact_solution": "x*y"}', "080294")
+    blob = keyvault.encrypt_bytes(b'{"exact_solution": "x*y"}', TEST_PASSPHRASE)
     assert b"exact_solution" not in blob and b"x*y" not in blob
-    assert keyvault.decrypt_bytes(blob, "080294") == b'{"exact_solution": "x*y"}'
+    assert keyvault.decrypt_bytes(blob, TEST_PASSPHRASE) == \
+        b'{"exact_solution": "x*y"}'
     with pytest.raises(Exception):
         keyvault.decrypt_bytes(blob, "wrong")
 
@@ -318,11 +328,12 @@ def test_encrypt_tree_removes_plaintext(tmp_path):
     d = tmp_path / "keys" / "B1"
     d.mkdir(parents=True)
     (d / "key.json").write_text('{"exact_solution": "x*(1-x)*y*(1-y)"}')
-    keyvault.encrypt_tree(tmp_path / "keys", "080294")
+    keyvault.encrypt_tree(tmp_path / "keys", TEST_PASSPHRASE)
     assert not (d / "key.json").exists()
     enc = d / "key.json.enc"
     assert enc.exists() and b"exact_solution" not in enc.read_bytes()
-    assert json.loads(keyvault.decrypt_bytes(enc.read_bytes(), "080294"))
+    assert json.loads(keyvault.decrypt_bytes(enc.read_bytes(),
+                                             TEST_PASSPHRASE))
 
 
 def test_absence_is_not_a_seal(tmp_path):
