@@ -64,6 +64,10 @@ OR_MODELS = {
     "397b": "qwen/qwen3.5-397b-a17b",
 }
 
+# LangGraph counts one node execution per step, so a tool-calling agent burns
+# roughly two per tool call. Named because the prompt now quotes it.
+RECURSION_LIMIT = 250
+
 ENVIRON = (
     "\nENVIRONMENT: NGSolve & scikit-fem -> "
     f"{REPO}/.venv/bin/python ; "
@@ -265,7 +269,22 @@ def run_one(pid: str, model: str, cond: str, seed: int, timeout_s: int) -> dict:
     work = run_dir / "work"
     work.mkdir(parents=True, exist_ok=True)
     task = (HERE / "problems" / pid / "task.txt").read_text(encoding="utf-8")
-    prompt = task + ENVIRON
+    # STATE THE BUDGET. Round 1: 13 of 14 coupled OASiS runs stopped
+    # VOLUNTARILY at a mean of 37% of the wall budget (floor 11.8%, 24 calls,
+    # zero solver runs), and 47 statements across those transcripts invoke
+    # "time constraints" or invent hour estimates — a deadline the model
+    # could not observe, because nothing in the prompt or any tool result
+    # mentioned one. Cells that quit had converged couplings and diagnosed
+    # bugs in hand. An agent that cannot see its budget guesses, and guesses
+    # low. Both arms get the identical sentence.
+    budget = (
+        f"\nBUDGET: you have {timeout_s // 60} minutes of wall-clock and "
+        f"about {RECURSION_LIMIT // 2} tool calls for this task, and no "
+        f"other deadline exists. Nothing is gained by stopping early: if you "
+        f"are making progress, keep working. Write COULD_NOT_COMPLETE only "
+        f"when you have genuinely exhausted what you can do, not when the "
+        f"task looks long.\n")
+    prompt = task + ENVIRON + budget
 
     _USAGE_CB.usage_metadata.clear()
     ag = (build_bare_agent if cond == "BARE" else build_mcp_agent)(
@@ -277,7 +296,8 @@ def run_one(pid: str, model: str, cond: str, seed: int, timeout_s: int) -> dict:
     async def _invoke():
         return await asyncio.wait_for(
             ag.ainvoke({"messages": [("user", prompt)]},
-                       config={"recursion_limit": 250, "callbacks": [live]}),
+                       config={"recursion_limit": RECURSION_LIMIT,
+                               "callbacks": [live]}),
             timeout=timeout_s)
 
     try:
@@ -286,6 +306,18 @@ def run_one(pid: str, model: str, cond: str, seed: int, timeout_s: int) -> dict:
         err = f"TimeoutError: exceeded {timeout_s}s"
     except Exception as e:
         err = f"{type(e).__name__}: {e}"
+
+    # A RUN THAT HIT THE STEP CAP IS NOT A RUN THAT FINISHED. LangGraph does
+    # not raise here — it returns a normal state whose last message is
+    # "Sorry, need more steps to process this request." Round 1 recorded three
+    # such runs with error=null, indistinguishable in the ledger from an agent
+    # that chose to stop, which is exactly the confusion the budget analysis
+    # then had to unpick by hand.
+    if err is None and isinstance(final, dict):
+        _msgs = final.get("messages", [])
+        _last = getattr(_msgs[-1], "content", "") if _msgs else ""
+        if isinstance(_last, str) and "need more steps" in _last:
+            err = f"RecursionLimit: exhausted {RECURSION_LIMIT} graph steps"
 
     try:
         msgs = (final or {}).get("messages", []) if isinstance(final, dict) else []
