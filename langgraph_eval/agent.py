@@ -145,6 +145,12 @@ def _read_write_tools_for(workdir: Path):
             p = Path(path)
             if not p.is_absolute():
                 p = workdir / p
+            wd = workdir.resolve()
+            if not p.resolve().is_relative_to(wd):
+                return (f"[write refused: {p} is outside your working "
+                        f"directory {wd}. All files — scripts, logs, and "
+                        f"every required deliverable — must be written "
+                        f"inside it; use a relative path.]")
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(content)
             return f"wrote {len(content)} chars to {p}"
