@@ -118,6 +118,8 @@ def _bash_tool_for(workdir: Path):
             return out[-12000:] if len(out) > 12000 else out
         except subprocess.TimeoutExpired:
             return "[timeout after 900s]"
+        except (OSError, UnicodeError, ValueError) as e:
+            return f"[command failed to launch: {type(e).__name__}: {e}]"
     return run_bash
 
 
@@ -125,24 +127,30 @@ def _read_write_tools_for(workdir: Path):
     @tool
     def read_file(path: str, max_bytes: int = 200_000) -> str:
         """Read a file (absolute path, or relative to the cell sandbox)."""
-        p = Path(path)
-        if not p.is_absolute():
-            p = workdir / p
         try:
+            p = Path(path)
+            if not p.is_absolute():
+                p = workdir / p
             data = p.read_bytes()[:max_bytes]
             return data.decode("utf-8", errors="replace")
         except FileNotFoundError:
-            return f"[file not found: {p}]"
+            return f"[file not found: {path}]"
+        except (OSError, ValueError) as e:
+            return f"[read failed: {type(e).__name__}: {e}]"
 
     @tool
     def write_file(path: str, content: str) -> str:
         """Write `content` to `path` (relative paths resolve inside the cell sandbox)."""
-        p = Path(path)
-        if not p.is_absolute():
-            p = workdir / p
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(content)
-        return f"wrote {len(content)} chars to {p}"
+        try:
+            p = Path(path)
+            if not p.is_absolute():
+                p = workdir / p
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(content)
+            return f"wrote {len(content)} chars to {p}"
+        except (OSError, UnicodeError, ValueError) as e:
+            return (f"[write failed: {type(e).__name__}: {e} — "
+                    "use a relative path inside the sandbox]")
 
     return [read_file, write_file]
 
