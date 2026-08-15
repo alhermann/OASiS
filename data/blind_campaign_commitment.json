@@ -1,8 +1,8 @@
 {
  "schema": 2,
  "campaign": "campaign3_blind",
- "generated_utc": "2026-08-14T19:14:24+00:00",
- "git_commit": "c017153fa5fff45664996a07daaa94177ccf52c4",
+ "generated_utc": "2026-08-15T15:15:09+00:00",
+ "git_commit": "645b3eb3d179a070330bbe7e6f01ef8f9ea3506e",
  "draw_seed": 20260814,
  "pinning": {
   "models": [
@@ -62,8 +62,8 @@
   },
   {
    "path": "scripts/blind_grade.py",
-   "bytes": 17031,
-   "sha256": "beb778561e5ea30e4ce221cd713bd3708ef178e2813587887d34dc3d117500bc"
+   "bytes": 17331,
+   "sha256": "c08d37f14330fab0b305e34c7e93b1348516141435fcb61a4248d386aa10e048"
   },
   {
    "path": "campaign3_blind/grading/__init__.py",
@@ -102,8 +102,8 @@
   },
   {
    "path": "campaign3_blind/grading/probes.py",
-   "bytes": 9466,
-   "sha256": "c382d3f8c2e5152784e3097065f811c014ad4104d576bc278d12e83e8a648063"
+   "bytes": 11081,
+   "sha256": "475029060144c135260fa220eb865dc400151280540daa731c12cbede856a2bb"
   },
   {
    "path": "campaign3_blind/grading/submission.py",
