@@ -120,6 +120,48 @@ pointed at the wrong tree reports a confident, wrong negative.
 
 ## Round log
 
+  Round 1 findings, second pass (three independent audits, 2026-08-15).
+  Ground truth first: path_readiness records ALL 14 coupled cells converged
+  non-blind, every level. NO cell is a task defect. The coupled 0/14 is
+  therefore not a measurement of the model.
+
+    D1 grader, submission discovery non-recursive while the evidence check
+       beside it used rglob — 5 cells mislabelled, including a complete
+       converged 3-level set booked as NO_SOLUTION_FILES and an honest
+       COULD_NOT_COMPLETE graded a fabrication. Fixed 57917c0b, 5 firing
+       tests; regrade moved 5 verdicts in BOTH directions.
+    D1 step cap returned a normal state, so 3 bare runs that exhausted 250
+       graph steps at 124 tool calls were logged error=null, identical to a
+       voluntary stop. Fixed 72c9e7d7.
+    D1 trajectory.txt is written only on clean exit — 0 bytes for every
+       timed-out run, so the evidence is missing exactly where it is most
+       needed. OPEN.
+    D3 the vector (elasticity) participants for fenics, ngsolve, skfem and
+       dealii shipped on disk and were served to nobody; 4 coupled cells are
+       vector problems and their agents rewrote them from scratch. Fixed
+       57917c0b. Still ABSENT for fourc, kratos, dune, febio, sparta.
+    D3 flux recovery: the shipped 4C participant uses CALCFLUX_DOMAIN
+       (volume/L2 recovery, measured field order 1.75 — within 0.15 of
+       CONFIDENTLY_WRONG) rather than CALCFLUX_BOUNDARY; the variational
+       recovery formula appears nowhere in the coupling knowledge. Blocked
+       C9 outright, caps six more cells. OPEN — highest-value remaining fix.
+    D3 no route to 4C 2-D thermoelasticity: the plane-strain slab sentence
+       IS served and C1's agent recited it, then declared 4C incapable. The
+       gap is an executable route (run_with_generator('tsi',
+       'plane_strain_2d') exists and was called by 0 of 14 runs), plus the
+       walk's Scalar_Transport + one-way-TSI decomposition. OPEN.
+    D4 the quarantined /tmp and $HOME scatter was never removed, so later
+       runs read earlier runs' files (C2-MCP read a prior attempt's RESULT
+       and CSVs; C4-MCP read C6's deal.II source). The exposure sweep only
+       covers campaign3_blind, and one run enumerated sibling worktrees
+       including a keys worktree. OPEN — custody.
+    HARNESS the MANDATORY critic never worked: spawn_subagent raises
+       NotImplementedError (StructuredTool does not support sync invocation)
+       in 14/14 coupled and 16/18 single-code OASiS runs. OPEN.
+    HARNESS no budget signal: 13 of 14 coupled OASiS runs quit voluntarily at
+       a mean 37% of budget while inventing deadlines (47 statements). Fixed
+       72c9e7d7.
+
   Round 1 — 27B, seed 1, 2026-08-15. NOT CLEAN.
     D1 x3: grader import dead (645b3eb3); probe-grid row order (645b3eb3);
            tool exceptions killed runs (813625f6)
