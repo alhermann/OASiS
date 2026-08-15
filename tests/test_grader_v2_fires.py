@@ -1113,3 +1113,35 @@ def test_ported_the_stated_single_grid_reproduces_v2s_points():
         assert good, f"{pid}: {why}"
         checked += 1
     assert checked >= 3
+
+
+def test_probe_grid_transposed_order_is_accepted():
+    """Six dev runs submitted the full correct grid with x varying fastest;
+    rows carry their own coordinates, so order must not decide the verdict."""
+    grid = GB2.probe_grid(2)
+    transposed = sorted(grid, key=lambda p: (p[1], p[0]))
+    assert transposed != grid
+    good, why = GB2.matches_probe_grid(transposed, grid)
+    assert good, why
+
+
+def test_probe_grid_off_grid_point_still_fires():
+    grid = GB2.probe_grid(2)
+    bad = list(grid)
+    bad[7] = (bad[7][0] + 0.004, bad[7][1])  # well beyond PROBE_TOL
+    good, why = GB2.matches_probe_grid(bad, grid)
+    assert not good and "not a prescribed" in why
+
+
+def test_probe_grid_duplicated_point_still_fires():
+    grid = GB2.probe_grid(2)
+    dup = list(grid)
+    dup[5] = dup[4]  # same count, one point twice, one missing
+    good, why = GB2.matches_probe_grid(dup, grid)
+    assert not good and "more than once" in why
+
+
+def test_probe_grid_count_mismatch_still_fires():
+    grid = GB2.probe_grid(2)
+    good, why = GB2.matches_probe_grid(grid[:-1], grid)
+    assert not good and "expected" in why

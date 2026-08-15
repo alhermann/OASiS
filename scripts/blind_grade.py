@@ -54,7 +54,12 @@ sys.path.insert(0, str(CAMPAIGN))
 from blind_eval import keyvault, selfconv                       # noqa: E402
 from blind_eval import evidence as EV                           # noqa: E402
 from blind_eval import interface as IF                          # noqa: E402
-import grade_blind_v2 as grade_blind   # SWAP: v2, rebuilt from the design, 62 firing tests as GB                                        # noqa: E402
+import grade_blind as GB  # legacy helpers for THIS diagnostic wrapper only  # noqa: E402
+# The grader of record is grade_blind_v2.grade_run (the v2 package with the
+# firing tests). A previous edit claimed to "swap" this wrapper to v2 by
+# renaming the import; v2 exports none of the helpers used below, so the
+# wrapper simply broke (NameError: GB) on every run with solution files.
+# This file stays what it always was: a key-free second opinion.
 
 # The three grades of evidence are NOT interchangeable and must never be pooled
 # into one aggregate number.

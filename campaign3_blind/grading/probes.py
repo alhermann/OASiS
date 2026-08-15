@@ -74,15 +74,54 @@ def probe_grid(dim: int, bounds=None, exclude=None) -> list[tuple]:
 
 
 def matches_probe_grid(pts, expected) -> tuple[bool, str]:
+    """Order-insensitive: every prescribed point exactly once, nothing else.
+
+    Every row of a submission carries its own coordinates, so row order adds
+    no information — and six development runs across five backends and both
+    arms submitted the complete correct grid transposed (x varying fastest),
+    which the previous positional comparison rejected as MALFORMED. Set
+    equality is the real contract; count mismatches, off-grid points and
+    duplicated points still reject. PROBE_TOL (1e-6) is ~4 orders below the
+    grid spacing, so nearest-point assignment is unambiguous.
+    """
     if len(pts) != len(expected):
         return False, f"expected {len(expected)} probe points, got {len(pts)}"
-    for i, (got, want) in enumerate(zip(pts, expected)):
-        if len(got) != len(want):
+    if not expected:
+        return True, "ok"
+    ndim = len(expected[0])
+    q = C.PROBE_TOL
+
+    def bucket(p):
+        return tuple(round(c / q) for c in p)
+
+    from collections import defaultdict
+    from itertools import product
+    where = defaultdict(list)
+    for j, w in enumerate(expected):
+        where[bucket(w)].append(j)
+    used = [False] * len(expected)
+    for i, got in enumerate(pts):
+        if len(got) != ndim:
             return False, f"row {i}: wrong coordinate dimension"
-        for a, b in zip(got, want):
-            if abs(a - b) > C.PROBE_TOL:
-                return False, (f"row {i}: point {got} is not the prescribed "
-                               f"probe point {want}")
+        base = bucket(got)
+        hit = None
+        for off in product((-1, 0, 1), repeat=ndim):
+            for j in where.get(tuple(b + o for b, o in zip(base, off)), ()):
+                if not used[j] and all(abs(a - b) <= q
+                                       for a, b in zip(got, expected[j])):
+                    hit = j
+                    break
+            if hit is not None:
+                break
+        if hit is None:
+            if any(used[j] and all(abs(a - b) <= q
+                                   for a, b in zip(got, expected[j]))
+                   for j in range(len(expected))):
+                return False, (f"row {i}: point {tuple(got)} appears more "
+                               f"than once")
+            return False, (f"row {i}: point {tuple(got)} is not a "
+                           f"prescribed probe point")
+        used[hit] = True
     return True, "ok"
 
 
