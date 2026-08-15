@@ -1,0 +1,111 @@
+# Development phase: what "converged" means, and how the ladder runs
+
+Written 2026-08-15, after development round 1 on the 27B. This file is the
+rule the campaign is held to. It is deliberately numeric: "it looks better
+now" is not a criterion, and neither is my opinion.
+
+## Why a development phase exists at all
+
+The evaluation numbers in the paper must measure ONE thing: what the model
+can do alone versus with OASiS. Every other cause of failure is noise we are
+obliged to remove first — a grader that rejects correct data, a harness that
+kills a run, a task that cannot be solved, knowledge that omits the one fact
+the intended path needs. Round 1 found four such defects. Until a full round
+finds none, the campaign is measuring our own mistakes.
+
+The development problems are BURNT by this process: we look at them, diagnose
+against them, and fix knowledge because of them. They can never appear in the
+paper's numbers. That is the whole reason the evaluation phase draws FRESH
+problems after a freeze — the honest test of whether knowledge fixed on
+development problems generalises to problems nobody tuned against. A reviewer
+who asks "did you tune on your test set?" must get: no, we tuned on the
+development set, it is burnt and listed, and here are the frozen fresh draws.
+
+## The convergence criterion (per model tier)
+
+A ROUND is a full sweep: every cell, both arms, one model tier, one seed.
+
+A round is CLEAN when every failure in it is attributable to the model — its
+capability or its use of the budget — and NONE to us. Concretely, the round
+must produce zero findings in all four defect classes:
+
+  D1 INSTRUMENT  a grader or harness behaviour that changes any outcome
+                 (round 1: 3 of these — dead grader import, probe-grid row
+                 order, escaped tool exceptions killing runs)
+  D2 TASK        a cell that is impossible, self-contradictory, or demands
+                 what the named codes cannot do
+  D3 KNOWLEDGE   a cell whose intended path we know and have walked, which
+                 the served knowledge does not convey, so the agent had to
+                 rediscover it or gave up (round 1: C1, 4C's 2D
+                 thermoelasticity decomposition — suspected, under audit)
+  D4 CUSTODY     any leak, contamination, or bookkeeping error (spent lists,
+                 seals, commitment drift, out-of-sandbox artifacts)
+
+A tier is CONVERGED when one full round is clean AND an independent critical
+audit of that round's runs — a sub-agent that did not run it, told to hunt
+for D1-D4 — also finds nothing. One clean round with a second opinion, which
+is the same freeze criterion the rest of this project uses: rounds run until
+a round finds nothing.
+
+## The ladder
+
+27B first (weakest — it surfaces knowledge gaps a strong model papers over),
+then 122B, then 397B. Advance only from a converged tier.
+
+Because knowledge is shared across tiers, a knowledge change after a tier has
+converged INVALIDATES that tier's claim for the cells it touches: re-run those
+cells at every tier already passed. Harness and grader fixes invalidate every
+cell they could change, at every tier — cheap to re-grade, so re-grade all.
+
+The whole ladder must be converged before the freeze. A defect found at 397B
+that implicates knowledge sends the affected cells back down the ladder; it
+does not send the campaign back to zero.
+
+## What may change between rounds, and what may not
+
+MAY change, and must be committed with the defect that justifies it:
+  - served knowledge (that is the system under development)
+  - harness and grader defects, with a firing test per fix
+  - a task text ONLY to remove an impossibility or a contradiction, never to
+    make a cell easier, and the cell is then re-walked before reuse
+
+MAY NOT change:
+  - grading thresholds, tolerances, or verdict rules in a direction that
+    admits more successes. A threshold moves only if it is WRONG on its own
+    terms, proven by a firing test, and it moves for both arms and all cells
+  - the two-arm design, the model pins, the temperature, the budgets
+  - anything about a cell after the freeze marker exists
+
+The asymmetry is deliberate and must be stated in the paper: knowledge fixes
+help the OASiS arm, because the OASiS arm is the thing being built. The bare
+arm gets the same tasks, the same budget, the same harness fixes, and the same
+grader. What makes the comparison fair is not that both arms improve, but that
+the evaluation problems are fresh and drawn after everything is frozen.
+
+## Anti-gaming rules (standing)
+
+  1. A number that improves without a named, committed defect fix is a bug
+     until proven otherwise. Diagnose before re-running.
+  2. Never re-run a cell "to see if it passes this time". Re-runs happen only
+     after a committed fix, and the fix's reason is recorded first.
+  3. A fix must be justified by evidence from the run, not by the fact that a
+     cell failed. "The agent could not do X" is not a defect; "the agent could
+     not do X because the knowledge omits Y, and here is the walk that shows Y
+     is required" is.
+  4. Results that get better must be scrutinised as hard as results that get
+     worse. Round 1's probe-grid repair flipped cells in BOTH arms — that is
+     what an honest instrument fix looks like.
+  5. Every round's findings land in DEV_FINDINGS.md before the next round
+     starts, with the commit that fixed each one.
+
+## Round log
+
+  Round 1 — 27B, seed 1, 2026-08-15. NOT CLEAN.
+    D1 x3: grader import dead (645b3eb3); probe-grid row order (645b3eb3);
+           tool exceptions killed runs (813625f6)
+    D4 x1: 19 runs wrote deliverables outside the sandbox, invisible to the
+           grader; write_file now confined, runs re-done
+    D3 x1 suspected: C1 4C 2D thermoelasticity decomposition — audit running
+    Result after repairs: single-code bare 4/18, OASiS 7/18; coupled 0/14
+    both arms. The coupled result is not yet attributable to the model: the
+    round was not clean, so it is not evidence about capability.
