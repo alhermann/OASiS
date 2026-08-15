@@ -1,6 +1,6 @@
 Solve the following boundary value problem as a COUPLED simulation using TWO codes: DUNE-fem on subdomain A and FEBio (write a .feb deck and run the febio4 binary) on subdomain B.
 
-GLOBAL DOMAIN: the {2: 'rectangle', 3: 'box'}[2] (0, 1.5) x (0, 1)
+GLOBAL DOMAIN: the rectangle (0, 1.5) x (0, 1)
 SUBDOMAIN A: A = (0, 0.625) x (0, 1), lambda = 400, mu = 200
 SUBDOMAIN B: B = (0.625, 1.5) x (0, 1), lambda = 400, mu = 500
 INTERFACE: the line x = 5/8, where the two materials meet

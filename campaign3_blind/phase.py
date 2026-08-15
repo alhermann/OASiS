@@ -102,6 +102,51 @@ DEVELOPMENT: dict[str, str] = {
     "D7": "FEniCSx + NGSolve, genuinely different operators either side, 2D",
     "D8": "FEniCSx + deal.II, transient two-material conduction, waveform "
           "relaxation over the space-time trace",
+    # ── Round 1 of the balanced matrix, run 2026-08-15 on the 27B, both arms.
+    # Every one of these is SPENT: the round provoked committed changes to the
+    # thing under test (write_file sandbox confinement, tool errors becoming
+    # observations, probe-grid set matching, and the knowledge fixes the
+    # post-mortem produces). They were absent from this list until an audit
+    # found it — with them missing, assert_evaluation_is_clean would have
+    # waved all 32 through as held-out.
+    "FE1": "FEniCSx, nonlinear diffusion, 2D",
+    "FE2": "FEniCSx, near-incompressible linear elasticity (nu = 0.49999), 2D",
+    "DL1": "deal.II, variable-coefficient diffusion, 2D",
+    "DL2": "deal.II, linear elasticity, 3D",
+    "NG1": "NGSolve, anisotropic diffusion, 2D",
+    "NG2": "NGSolve, steady incompressible Navier-Stokes, 2D",
+    "SK1": "scikit-fem, Stokes flow, mixed velocity-pressure, 2D",
+    "SK2": "scikit-fem, biharmonic (clamped plate), 2D",
+    "KR1": "Kratos, linear elasticity, 3D",
+    "KR2": "Kratos, steady diffusion on a curved (circular) domain, 2D",
+    "DU1": "DUNE, orthotropic diffusion, continuous Galerkin, 2D",
+    "DU2": "DUNE, advection-diffusion, discontinuous Galerkin, 2D",
+    "FB1": "FEBio, linear elasticity, plane strain, 2D",
+    "FB2": "FEBio, quasi-static viscoelasticity, transient load, 2D",
+    "FC1": "4C, transient heat conduction, 2D",
+    "FC2": "4C, near-incompressible linear elasticity (nu = 0.4999), 2D",
+    "SP1": "SPARTA, plane Couette flow, wall shear stress (DSMC), band-only",
+    "SP2": "SPARTA, parallel-wall heat conduction, wall heat flux (DSMC), "
+           "band-only",
+    "C1": "4C + FEniCSx, steady thermoelasticity, temperature and "
+          "displacement transmitted together, 2D",
+    "C2": "4C + Kratos, two-material conduction, severe contrast, 2D",
+    "C3": "DUNE + 4C, reaction-diffusion coupled to diffusion, 2D",
+    "C4": "FEniCSx + deal.II, transient two-material heat conduction, 2D",
+    "C5": "scikit-fem + FEniCSx, four-material conduction, notched domain, "
+          "bent interface, 2D",
+    "C6": "deal.II + NGSolve, conjugate heat transfer, anisotropic tensor "
+          "jump, 2D",
+    "C7": "FEBio + deal.II, two-material elasticity, shear-modulus jump, 2D",
+    "C8": "NGSolve + Kratos, two-material conduction, severe contrast, 2D",
+    "C9": "NGSolve + scikit-fem, two-material linear elasticity, 2D",
+    "C10": "Kratos + DUNE, two-material conduction, planar interface, 3D",
+    "C11": "FEBio + scikit-fem, two-material elasticity, shear jump, 2D",
+    "C12": "DUNE + FEBio, two-material elasticity, shear jump, 2D",
+    "C13": "FEniCSx + SPARTA, conjugate heat transfer, conducting solid and "
+           "rarefied argon (FEM-DSMC), band-only, outside the balance pool",
+    "C14": "4C + FEniCSx, steady fluid-structure interaction, graded against "
+           "a monolithic reference, outside the balance pool",
 }
 
 
@@ -122,6 +167,36 @@ def _walked_but_unlisted() -> list[str]:
     except (json.JSONDecodeError, OSError):
         return []
     return sorted(k for k, v in walked.items() if v and k not in DEVELOPMENT)
+
+
+class SpentListDriftError(RuntimeError):
+    """DEVELOPMENT omits an instance the walk record says is spent."""
+
+
+def assert_spent_list_current() -> None:
+    """Fail loudly if a walked instance is missing from DEVELOPMENT.
+
+    `_walked_but_unlisted` existed for exactly this and was never called by
+    anything — dead code whose docstring claimed a guarantee the module did
+    not provide, while the comment above claimed 'see the assertion below,
+    which now enforces that' and there was no assertion. An audit found all
+    32 instances of the balanced round unlisted; every one would have been
+    graded as held-out.
+
+    Called at import time, so nothing can use this module's phase logic
+    against a stale list.
+    """
+    drift = _walked_but_unlisted()
+    if drift:
+        raise SpentListDriftError(
+            f"path_readiness.json records {len(drift)} walked instance(s) "
+            f"that DEVELOPMENT does not list as spent: {drift}. A walked "
+            f"instance is burnt — add it to DEVELOPMENT (with a description) "
+            f"before any evaluation draw, or the evaluation gate will treat "
+            f"it as held-out.")
+
+
+assert_spent_list_current()
 
 
 def held_out_spec(seed: int) -> dict:

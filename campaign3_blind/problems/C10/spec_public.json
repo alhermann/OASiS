@@ -20,7 +20,7 @@
     "A": "dirichlet",
     "B": "neumann"
   },
-  "domain": "the {2: 'rectangle', 3: 'box'}[3] (0, 1.5) x (0, 1) x (0, 1)",
+  "domain": "the box (0, 1.5) x (0, 1) x (0, 1)",
   "interface": "the plane x = 5/8, where the two materials meet",
   "interface_axis": "x",
   "interface_value": "5/8",

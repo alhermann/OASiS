@@ -233,8 +233,12 @@ class Geom:
         return " x ".join(f"({a:g}, {b:g})" for a, b in ext)
 
     def domain_text(self):
+        # The doubled braces made this an f-string LITERAL, so 11 of 12 pooled
+        # coupled tasks showed the agent "the {2: 'rectangle', 3: 'box'}[2]"
+        # as the domain description instead of "the rectangle".
         full = [(0.0, L) for L in self.lengths]
-        return f"the {{2: 'rectangle', 3: 'box'}}[{self.dim}] " + self._box(full)
+        word = {2: "rectangle", 3: "box"}[self.dim]
+        return f"the {word} " + self._box(full)
 
     def subdomain_text(self, side):
         return self._box(self.extent_a if side == "A" else self.extent_b)

@@ -46,14 +46,25 @@ OUT = REPO / "data" / "blind_campaign_commitment.json"
 
 FILES = [
     "campaign3_blind/DESIGN.md",
+    "campaign3_blind/CONVERGENCE.md",
     "campaign3_blind/run_blind.py",
     "campaign3_blind/grade_blind_v2.py",
+    "campaign3_blind/grade_blind.py",
     "campaign3_blind/phase.py",
     "campaign3_blind/build_coupled_v2.py",
     "campaign3_blind/build_balanced.py",
     "campaign3_blind/build_single_v2.py",
+    "campaign3_blind/build_offpool.py",
     "campaign3_blind/path_readiness.json",
+    "campaign3_blind/dev_driver.sh",
     "scripts/blind_grade.py",
+    # THE AGENT DEFINES BOTH ARMS — the bare tool set, the MCP tool set, both
+    # system prompts, the sandbox confinement. It was NOT committed, and it
+    # changed one minute after a commitment was generated. Without it, the
+    # treatment itself could be edited after the freeze and --verify would
+    # still report clean.
+    "langgraph_eval/agent.py",
+    "src/server.py",
 ]
 GLOBS = [
     "campaign3_blind/grading/*.py",
@@ -61,6 +72,13 @@ GLOBS = [
     "campaign3_blind/problems/*/spec_public.json",
     "src/blind_eval/*.py",
     "src/blind_eval/**/*.py",
+    # THE MCP ARM'S ENTIRE TREATMENT. The knowledge served to the OASiS arm is
+    # the independent variable of this experiment; none of it was hashed, so
+    # "which knowledge produced these numbers" had no answer.
+    "src/tools/*.py",
+    "src/backends/**/*.py",
+    "src/backends/**/*.json",
+    "src/core/*.py",
 ]
 
 

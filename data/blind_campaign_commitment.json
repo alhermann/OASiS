@@ -1,8 +1,8 @@
 {
  "schema": 2,
  "campaign": "campaign3_blind",
- "generated_utc": "2026-08-15T15:15:09+00:00",
- "git_commit": "645b3eb3d179a070330bbe7e6f01ef8f9ea3506e",
+ "generated_utc": "2026-08-15T18:00:51+00:00",
+ "git_commit": "27c58193a93ec223cea711cfc3d7bec4da84090a",
  "draw_seed": 20260814,
  "pinning": {
   "models": [
@@ -26,9 +26,14 @@
    "sha256": "e6a8794d6a728c1135684197ab5f5e1c0ea1533ad2c0413da656096f3170cf92"
   },
   {
+   "path": "campaign3_blind/CONVERGENCE.md",
+   "bytes": 6046,
+   "sha256": "5d0c6349a11df6161c2002dd3d1b84d7c3a3aae66b37aecda54d77bfef3bb439"
+  },
+  {
    "path": "campaign3_blind/run_blind.py",
-   "bytes": 15796,
-   "sha256": "bcf8c1d8ee779ba593f29dc718bf29e23713bbb37422c1c736419b9adb9f059d"
+   "bytes": 16479,
+   "sha256": "c4b05ff8d107106a29ed5a0ac0b0d3f3174e935a3bbcf6250e2998d10aafac59"
   },
   {
    "path": "campaign3_blind/grade_blind_v2.py",
@@ -36,9 +41,14 @@
    "sha256": "711f46df08fc937177c56c6639dc61d561db5c140dd20dbca9aa6851686d0696"
   },
   {
+   "path": "campaign3_blind/grade_blind.py",
+   "bytes": 22283,
+   "sha256": "1958d61988b5c5e8cdd35a68b421f65e7b25fef6445dc290976435012eba29e0"
+  },
+  {
    "path": "campaign3_blind/phase.py",
-   "bytes": 11438,
-   "sha256": "75b9ebdfb312efac44590456cdb298d91b911d1a18d8fc6ae2aab4e01132dba1"
+   "bytes": 15559,
+   "sha256": "0b7f0cb9cda64501615343707a5345de4a8c4b4bc1260c378c6bd7fc11bb22e1"
   },
   {
    "path": "campaign3_blind/build_coupled_v2.py",
@@ -47,8 +57,8 @@
   },
   {
    "path": "campaign3_blind/build_balanced.py",
-   "bytes": 64867,
-   "sha256": "c4c74b2c8d8539746d18cc924c9bc40760b0cdf11cafa51f70b5a61db355c37f"
+   "bytes": 65105,
+   "sha256": "352e0bc862e0f8058b08117d6e6fd2bf14c03643bbd4da0c117db319cdfa0d81"
   },
   {
    "path": "campaign3_blind/build_single_v2.py",
@@ -56,14 +66,34 @@
    "sha256": "48efdf9174caaeb92a67d3f7ea5d85a8b8d787ef15b5f03a29b1c55301c5f804"
   },
   {
+   "path": "campaign3_blind/build_offpool.py",
+   "bytes": 27002,
+   "sha256": "7b8def5e98bd74988b13472e0f3e45e0bdd715c9db41082cd08fe9fd0105b07d"
+  },
+  {
    "path": "campaign3_blind/path_readiness.json",
    "bytes": 46658,
    "sha256": "3e89be9ef9844f97cc82cbe71a939db47e9f3c26d9a010fb4ea52e2dce8d5e06"
   },
   {
+   "path": "campaign3_blind/dev_driver.sh",
+   "bytes": 1786,
+   "sha256": "ea68314d541306d33a1fbd609d165531db9a03d599e0d95357b1a4f2df7a6c02"
+  },
+  {
    "path": "scripts/blind_grade.py",
    "bytes": 17331,
    "sha256": "c08d37f14330fab0b305e34c7e93b1348516141435fcb61a4248d386aa10e048"
+  },
+  {
+   "path": "langgraph_eval/agent.py",
+   "bytes": 16160,
+   "sha256": "6b1b979d13b240660d06caeb41ee8b7d594d195b87e4010c52b869a1d77221bf"
+  },
+  {
+   "path": "src/server.py",
+   "bytes": 12229,
+   "sha256": "70891d04b74da835542059891a7f03debedcfa11455d4cb4b6e6b6ddb47581d8"
   },
   {
    "path": "campaign3_blind/grading/__init__.py",
@@ -147,23 +177,23 @@
   },
   {
    "path": "campaign3_blind/problems/C1/task.txt",
-   "bytes": 8178,
-   "sha256": "533a3e6155af0aee28f6a0f33aecba05be76ddcc051d05b9e40242f28e3b8c13"
+   "bytes": 8158,
+   "sha256": "19016f7eeafa6cb1a065db90080097675c60baf6d8c3cbe1c756f2f7da8efea5"
   },
   {
    "path": "campaign3_blind/problems/C10/task.txt",
-   "bytes": 7064,
-   "sha256": "5602791e620b79cf6dca8be2c10321f38aac1dafcd5c90db136087936ceed5ba"
+   "bytes": 7038,
+   "sha256": "f9591152f6b6c36e7450f423717644ddecf82d72ce0c3a66c21bee38fc99ba20"
   },
   {
    "path": "campaign3_blind/problems/C11/task.txt",
-   "bytes": 7080,
-   "sha256": "6a75a9cbaff9a823f04b286e5e4787004a6a122620ec2a3a98f13ea1f4eb9cb1"
+   "bytes": 7060,
+   "sha256": "690fc56bb1f69e19cda046c3925769c95cb3a1a6748ac4ab5e5b8134927f383d"
   },
   {
    "path": "campaign3_blind/problems/C12/task.txt",
-   "bytes": 7045,
-   "sha256": "343c8d15d0cd812a343af08b205a8b73d914777450e8cb48165a2b680a440088"
+   "bytes": 7025,
+   "sha256": "8339cd9b8ebb9c31b2c90efd39e191a9423be25ca496d70634601afca1cecde2"
   },
   {
    "path": "campaign3_blind/problems/C13/task.txt",
@@ -177,18 +207,18 @@
   },
   {
    "path": "campaign3_blind/problems/C2/task.txt",
-   "bytes": 6164,
-   "sha256": "b9722b779ccdb5f8297254a029308860055a2ba6da0bff7b14539917e8345a2c"
+   "bytes": 6144,
+   "sha256": "30772833c0d7f38cea0886dba69b128a4f4ae332b5f643a48b96c4d67ee6b245"
   },
   {
    "path": "campaign3_blind/problems/C3/task.txt",
-   "bytes": 6209,
-   "sha256": "e8b56e71dcab24b46eaaa64fcd01ec15f922710a8fc08606f331839f91fe0715"
+   "bytes": 6189,
+   "sha256": "968530337bf3d4c2b7f949ca7ad589b175b1fe58ffaff043d94be66fb1ee626d"
   },
   {
    "path": "campaign3_blind/problems/C4/task.txt",
-   "bytes": 6910,
-   "sha256": "60273d7e3254bd9b4e4c29b953c558101dee0f72364a9b659917014dab513ebc"
+   "bytes": 6890,
+   "sha256": "257a7a459ddc5fbd448d546d337b967547d08c92b414f1b3016cd5840e568688"
   },
   {
    "path": "campaign3_blind/problems/C5/task.txt",
@@ -197,23 +227,23 @@
   },
   {
    "path": "campaign3_blind/problems/C6/task.txt",
-   "bytes": 6196,
-   "sha256": "4eb5e9b0089fd4fe7c7778df74feafd9db501027bc041213fa99453c536ac02c"
+   "bytes": 6176,
+   "sha256": "99893408bf26de09219b1e3c8633f1ef34b40ee261ba08f45f25edf5c9c78744"
   },
   {
    "path": "campaign3_blind/problems/C7/task.txt",
-   "bytes": 6998,
-   "sha256": "2f83a2d15d14cceeb6a9e3abeac9252f3b4d4277cdead7039e2e0067bd003e72"
+   "bytes": 6978,
+   "sha256": "69d6f22ee86dcca039c56582135876679ed6ad50419ccd575dafeb69c9f40d35"
   },
   {
    "path": "campaign3_blind/problems/C8/task.txt",
-   "bytes": 6283,
-   "sha256": "d5d3bb8e983b86663709b785d9a744c15aca255bf4f81957cb7da399d4e49106"
+   "bytes": 6263,
+   "sha256": "30a2c27689e165790e8c23523f36b4a955e7b4a0a512de57ae732f5c95d79ec7"
   },
   {
    "path": "campaign3_blind/problems/C9/task.txt",
-   "bytes": 6976,
-   "sha256": "25b3c2440252e4107ed90e9e8c5b471b1a4891416181f7fb09ecb2cf35d5c0c8"
+   "bytes": 6956,
+   "sha256": "40aab98f605b87c9d37c73e739b846ac534f0204c71c4d8866be6df4547bf2eb"
   },
   {
    "path": "campaign3_blind/problems/D1/task.txt",
@@ -362,23 +392,23 @@
   },
   {
    "path": "campaign3_blind/problems/C1/spec_public.json",
-   "bytes": 5055,
-   "sha256": "d6fccc8b84ee9063f13e9c083c92878b111c6ecddd10d36213ad89aafbdd4406"
+   "bytes": 5035,
+   "sha256": "1b11f993823583e8708154346df08ace99601768285f3b85a241a3e70c39ce24"
   },
   {
    "path": "campaign3_blind/problems/C10/spec_public.json",
-   "bytes": 3927,
-   "sha256": "37da8647a771ec5b29ee4ba4949747c00a34ef497adff3c0fc06e72180a6de7a"
+   "bytes": 3901,
+   "sha256": "e8e4dd4f4c1d09a8fa479464f8e831e1c90eb83396cae04242c96fc9ab00857a"
   },
   {
    "path": "campaign3_blind/problems/C11/spec_public.json",
-   "bytes": 3940,
-   "sha256": "6e1c32a36104ac50667742410ddf7bb4fb6b921fbf32e649480ca836a753a456"
+   "bytes": 3920,
+   "sha256": "18e08677435041cbe74426cf4eb509ce3a40a35cc916ca2c4cc4edfb76ec8556"
   },
   {
    "path": "campaign3_blind/problems/C12/spec_public.json",
-   "bytes": 3906,
-   "sha256": "a78342b87b4f96e00639e1ba47ea54e1ad9e9634e99d8dae49c94205bcaa9ff2"
+   "bytes": 3886,
+   "sha256": "2235a05942a93282d4ccf37b3f8272560874a90887be6d5f709c319345fb1bde"
   },
   {
    "path": "campaign3_blind/problems/C13/spec_public.json",
@@ -392,18 +422,18 @@
   },
   {
    "path": "campaign3_blind/problems/C2/spec_public.json",
-   "bytes": 3014,
-   "sha256": "fa45d93c71d6ca7d63e056e8a2feef5efa330ff37a635c626a0b9399a8dfb777"
+   "bytes": 2994,
+   "sha256": "cfb6deb217e3ade445c708e3e9e927d53ec64cb39796e289911edaa09f4f8dcb"
   },
   {
    "path": "campaign3_blind/problems/C3/spec_public.json",
-   "bytes": 3076,
-   "sha256": "0ceb286976395358d8a0ebb4213cbd67f55bdc3f17bfff8021f8a9351a8e008b"
+   "bytes": 3056,
+   "sha256": "5128603f18a29116fe8ab0cd35e9b2b31abbda9d8a16f3aa55d741a200053d9e"
   },
   {
    "path": "campaign3_blind/problems/C4/spec_public.json",
-   "bytes": 3774,
-   "sha256": "21005a08f6f3ecfb695d708eeba5f9c7947bdb13a022dc35e29d0fdf81a3673c"
+   "bytes": 3754,
+   "sha256": "f90fe5ec243ce53905fae1a706f15bdecde71702fc1b1863297660132944d16e"
   },
   {
    "path": "campaign3_blind/problems/C5/spec_public.json",
@@ -412,23 +442,23 @@
   },
   {
    "path": "campaign3_blind/problems/C6/spec_public.json",
-   "bytes": 3104,
-   "sha256": "ec17aa303484969196640b9a64d7ad6f1d1f424f12ffe0a1d13361e6b4652220"
+   "bytes": 3084,
+   "sha256": "74a21af18ed2c6a7c23e49627b3c62cbfabbe03b27dd69e6e11b4b8227f252b4"
   },
   {
    "path": "campaign3_blind/problems/C7/spec_public.json",
-   "bytes": 3858,
-   "sha256": "c157c431a2fefebf259f6c77348768f7951d12eb2e758a8abef0fa84bb9d5f72"
+   "bytes": 3838,
+   "sha256": "0cb83b10d9ee3964dfda1cf4f3a5fec434591b0d7e2d77244818d7c007acf1a5"
   },
   {
    "path": "campaign3_blind/problems/C8/spec_public.json",
-   "bytes": 3121,
-   "sha256": "7857eb210955fd93c4af85569546adb5242f157d8a431d1c1c75d80bcbddf7e4"
+   "bytes": 3101,
+   "sha256": "ce25b4b175655ec7b6e9abbda5b924f4631a2b1d090de33d876212679e2e9582"
   },
   {
    "path": "campaign3_blind/problems/C9/spec_public.json",
-   "bytes": 3839,
-   "sha256": "18482ef60d40d0ffa8f4fd3cc96a953934a219dc842c450d472b6e85b968e0f6"
+   "bytes": 3819,
+   "sha256": "ab27bdf9e403f2fff7c2481bc1d70c923525dda7e8540bd1dfc23df8834471d5"
   },
   {
    "path": "campaign3_blind/problems/D1/spec_public.json",
@@ -609,6 +639,1266 @@
    "path": "src/blind_eval/spec.py",
    "bytes": 5427,
    "sha256": "f59f34378d28666661d5ce9cf5dd186fb1579e66c483499a2e00a8bbec75df15"
+  },
+  {
+   "path": "src/tools/__init__.py",
+   "bytes": 0,
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "path": "src/tools/benchmark.py",
+   "bytes": 7009,
+   "sha256": "80d779aa82b9e966968d10955f93475c455286404fd8556aafe354286b37af0c"
+  },
+  {
+   "path": "src/tools/consolidated.py",
+   "bytes": 280713,
+   "sha256": "5544627e6b3a43eabd5b7086489c0a4867e1fa1e889e2c1616686828dfc61fe9"
+  },
+  {
+   "path": "src/tools/coupling.py",
+   "bytes": 97214,
+   "sha256": "f9531b431e97fa27ba4c603a08ad3f841c9c02cee91b0ab6e4af35225ad2632b"
+  },
+  {
+   "path": "src/tools/coupling_knowledge.py",
+   "bytes": 159396,
+   "sha256": "c18ea2d0ad208c9be204f7e7a556f87a6bd4868805c455db258c033b0a7cb95d"
+  },
+  {
+   "path": "src/tools/deep_knowledge.py",
+   "bytes": 893327,
+   "sha256": "5c8f4253fffeb8d11d1ac0ad73076f413464d3120d3cbd455db44fa3e9f932c3"
+  },
+  {
+   "path": "src/tools/developer.py",
+   "bytes": 21937,
+   "sha256": "28556f70a0b4e6c0495a640c649aea4f24a914f5d82e385e9879d0b23d5090c7"
+  },
+  {
+   "path": "src/tools/discovery.py",
+   "bytes": 4028,
+   "sha256": "1d77c8fdd6a3980ada1990b3cc0671cdbbec06b4c155fda18b2314d877471359"
+  },
+  {
+   "path": "src/tools/examples_search.py",
+   "bytes": 49834,
+   "sha256": "b7e52ec5cf2a8e2000ecf848586f7b231ba05fe3efc81851efd81f6a655c7897"
+  },
+  {
+   "path": "src/tools/knowledge.py",
+   "bytes": 29682,
+   "sha256": "d2a32c34341ffd7bc1d941f1598f80ed2f0ac349c9eb535dd98d348d750f54c2"
+  },
+  {
+   "path": "src/tools/mesh_generation.py",
+   "bytes": 10288,
+   "sha256": "583eaae8976ebbb372f2048be4906dd6c4b644ce32ca6cb895db15331a12e430"
+  },
+  {
+   "path": "src/tools/schema_validation.py",
+   "bytes": 17724,
+   "sha256": "8c5b7d69076929b0d85defa3149d9a2f245f3ec43a3aa0debe5103573389901f"
+  },
+  {
+   "path": "src/tools/simulation.py",
+   "bytes": 13462,
+   "sha256": "3d828d79f2a0dcfa72fbe42380e072e3c4e98bad968e3669c9a487d9fee3d7c1"
+  },
+  {
+   "path": "src/tools/visualization.py",
+   "bytes": 6496,
+   "sha256": "889322c1d44b41ef94f9a650eb6c803483dcb0d038a17a01dc7994df384a3f5c"
+  },
+  {
+   "path": "src/tools/workflows.py",
+   "bytes": 25843,
+   "sha256": "6f603258c8b5bc7eae8d8bc8bda7a27a6db055c4b39f490dcc654d9c39ecdb5d"
+  },
+  {
+   "path": "src/backends/__init__.py",
+   "bytes": 0,
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "path": "src/backends/_cross.py",
+   "bytes": 79061,
+   "sha256": "e29ca86bee9f687a5ee58ab4f68ef743549bc3b4c2ad9ef3c3bda9d43677dfcc"
+  },
+  {
+   "path": "src/backends/_installed_api.py",
+   "bytes": 15477,
+   "sha256": "6f2598b5fc171639bd67d758aaefe5dacf6af0683f63d418bbce3a6d08811d40"
+  },
+  {
+   "path": "src/backends/_setup.py",
+   "bytes": 90788,
+   "sha256": "a4daf85d2bede92c6b67bb0ffcd8e0bf6161e3bb4a401bc0c170e9bfd4a5028c"
+  },
+  {
+   "path": "src/backends/coupling/__init__.py",
+   "bytes": 1109,
+   "sha256": "6b3683bbc61342bef8fac29bf1a6639a3acd2f9c8efe9dba5019ae76395b9b67"
+  },
+  {
+   "path": "src/backends/coupling/pitfalls.py",
+   "bytes": 69704,
+   "sha256": "e223e7aa1d85184d1feaaa017a50e1013a70ce1ed96ed0b1ea830ddb74d7eabb"
+  },
+  {
+   "path": "src/backends/dealii/__init__.py",
+   "bytes": 0,
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "path": "src/backends/dealii/backend.py",
+   "bytes": 40565,
+   "sha256": "93184350218a6321a3d5e5e4fbd613d97c504e8a0222d18c1ed00d72942cbb82"
+  },
+  {
+   "path": "src/backends/dealii/element_catalog.py",
+   "bytes": 43019,
+   "sha256": "869940e4e6adf2e48cc9fbde81b1f26446975f23db3462bfb210516eee25c93e"
+  },
+  {
+   "path": "src/backends/dealii/generators/__init__.py",
+   "bytes": 11561,
+   "sha256": "8e5296b84e6fef2ee8927e79afeb0304aede5433a5f1dc703fa66ccca7ba0a2d"
+  },
+  {
+   "path": "src/backends/dealii/generators/_critical.py",
+   "bytes": 39079,
+   "sha256": "56fd4423c4d4966c5ce9b23794335e80bc1ebee78bc0c33749c9b2b47486f565"
+  },
+  {
+   "path": "src/backends/dealii/generators/advanced.py",
+   "bytes": 100317,
+   "sha256": "219ab669640edd02f472c00380e185bcd8216a744f032d078ca16174499de503"
+  },
+  {
+   "path": "src/backends/dealii/generators/convection_diffusion.py",
+   "bytes": 11077,
+   "sha256": "b869394a5ae4fafc585008f142c9d2ad91a526ccc1bbad4dccd5864f33a9e75d"
+  },
+  {
+   "path": "src/backends/dealii/generators/dg_transport.py",
+   "bytes": 26248,
+   "sha256": "900237dccb791f24bf31a90952579cb0dcc38330ed8531b07bab07b2283d086f"
+  },
+  {
+   "path": "src/backends/dealii/generators/eigenvalue.py",
+   "bytes": 17987,
+   "sha256": "2e2c71bb2b9b4a538e27334e21f31f7ba743dbf8f49ba6fcc14e19b5f5ed7dfc"
+  },
+  {
+   "path": "src/backends/dealii/generators/elasticity.py",
+   "bytes": 26366,
+   "sha256": "8d78368e786bb133f5431fa1c61e045978cc3579bafb5075d64a8a68b1364fb4"
+  },
+  {
+   "path": "src/backends/dealii/generators/heat.py",
+   "bytes": 21746,
+   "sha256": "663d16c2935e1c27e3a90e5123a6323b253b1e00f8608ebab2cbb5d944ef7b3f"
+  },
+  {
+   "path": "src/backends/dealii/generators/helmholtz.py",
+   "bytes": 12962,
+   "sha256": "90ae0a3e600e41f83150a351958fc17cc87a373cd170cb8977de508d666c5597"
+  },
+  {
+   "path": "src/backends/dealii/generators/hp_adaptive.py",
+   "bytes": 23304,
+   "sha256": "47e4a804182ebe2bd847d67aa4e5cce6ae111af2d24134e3cbdc9ab8772605cc"
+  },
+  {
+   "path": "src/backends/dealii/generators/hyperelasticity.py",
+   "bytes": 27826,
+   "sha256": "559a7c6e4064a9cddc879a6a929e57d4487f85096257874afa3e7adc25e82bc3"
+  },
+  {
+   "path": "src/backends/dealii/generators/navier_stokes.py",
+   "bytes": 17894,
+   "sha256": "76719f64b2ea15f05c9f32cf79373e4474eb44c755db1c4583a28b7ebe13fe6e"
+  },
+  {
+   "path": "src/backends/dealii/generators/nonlinear.py",
+   "bytes": 14607,
+   "sha256": "6cf9dda7078e41141116f8bc9914d4910f9ca23469c7f9c10c0f2d89a5fa20af"
+  },
+  {
+   "path": "src/backends/dealii/generators/parallel.py",
+   "bytes": 18246,
+   "sha256": "c066eeca26e1b6bf9be9fb7cf1d421aae485ddb52f15f8958cf4775035746f78"
+  },
+  {
+   "path": "src/backends/dealii/generators/poisson.py",
+   "bytes": 70930,
+   "sha256": "55a67c2449e63d427f3160770f7c788908206d15cf5edce7db459ea985057552"
+  },
+  {
+   "path": "src/backends/dealii/generators/poisson_mixed_bc.py",
+   "bytes": 24983,
+   "sha256": "828354a6eaf4826921307fcb35ec74d325f707acb739f3bab400a3bb04b49ddc"
+  },
+  {
+   "path": "src/backends/dealii/generators/stokes.py",
+   "bytes": 18999,
+   "sha256": "55fbfb8e8bbf3233083879deffb5f40aeb5ad791c2787f866a2d7ca53ea92fb8"
+  },
+  {
+   "path": "src/backends/dealii/generators/wave.py",
+   "bytes": 13634,
+   "sha256": "79929edd763538645e9fb9a0138511a1050cb891a4596a4d452ed11b74fae842"
+  },
+  {
+   "path": "src/backends/dune/__init__.py",
+   "bytes": 0,
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "path": "src/backends/dune/backend.py",
+   "bytes": 18637,
+   "sha256": "0b4a93169c8dd062b7d3f2c8785c2204d48204790e6308b6d202adf6d49e4489"
+  },
+  {
+   "path": "src/backends/dune/generators/__init__.py",
+   "bytes": 25427,
+   "sha256": "3f8423e7ac71285fb28f921c91b3c31cab97b2c328aa981a4034941d73dd62b9"
+  },
+  {
+   "path": "src/backends/dune/generators/adaptive_poisson.py",
+   "bytes": 16507,
+   "sha256": "0f17faeb111511eb1cdf027bdec2d2d77d9fbe895e4a32f017ec057d1d4ed953"
+  },
+  {
+   "path": "src/backends/dune/generators/advanced.py",
+   "bytes": 65082,
+   "sha256": "e41c323a0b8cf4b2df88412284a4ca40051e5c6adcb8833a942b36ffbe453737"
+  },
+  {
+   "path": "src/backends/dune/generators/dg_advection.py",
+   "bytes": 14672,
+   "sha256": "7f66522c9b645bce2825d37777614de6836e367ca02be80132cfc8ea43e934d8"
+  },
+  {
+   "path": "src/backends/dune/generators/heat.py",
+   "bytes": 5526,
+   "sha256": "0967d32262554655955ad05140d3d8517f1d9f359eb964214dc3a162eb62a3d8"
+  },
+  {
+   "path": "src/backends/dune/generators/linear_elasticity.py",
+   "bytes": 16161,
+   "sha256": "74b3f77f80df3d435f48298195e132daabb0401cd3e3e25f66906dc1aba60ddd"
+  },
+  {
+   "path": "src/backends/dune/generators/nonlinear.py",
+   "bytes": 9248,
+   "sha256": "796cb66e2f9be52071f8070171ae70acf3603d8c77a22a826008ed7538eff77e"
+  },
+  {
+   "path": "src/backends/dune/generators/poisson.py",
+   "bytes": 12631,
+   "sha256": "d80cb6da8c1ef564b85d65f89981ebaada21a31b4d58614ca91301e5c35148b7"
+  },
+  {
+   "path": "src/backends/dune/generators/poisson_mms3d.py",
+   "bytes": 17693,
+   "sha256": "933954d575de33304c2daa67508468afbe90ab220ba60204b57653a7f3445880"
+  },
+  {
+   "path": "src/backends/dune/generators/reaction_diffusion.py",
+   "bytes": 4300,
+   "sha256": "7de4f560c7427a7891d62b02cd04fa2708d5be74007df3160154d725eb434784"
+  },
+  {
+   "path": "src/backends/dune/generators/stokes.py",
+   "bytes": 15928,
+   "sha256": "38f7c4e8ff074dd7a589d43a02be3acc1d99713d1b256c6ffae4c03de0535045"
+  },
+  {
+   "path": "src/backends/dune/generators/verified_api.py",
+   "bytes": 88188,
+   "sha256": "dfcaf6933e91aa11277ef5507e7a7b7b9b87a2b2f6e1755ae90a6ddbf433b980"
+  },
+  {
+   "path": "src/backends/febio/__init__.py",
+   "bytes": 0,
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "path": "src/backends/febio/backend.py",
+   "bytes": 17244,
+   "sha256": "a9ee47c3d51f3bdceb6f593117b1288c29d79ffbac090fc9f0fc6357f78ed16c"
+  },
+  {
+   "path": "src/backends/febio/generators/__init__.py",
+   "bytes": 50630,
+   "sha256": "cff0b4d0282b6b3cefec5e84a976a98bb9f770fedebbc00412cb65bec4b2fb1f"
+  },
+  {
+   "path": "src/backends/febio/generators/active_contraction.py",
+   "bytes": 11069,
+   "sha256": "0b1a2d281be6198119b7f52b21f899cf603642e0d6390714aead84f22ad98dab"
+  },
+  {
+   "path": "src/backends/febio/generators/biphasic.py",
+   "bytes": 16494,
+   "sha256": "84eaa67d9cdd60a24d451f7437f2b3e55b0d3af6650e853b9339e35928eb35fe"
+  },
+  {
+   "path": "src/backends/febio/generators/biphasic_fsi.py",
+   "bytes": 13512,
+   "sha256": "29e332046e29b2c0f717ffe518de0a2505b5386a80e8cd655ee9a88447aff793"
+  },
+  {
+   "path": "src/backends/febio/generators/damage.py",
+   "bytes": 13165,
+   "sha256": "26cc4538739a857fa6ece15dc43949ac8bbcf7046cbdca9cd3b25d913d7c1e4e"
+  },
+  {
+   "path": "src/backends/febio/generators/deck_structure.py",
+   "bytes": 35619,
+   "sha256": "f635d02c9a4fe81c7e93ce5f1562a8afee2157e194d13b803c9e3f9f1cacefd5"
+  },
+  {
+   "path": "src/backends/febio/generators/elasticity_mms.py",
+   "bytes": 27593,
+   "sha256": "f09b3f4aa6f3f58aaf0f24fe822625e66faa9f62b2d19597ed7183218ab85db2"
+  },
+  {
+   "path": "src/backends/febio/generators/fiber_reinforced.py",
+   "bytes": 13540,
+   "sha256": "aeb945716c750ab70465ee94d5ba482f3a0ffe4790d9c69502bbb2c36e30b434"
+  },
+  {
+   "path": "src/backends/febio/generators/fluid.py",
+   "bytes": 8153,
+   "sha256": "b26253c317156e90db7645726d01ba28dea774e047d49705456bf895feaa4100"
+  },
+  {
+   "path": "src/backends/febio/generators/fluid_fsi.py",
+   "bytes": 10104,
+   "sha256": "d47775641dfcc7022ed9359083065c3814bbad68b98b08da5446ab09a81aef18"
+  },
+  {
+   "path": "src/backends/febio/generators/growth_remodeling.py",
+   "bytes": 20885,
+   "sha256": "bfe187f9ef2826af7efa7124a1cf9c18e075fc4032b9b6e7ae4d1494794871ec"
+  },
+  {
+   "path": "src/backends/febio/generators/heat.py",
+   "bytes": 24736,
+   "sha256": "b4ad213ae290f26bd142ce2725ffd3376e9e3f0cbc0c7d5590737b54952b4a32"
+  },
+  {
+   "path": "src/backends/febio/generators/hyperelasticity.py",
+   "bytes": 17140,
+   "sha256": "f9c803544868fb6f93a3da8af43ace4c68977ea09fb9ba98154aa42a8966076f"
+  },
+  {
+   "path": "src/backends/febio/generators/linear_elasticity.py",
+   "bytes": 19910,
+   "sha256": "b01bea7049c22af867a56a03a702c7fea5a9f4569708d1b6cbfe7999a7404e88"
+  },
+  {
+   "path": "src/backends/febio/generators/multiphasic.py",
+   "bytes": 8309,
+   "sha256": "c34c854034235bdb2d460074977c68dc3c9a120d97dc401ec534be3c70eca39e"
+  },
+  {
+   "path": "src/backends/febio/generators/plasticity.py",
+   "bytes": 11835,
+   "sha256": "b66d44f2917b0bf18ddd039a2c418483c7db1c51e76dc0a71222b07a9dffe3bd"
+  },
+  {
+   "path": "src/backends/febio/generators/polar_fluid.py",
+   "bytes": 11118,
+   "sha256": "8e27e86a55ad6680b1d0a305d01bf4b4a6b1416e9cabf6516872aaccdb9842aa"
+  },
+  {
+   "path": "src/backends/febio/generators/rigid_body.py",
+   "bytes": 27899,
+   "sha256": "6b6cf1d14ce9b3e27368840076c75d9792f071b4ff486e0da6da9843ee6399f0"
+  },
+  {
+   "path": "src/backends/febio/generators/viscoelasticity.py",
+   "bytes": 17816,
+   "sha256": "d850471d891657f146e433b5c0b3e7f4b5d05199f1fb28027e6dc5d085800747"
+  },
+  {
+   "path": "src/backends/fenics/__init__.py",
+   "bytes": 0,
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "path": "src/backends/fenics/backend.py",
+   "bytes": 28171,
+   "sha256": "bb0142692450d22371578fd3b99b29df20a3dd243a856ba1ff2f02199ffb9e7d"
+  },
+  {
+   "path": "src/backends/fenics/generators/__init__.py",
+   "bytes": 27271,
+   "sha256": "a6030ae3c0b436de569af49e7ba9aec6ae6b675eac5bd986ae964392207f0b07"
+  },
+  {
+   "path": "src/backends/fenics/generators/advanced.py",
+   "bytes": 146284,
+   "sha256": "4af0f01d74e0563234888da2b324959f851a171c6695c2f2b4a4839cddd1fce5"
+  },
+  {
+   "path": "src/backends/fenics/generators/biharmonic.py",
+   "bytes": 11810,
+   "sha256": "e72058ca237892a0cea5ac939a89be246a695f9bc6d21909a0d3338928c8998a"
+  },
+  {
+   "path": "src/backends/fenics/generators/convection_diffusion.py",
+   "bytes": 5807,
+   "sha256": "8e7bb24fca0b21fea4b6f0b2d4b0c1b0cf0990af037d67f11fb52308ba2bdf7b"
+  },
+  {
+   "path": "src/backends/fenics/generators/eigenvalue.py",
+   "bytes": 19425,
+   "sha256": "5b28869d3600c065e0e259bbc0505c3631db49ebcef77ad1259e3ffdd9be569c"
+  },
+  {
+   "path": "src/backends/fenics/generators/elasticity.py",
+   "bytes": 17543,
+   "sha256": "7020de26f0c06f9bf7cc85eb11ed545d94da6d2af50cda6150121e9aa586202d"
+  },
+  {
+   "path": "src/backends/fenics/generators/fracture.py",
+   "bytes": 9719,
+   "sha256": "7e39cb8bec0cae9f48db0ef7c00557a2632546e570f12af469836b97a068dc0b"
+  },
+  {
+   "path": "src/backends/fenics/generators/heat.py",
+   "bytes": 10871,
+   "sha256": "0becbc52fdffb94b975c3fff2f3d6d4bc1b1f1e262500678b71822fc05525b89"
+  },
+  {
+   "path": "src/backends/fenics/generators/helmholtz.py",
+   "bytes": 5554,
+   "sha256": "84295573ddaeda8b0d2d6ab9a16dd864643448a972da88baecb9c98448db9889"
+  },
+  {
+   "path": "src/backends/fenics/generators/hyperelasticity.py",
+   "bytes": 7363,
+   "sha256": "515a6e6af60429cd9be35f5cb02e89c5adee64973d905c19737490ee17cf9ffd"
+  },
+  {
+   "path": "src/backends/fenics/generators/matrix_free_poisson.py",
+   "bytes": 31502,
+   "sha256": "0ea886c916e7316d9e55e2dbaa116d31bb9023faa17c9e40ead710f609809e17"
+  },
+  {
+   "path": "src/backends/fenics/generators/maxwell.py",
+   "bytes": 6831,
+   "sha256": "2ed43009960156b17d39803c1df209175677b8cdc071484c46537c97bf673f80"
+  },
+  {
+   "path": "src/backends/fenics/generators/mixed_poisson.py",
+   "bytes": 25841,
+   "sha256": "90c75670ed88f06dda70f59be140d2074d98afa1c5db94b15f56f2af2bc011b1"
+  },
+  {
+   "path": "src/backends/fenics/generators/navier_stokes.py",
+   "bytes": 16990,
+   "sha256": "45144d50742a11d410a9fddb13ffc46c3f88dc42fab408a24eb53559c1d68a20"
+  },
+  {
+   "path": "src/backends/fenics/generators/nearly_incompressible_elasticity.py",
+   "bytes": 7502,
+   "sha256": "5cd2680eedb26a225c3fc34698e49e6ad975d9d3a5af774de43bdf84e344a91a"
+  },
+  {
+   "path": "src/backends/fenics/generators/poisson.py",
+   "bytes": 13113,
+   "sha256": "217a5684c0122dbb1eb9ac85f943ed52be9693b4963726cfb81c026da06796ee"
+  },
+  {
+   "path": "src/backends/fenics/generators/reaction_diffusion.py",
+   "bytes": 11003,
+   "sha256": "3a3e7c9360c17a0da73c2943351b28b4087373ec09fb17552a9739a221e9ce02"
+  },
+  {
+   "path": "src/backends/fenics/generators/stokes.py",
+   "bytes": 10451,
+   "sha256": "86049c33b042f165c9e7d3ff1671cae45538dc746efeb5155c98a7533fbc5542"
+  },
+  {
+   "path": "src/backends/fenics/generators/stokes_darcy.py",
+   "bytes": 10345,
+   "sha256": "cc21cef08a25fbc2ecb7ea910572053f2124dd8c53171f967ecfaaa85e30fb36"
+  },
+  {
+   "path": "src/backends/fenics/generators/thermal_structural.py",
+   "bytes": 9241,
+   "sha256": "016d4300fd36a25b51e9e83ac80e6da6960fc517927e17989f20236df1818add"
+  },
+  {
+   "path": "src/backends/fourc/__init__.py",
+   "bytes": 0,
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "path": "src/backends/fourc/backend.py",
+   "bytes": 77598,
+   "sha256": "611f847b87f7ed653758b0f4b6ce15b21931b9d49520f11d8e9c2aad0c30c192"
+  },
+  {
+   "path": "src/backends/fourc/catalog.py",
+   "bytes": 11405,
+   "sha256": "354f0f4b641cb77609792d19073f5c5f3e085d3e7fbccf68b8f4dc9637016aef"
+  },
+  {
+   "path": "src/backends/fourc/decks.py",
+   "bytes": 41831,
+   "sha256": "8906030472d9785e772ee1e291e231914a3babecfa6654cc025e8f722ce046c7"
+  },
+  {
+   "path": "src/backends/fourc/generators/__init__.py",
+   "bytes": 17637,
+   "sha256": "80de95c48897dd9e13de04ad5ff87bfd10404d3f407dc88054e4626ebd2096d2"
+  },
+  {
+   "path": "src/backends/fourc/generators/ale.py",
+   "bytes": 21892,
+   "sha256": "de40a1bb8e7df907b06ba6a996f27e784e3e7db5d343e8ae5970465a526ee45e"
+  },
+  {
+   "path": "src/backends/fourc/generators/arterial_network.py",
+   "bytes": 30468,
+   "sha256": "525c7de82d726089e920d36e1c9d804eb06f56a14918ea78a3111997a0d4ffd8"
+  },
+  {
+   "path": "src/backends/fourc/generators/base.py",
+   "bytes": 13576,
+   "sha256": "f1b1c4f68e35cf5a50445ceb20e25a6d5a18c575ecc9542f18ba751a242abc63"
+  },
+  {
+   "path": "src/backends/fourc/generators/beam_interaction.py",
+   "bytes": 44563,
+   "sha256": "6c4409f2a59bb5f92e9c44da54a1ce1d1d30de05a42c02401f420e15469b509f"
+  },
+  {
+   "path": "src/backends/fourc/generators/beams.py",
+   "bytes": 41609,
+   "sha256": "52d288abe79ee385be32562eb447438637367c250cd14d3bfba00734e519478c"
+  },
+  {
+   "path": "src/backends/fourc/generators/brownian_dynamics.py",
+   "bytes": 13005,
+   "sha256": "d60c7b76503da9e2c5324314e8ea2745ffe9435a10ae2b5723250b32df31f526"
+  },
+  {
+   "path": "src/backends/fourc/generators/cardiac_monodomain.py",
+   "bytes": 20027,
+   "sha256": "26a8d6001dd2b04a26e3be3efb769b05c569494bede39f255ccad78401c2db91"
+  },
+  {
+   "path": "src/backends/fourc/generators/cardiovascular0d.py",
+   "bytes": 6305,
+   "sha256": "53228eb8cee0fd086881ffd6e92e842ef749250fca64fc4c2975649adfe3914f"
+  },
+  {
+   "path": "src/backends/fourc/generators/constraint.py",
+   "bytes": 6351,
+   "sha256": "b9b27c2b96c2ef7ac7469c9d096b096bc3a6d06da4902a1200fa4da8e7500e28"
+  },
+  {
+   "path": "src/backends/fourc/generators/contact.py",
+   "bytes": 31071,
+   "sha256": "7bb2e64328714d8290ba69ef4a2fa79f449f1dd7ea3e11ba2d6fef975c33c09d"
+  },
+  {
+   "path": "src/backends/fourc/generators/ehl.py",
+   "bytes": 34691,
+   "sha256": "004faa92a7ca9d977d7634a50d7f4f7b11ee03edd67aa4691185416d80fdfa40"
+  },
+  {
+   "path": "src/backends/fourc/generators/electrochemistry.py",
+   "bytes": 26285,
+   "sha256": "92676c7689c694d457a8d3b8663578dbd8de2ac479ee7e677a014b6c04ce16cf"
+  },
+  {
+   "path": "src/backends/fourc/generators/fbi.py",
+   "bytes": 31317,
+   "sha256": "5ee085909c27707105a21b6db2efa7ec85fa2379a6863dcd9b86f5b50c069a4d"
+  },
+  {
+   "path": "src/backends/fourc/generators/fluid.py",
+   "bytes": 30834,
+   "sha256": "4c150bec6851cc96b341b7a85e47e90e958965ceba5cb874c45518a6beff7db1"
+  },
+  {
+   "path": "src/backends/fourc/generators/fluid_turbulence.py",
+   "bytes": 11867,
+   "sha256": "f4194e9a22d3312237b9d3588f9a6fd7c5c8592aa0e068cfc22e77dfd9c371e9"
+  },
+  {
+   "path": "src/backends/fourc/generators/fpsi.py",
+   "bytes": 32194,
+   "sha256": "b71155e15e179ef5ecff4b55c76249f403cf61f1c2db9e530fac8e5fcbd4a191"
+  },
+  {
+   "path": "src/backends/fourc/generators/fs3i.py",
+   "bytes": 35954,
+   "sha256": "db7748497a4e90bf1ff302a9f3197bccd6824097f057d5e0f663ad61250e56e6"
+  },
+  {
+   "path": "src/backends/fourc/generators/fsi.py",
+   "bytes": 45128,
+   "sha256": "2c9a2f2a6d7b5c6268c14e67508c677f833b7526aea3aa1dec4493200f17cd39"
+  },
+  {
+   "path": "src/backends/fourc/generators/fsi_xfem.py",
+   "bytes": 32405,
+   "sha256": "47c6d1be0ddd68e21b003a075df11f4c6bfbbc1bc43f9cba8ea7ee948ee75bdf"
+  },
+  {
+   "path": "src/backends/fourc/generators/level_set.py",
+   "bytes": 18353,
+   "sha256": "c8ca9e53817e636d91ea8b3c0dfac608163171fe821c70b7ec2c2213d1ec3892"
+  },
+  {
+   "path": "src/backends/fourc/generators/low_mach.py",
+   "bytes": 27339,
+   "sha256": "6fe1a82d8d1b2eaedc96bbac28e20cc67add39fbc1b9f270274eb71b62e2d8d4"
+  },
+  {
+   "path": "src/backends/fourc/generators/lubrication.py",
+   "bytes": 25386,
+   "sha256": "242163a1552edaa019c9a11602ed64b06642f378811e4dcecbcc1c8be1e402c3"
+  },
+  {
+   "path": "src/backends/fourc/generators/membrane.py",
+   "bytes": 6908,
+   "sha256": "c71c173e9f974d32b5fafa7901216cb87dccabec0731ef8797058aaf9ed7fc05"
+  },
+  {
+   "path": "src/backends/fourc/generators/mixture.py",
+   "bytes": 6354,
+   "sha256": "3ee281af94d667398bc3f18baa9155f98426f918717fb5934f77955922040fd5"
+  },
+  {
+   "path": "src/backends/fourc/generators/multiscale.py",
+   "bytes": 32732,
+   "sha256": "1cb1c605bc5f97ec2de3213e058360bd7189078929131dc5f5d7b29100fe1700"
+  },
+  {
+   "path": "src/backends/fourc/generators/particle_dem.py",
+   "bytes": 36302,
+   "sha256": "0bb9b7fea131d0a8dd5318a5ba17e749cb0c8c2aca49ef0b987acc0cb774b052"
+  },
+  {
+   "path": "src/backends/fourc/generators/particle_pd.py",
+   "bytes": 43557,
+   "sha256": "64cd96f3da40239514d687d6c8f0aa6759f78635aa5d2c7276ef995a5bba2177"
+  },
+  {
+   "path": "src/backends/fourc/generators/particle_sph.py",
+   "bytes": 44074,
+   "sha256": "aa787ed14d7d9af0df71ad5cd14abb6d2a1c1d614c03ed68e2a186bfe1700494"
+  },
+  {
+   "path": "src/backends/fourc/generators/pasi.py",
+   "bytes": 33189,
+   "sha256": "de09c37c4abb2a42e5b2c3316d8ae8c3873a4acf936ed7c42b4a472c3997d33a"
+  },
+  {
+   "path": "src/backends/fourc/generators/porous_media.py",
+   "bytes": 33937,
+   "sha256": "374be0dfd0d1f81a775f0fb414f0966e118c1bdb1ccc90d55bf7bfa3ac7b9d8e"
+  },
+  {
+   "path": "src/backends/fourc/generators/reduced_airways.py",
+   "bytes": 30402,
+   "sha256": "9736ae10b3a1abbeaa32a2acd9cc3ffe24574e2a981307e2297e88b64b55dfa4"
+  },
+  {
+   "path": "src/backends/fourc/generators/reduced_lung.py",
+   "bytes": 5559,
+   "sha256": "1f42dafa185fc617df6511f2e089c16cd3ac7a35d99d4f7216cd384b1ab6b46c"
+  },
+  {
+   "path": "src/backends/fourc/generators/scalar_transport.py",
+   "bytes": 28562,
+   "sha256": "7649100f367569d3751de9a96156dbbf838a7daad5d71c35ffee7a81c9f0e139"
+  },
+  {
+   "path": "src/backends/fourc/generators/shell.py",
+   "bytes": 8955,
+   "sha256": "8cd60061b3ef0a7a5fc47b7f976e117a614032b9337795a5c0227198257791ee"
+  },
+  {
+   "path": "src/backends/fourc/generators/solid_mechanics.py",
+   "bytes": 44220,
+   "sha256": "3146aa87b919b0e31fa6420be304d517147a1668ebf6357d5c326c09d9943296"
+  },
+  {
+   "path": "src/backends/fourc/generators/ssi.py",
+   "bytes": 38232,
+   "sha256": "de3ffe10e9c827a6b8972b6b774c6a57edc6606fb988c69f111ff734aa9dccb4"
+  },
+  {
+   "path": "src/backends/fourc/generators/ssti.py",
+   "bytes": 26501,
+   "sha256": "e0e1c2f93ca9f77853b9b30421c99438f9e4084d56aee3b69bdd92ef6c9393c9"
+  },
+  {
+   "path": "src/backends/fourc/generators/sti.py",
+   "bytes": 26606,
+   "sha256": "29224deda8829f9a07e9c186981acd226f43ea33ef378db907b48d8c5b29768e"
+  },
+  {
+   "path": "src/backends/fourc/generators/structural_dynamics.py",
+   "bytes": 36254,
+   "sha256": "c01d171fac9a52be576d8a80f5ea78d1344e8945301db0dde5ce25899e59a9cb"
+  },
+  {
+   "path": "src/backends/fourc/generators/thermo.py",
+   "bytes": 9450,
+   "sha256": "53c068a8863be9101e6a92dca33a88abc52198afb4c3bd15745d19ae6bd5e1fd"
+  },
+  {
+   "path": "src/backends/fourc/generators/thermo_transient_mms.py",
+   "bytes": 15807,
+   "sha256": "ba45bd7871bda0f5d12848bbce0b1a5535ed89199bef8776e4b0ed3663b97bb6"
+  },
+  {
+   "path": "src/backends/fourc/generators/tsi.py",
+   "bytes": 37665,
+   "sha256": "8e75149717e65a9443a158f4a9919a7575a5abe159ba7757913cd36679533326"
+  },
+  {
+   "path": "src/backends/fourc/generators/xfem_fluid.py",
+   "bytes": 29528,
+   "sha256": "dfe3d5d238fc33f5ad8b43c6f1f51fc7c7efa2f0dbcbc1b3477f04bfe0fe1a8f"
+  },
+  {
+   "path": "src/backends/fourc/inline_mesh.py",
+   "bytes": 122672,
+   "sha256": "d4425f54550e2f263ade8622e70069ad44de01ffd3656daf72bd31b3604a0d9d"
+  },
+  {
+   "path": "src/backends/kratos/__init__.py",
+   "bytes": 0,
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "path": "src/backends/kratos/backend.py",
+   "bytes": 23480,
+   "sha256": "cc26879c53b18a91812df2b2d9400b92d081d239dabef61eac267de5676dc527"
+  },
+  {
+   "path": "src/backends/kratos/generators/__init__.py",
+   "bytes": 4922,
+   "sha256": "2512d04adc043ddf7f24c32c14e154e26e197fbd13ac13e04afdd9546c07fa10"
+  },
+  {
+   "path": "src/backends/kratos/generators/auxiliary_applications.py",
+   "bytes": 11936,
+   "sha256": "1534eb977975cbd95502cc6f7b3b3a65f444595acd81eb9224e6c57267c3ee26"
+  },
+  {
+   "path": "src/backends/kratos/generators/compressible_flow.py",
+   "bytes": 2506,
+   "sha256": "68dfd0fdc5caaac0c6537d723e5f453cfb1ac0f09731fea574205c1b07b06162"
+  },
+  {
+   "path": "src/backends/kratos/generators/contact.py",
+   "bytes": 12346,
+   "sha256": "3e2d0ddb2598700c60e254f48c8fd1a32c09233c8affba60e1375e609d02aeec"
+  },
+  {
+   "path": "src/backends/kratos/generators/cosimulation.py",
+   "bytes": 9255,
+   "sha256": "849df159947a91490eeb0c655a19dfcffbcee25c80654bf829a66357b522aafc"
+  },
+  {
+   "path": "src/backends/kratos/generators/curved_mms.py",
+   "bytes": 23688,
+   "sha256": "021006f2401d060d034cac252258c21466957304641f2b4f236ac7deebdc9396"
+  },
+  {
+   "path": "src/backends/kratos/generators/dem.py",
+   "bytes": 37947,
+   "sha256": "a493d1b973a130b35cb6d4aac35b06a1b9f7f6113020db585a450c49675164e7"
+  },
+  {
+   "path": "src/backends/kratos/generators/fluid.py",
+   "bytes": 4065,
+   "sha256": "bc10e67fde548bb509475ef7cb28748ee5b94e8811553405cbe8cfdc48bf7fcc"
+  },
+  {
+   "path": "src/backends/kratos/generators/fsi.py",
+   "bytes": 4243,
+   "sha256": "a8acf4f0edf89162a13f6eab07eafa12779575e7b3de4f4cfd5a17490c67716b"
+  },
+  {
+   "path": "src/backends/kratos/generators/geomechanics.py",
+   "bytes": 5770,
+   "sha256": "47808359a1e4488cf91cbf4910d6b794a4ab496f041a399e9c3305fcfd165b7c"
+  },
+  {
+   "path": "src/backends/kratos/generators/heat.py",
+   "bytes": 10719,
+   "sha256": "4fa494e824d794e6d74b7a6e20437f366a7367f3a16d32edb72ead6eaedeb399"
+  },
+  {
+   "path": "src/backends/kratos/generators/iga.py",
+   "bytes": 4371,
+   "sha256": "e83acdf8a1d1784ea68c078cb9376bb2057cb5bf649ccbd304d471fd34563489"
+  },
+  {
+   "path": "src/backends/kratos/generators/linear_elasticity.py",
+   "bytes": 23150,
+   "sha256": "81aab65e78140d6de99b9da1f25e32be9c03fc9b225f87fa076267c7924ced77"
+  },
+  {
+   "path": "src/backends/kratos/generators/mesh_utils.py",
+   "bytes": 2382,
+   "sha256": "cccff3851080594c4bbe5112c6c657af5ceca4ea7fb01d1def704a7a47685f21"
+  },
+  {
+   "path": "src/backends/kratos/generators/mpm.py",
+   "bytes": 31428,
+   "sha256": "65b49448a1f4a7742f7f0a8038553614346fb936010de223e2122e0df024701e"
+  },
+  {
+   "path": "src/backends/kratos/generators/pfem.py",
+   "bytes": 17344,
+   "sha256": "ecb1322267791fda0bc11b9997422e3fbcf7f3ff9aebba0ec2571054852e5d1f"
+  },
+  {
+   "path": "src/backends/kratos/generators/plasticity.py",
+   "bytes": 19620,
+   "sha256": "4e94d2d5ba0cf3878139ae0670840c5ff7205e5eda20936ae1e433252b54f391"
+  },
+  {
+   "path": "src/backends/kratos/generators/poisson.py",
+   "bytes": 10974,
+   "sha256": "55eb7ac7f99d71ff3208c3dcc02de42c19a18a0d5d2391617cd3f002cd7de67a"
+  },
+  {
+   "path": "src/backends/kratos/generators/rans.py",
+   "bytes": 3560,
+   "sha256": "a8e81cab995ceee608abf5e4fa90d67889d790afa011b9e5bc738999cf56ad3a"
+  },
+  {
+   "path": "src/backends/kratos/generators/rom.py",
+   "bytes": 2411,
+   "sha256": "00b00fa890048ac568ea230feeae30eb74985f31cc54f8c95ae13fc3398bf6f0"
+  },
+  {
+   "path": "src/backends/kratos/generators/shape_optimization.py",
+   "bytes": 7291,
+   "sha256": "8506df10998ecf6e25b3ec956cadb33ee5f7cadeb75621adad598ce5d842787a"
+  },
+  {
+   "path": "src/backends/kratos/generators/specialized.py",
+   "bytes": 162457,
+   "sha256": "fc6e589f139ab1aad5e999ac17e9584b531c1e131decd03655dee6ba0f5979e1"
+  },
+  {
+   "path": "src/backends/kratos/generators/structural_dynamics.py",
+   "bytes": 10510,
+   "sha256": "f06860c871e6518d6dc7517aa8a35e1114051a458ad485c8aae6918db90f4cc1"
+  },
+  {
+   "path": "src/backends/kratos/generators/topology_optimization.py",
+   "bytes": 2137,
+   "sha256": "ecc44e51ce31c2dbae1b30dcff4f29660565bd121d94ccf2e3659f6481dbd089"
+  },
+  {
+   "path": "src/backends/ngsolve/__init__.py",
+   "bytes": 0,
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "path": "src/backends/ngsolve/backend.py",
+   "bytes": 11968,
+   "sha256": "4bd2f6c0778b4128f2c3ea41195483ef8cff84b56cfb985afce95abe46832275"
+  },
+  {
+   "path": "src/backends/ngsolve/generators/__init__.py",
+   "bytes": 4352,
+   "sha256": "e3338c24fe601ebc932be839c39a6f4d05348b88a313dff1cb6f4e8c0ff26cac"
+  },
+  {
+   "path": "src/backends/ngsolve/generators/advanced.py",
+   "bytes": 127734,
+   "sha256": "5b62b21d596b4874d663cdee05345b8e14948a4b161a5dca08d217641058e573"
+  },
+  {
+   "path": "src/backends/ngsolve/generators/convection_diffusion.py",
+   "bytes": 5913,
+   "sha256": "a04eff589c6b501b1ffe8c7d3b0ae729a9562a35d3b27dcc6bd1d8af040eaf36"
+  },
+  {
+   "path": "src/backends/ngsolve/generators/eigenvalue.py",
+   "bytes": 8503,
+   "sha256": "26bc98ac48953c1265b4bea67ac96d2f5ef44f0364a87f4975120055f68fb99a"
+  },
+  {
+   "path": "src/backends/ngsolve/generators/heat.py",
+   "bytes": 10819,
+   "sha256": "893314d5b0777c3df0d697dffe8e454c4fb8dd9d6f8d30179b96940defcbbe6a"
+  },
+  {
+   "path": "src/backends/ngsolve/generators/helmholtz.py",
+   "bytes": 7239,
+   "sha256": "e33b7744db7040444429d9c45c1d952ef58d4f878ed65bb9725dab24c1d84471"
+  },
+  {
+   "path": "src/backends/ngsolve/generators/hyperelasticity.py",
+   "bytes": 12476,
+   "sha256": "4dfc705fd3aa456fc1cf0ee38939cfd8089196ef8cb3a318136717a0c07566f4"
+  },
+  {
+   "path": "src/backends/ngsolve/generators/linear_elasticity.py",
+   "bytes": 9741,
+   "sha256": "e97a38709eeda63957f40a7691db03c18b3e167e858cb7decbb0a86ade20d9e4"
+  },
+  {
+   "path": "src/backends/ngsolve/generators/maxwell.py",
+   "bytes": 11047,
+   "sha256": "c1cec916e96122c3c34aba11b4c2903ad3a2c185fd4eed928ce6b958f80e3ed7"
+  },
+  {
+   "path": "src/backends/ngsolve/generators/mixed_poisson.py",
+   "bytes": 6685,
+   "sha256": "8e72712ff5ee26c80bcdb4e25bc3664314cfef09b3f35c4d25d1827332d75b16"
+  },
+  {
+   "path": "src/backends/ngsolve/generators/navier_stokes.py",
+   "bytes": 4593,
+   "sha256": "ec8e36a3180f5a00e0f8e9ea7bca6a062e7b7842ff838e4616140a2ba9d4a88c"
+  },
+  {
+   "path": "src/backends/ngsolve/generators/plasticity.py",
+   "bytes": 14661,
+   "sha256": "b422ebfc2595b4af992bdab825aab012c42eb7164b27edfc5328db869cf4500e"
+  },
+  {
+   "path": "src/backends/ngsolve/generators/poisson.py",
+   "bytes": 10848,
+   "sha256": "69de1e7b273d4ccdd63ec9824dd6a66656f2818fcce97b0093087924c8fd6264"
+  },
+  {
+   "path": "src/backends/ngsolve/generators/stokes.py",
+   "bytes": 11488,
+   "sha256": "77875fbc17c2b91d0c750c1dd6ab62c2f2a2caebb3cf4e2b8a6dd22a7d8b15a9"
+  },
+  {
+   "path": "src/backends/ngsolve/generators/surface_pde.py",
+   "bytes": 12602,
+   "sha256": "8917a967fc1dbf212dd61033eb9cc77eb2ed8406410128df2e8d1c7678c05f44"
+  },
+  {
+   "path": "src/backends/ngsolve/generators/thermal_structural.py",
+   "bytes": 9812,
+   "sha256": "61951569351ad7d2460769004dd521e1339511d5415a4b8f64b518701d10f26b"
+  },
+  {
+   "path": "src/backends/skfem/__init__.py",
+   "bytes": 0,
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "path": "src/backends/skfem/backend.py",
+   "bytes": 12348,
+   "sha256": "d06cf2be17a99677159df5e70e4a63342f07c573faac5aa58d8a68d9808526bf"
+  },
+  {
+   "path": "src/backends/skfem/generators/__init__.py",
+   "bytes": 46883,
+   "sha256": "be9b1c5078e56b7840abbb3c82a1fd263373ac3e3f60be878cc55353661625bc"
+  },
+  {
+   "path": "src/backends/skfem/generators/adaptive_poisson.py",
+   "bytes": 16947,
+   "sha256": "24848c9a440196d962a743fccb55dcae4b2f7737d4cfd61f6bf9815f9605f66a"
+  },
+  {
+   "path": "src/backends/skfem/generators/advanced.py",
+   "bytes": 107898,
+   "sha256": "c9a156772f7f21804f22b31d123ee55979ae9bdf8111942b1af9c7e9377c7e8d"
+  },
+  {
+   "path": "src/backends/skfem/generators/biharmonic.py",
+   "bytes": 3276,
+   "sha256": "bcc2a9c491e37e0c7fc60a183e606d39ee88ccdfa98a02ddc2f16c5f7575b3f6"
+  },
+  {
+   "path": "src/backends/skfem/generators/contact.py",
+   "bytes": 12180,
+   "sha256": "f9b4a51847010a6eb5a006c70ceee2f3c2d0ea30be84a78db7a061b4e25d260f"
+  },
+  {
+   "path": "src/backends/skfem/generators/convection_diffusion.py",
+   "bytes": 6903,
+   "sha256": "716109140216ee954bdddaac7ee297b3fc4466daa8fdb66f18d92fa6d680a40d"
+  },
+  {
+   "path": "src/backends/skfem/generators/eigenvalue.py",
+   "bytes": 5186,
+   "sha256": "a58e02bab19fc233fe2fdc7686aa9fb0b4d431190281cc1e2b65af3408530d06"
+  },
+  {
+   "path": "src/backends/skfem/generators/heat.py",
+   "bytes": 12876,
+   "sha256": "c985b29ae69c8e50331a098c64b8688bd40e209475474ff72ecdf09b1914449b"
+  },
+  {
+   "path": "src/backends/skfem/generators/hydraulic_resistance.py",
+   "bytes": 17512,
+   "sha256": "b4bf4de7df42804cc794a6a7ea0a9db51ed6bd44d6657f96ceecc7af064531a3"
+  },
+  {
+   "path": "src/backends/skfem/generators/linear_elasticity.py",
+   "bytes": 7255,
+   "sha256": "edba26f3b70fcd854073a4478110ef0ae28c525bb2856c18dc220edd4a1fb364"
+  },
+  {
+   "path": "src/backends/skfem/generators/mixed_poisson.py",
+   "bytes": 9053,
+   "sha256": "c00d9c8149c18d86a451191ec4a0f9b9329c2e6607ecf34e47bdbf5a5e296e61"
+  },
+  {
+   "path": "src/backends/skfem/generators/nonlinear.py",
+   "bytes": 7149,
+   "sha256": "480e3daaaa7745d6341a3c166a8cab8df5b27d2f39bb87203629df0e042d4f37"
+  },
+  {
+   "path": "src/backends/skfem/generators/point_source.py",
+   "bytes": 13968,
+   "sha256": "16b0289a6c8043e679ee2c14456cf2ea9d3feb89ae99752bccec4bce909f560b"
+  },
+  {
+   "path": "src/backends/skfem/generators/poisson.py",
+   "bytes": 14145,
+   "sha256": "bf88ffcbfcf4c16b6f6b7d11469fd0e47279b821b92f70f95f134de944504073"
+  },
+  {
+   "path": "src/backends/skfem/generators/schrodinger.py",
+   "bytes": 9682,
+   "sha256": "cb794b8d39f613a1c8d69d1838acb6d89437066ffb4740dfb044b5cd5c342a52"
+  },
+  {
+   "path": "src/backends/skfem/generators/stokes.py",
+   "bytes": 14980,
+   "sha256": "c3fe8e3fa1a443cd42523d14e533404c7bb0fa270f6773d414014cc8dce6e86c"
+  },
+  {
+   "path": "src/backends/skfem/generators/wave.py",
+   "bytes": 16883,
+   "sha256": "ea38485f912d1240e44988ed804abc13f74d96b26400a113bf24f27202d288ed"
+  },
+  {
+   "path": "src/backends/sparta/__init__.py",
+   "bytes": 24,
+   "sha256": "95ad4e071ad9110cc729d9c6d63e206d1b4e3483957096a86288c1c3392d628b"
+  },
+  {
+   "path": "src/backends/sparta/backend.py",
+   "bytes": 29657,
+   "sha256": "cd054cdf29308ae9a19fdbd8811a9213075be8720e64b563665f9c45831d81b9"
+  },
+  {
+   "path": "src/backends/sparta/generators/__init__.py",
+   "bytes": 4126,
+   "sha256": "49b55a57002e067741929f5669b5c57be9f9a7109ff97473d4a6594a3ec7b995"
+  },
+  {
+   "path": "src/backends/sparta/generators/_common.py",
+   "bytes": 19601,
+   "sha256": "679645083d4370d89dd2a5323b47b6e0505c5f93431219f814f9d0e1f6e959b7"
+  },
+  {
+   "path": "src/backends/sparta/generators/adaptive_grid.py",
+   "bytes": 16696,
+   "sha256": "403e7c7e029cad3299c11e4367af93ed380fed4b44dbc383450a6c1a65441a2a"
+  },
+  {
+   "path": "src/backends/sparta/generators/ambipolar_plasma.py",
+   "bytes": 12815,
+   "sha256": "644951dbd06aaf750ceba74dc20d8519b4cc913456355e9843a4b57accf8f42d"
+  },
+  {
+   "path": "src/backends/sparta/generators/axisymmetric.py",
+   "bytes": 8018,
+   "sha256": "1a8dc59680bab540c8d4990a882514e316055d3f531c4f6ff20512228ce92c1f"
+  },
+  {
+   "path": "src/backends/sparta/generators/chemistry.py",
+   "bytes": 11293,
+   "sha256": "28ed45403ec4af3c3aaec2c6d2c0bb393d7edaebfb94affc53420119b47b15b3"
+  },
+  {
+   "path": "src/backends/sparta/generators/collision_relaxation.py",
+   "bytes": 14415,
+   "sha256": "b97a7c385204a95dc99ac885b69987ad8222ed98cbcb3982001d416f571e1ce1"
+  },
+  {
+   "path": "src/backends/sparta/generators/conjugate_heat_transfer.py",
+   "bytes": 15836,
+   "sha256": "58cff5da63f63a844acf27846933c6d7c503051a221e36d645e4fdca49e94592"
+  },
+  {
+   "path": "src/backends/sparta/generators/hypersonic_flow.py",
+   "bytes": 14499,
+   "sha256": "925d17639d756b03ced4ab82901d6692d4de826d2db689ad262e5be9868532af"
+  },
+  {
+   "path": "src/backends/sparta/generators/particle_emission.py",
+   "bytes": 10077,
+   "sha256": "d1274f8a175c386c83f24cedb3a30cdbc969da4bbb6669cec6be5cc43b8b57a0"
+  },
+  {
+   "path": "src/backends/sparta/generators/rarefied_flow.py",
+   "bytes": 18994,
+   "sha256": "cccd4d64770f698f078e6a13d23e49ae46750d88ee8274bc599216a4a63db92e"
+  },
+  {
+   "path": "src/backends/sparta/generators/surface_interaction.py",
+   "bytes": 17666,
+   "sha256": "1ba9ac478496fb9e5489c4b8b3b81faaaef385258296413345d66d1b3e7492e7"
+  },
+  {
+   "path": "src/backends/sparta/sparta_knowledge.json",
+   "bytes": 533066,
+   "sha256": "c2642f9a29565e0de9558ecf22d2bf4b25864083f250634941576e0a1f8d4815"
+  },
+  {
+   "path": "src/core/__init__.py",
+   "bytes": 0,
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "path": "src/core/attestation.py",
+   "bytes": 11528,
+   "sha256": "9450ea62e9ef60faf20009a561ef6a0d9ce5989bf56452acec64a4f0635d65f0"
+  },
+  {
+   "path": "src/core/autodiscovery.py",
+   "bytes": 15237,
+   "sha256": "237d71f35e44280640e4b05579aba2f4259d3b1fae9f6269b7c08ba607c4d4e2"
+  },
+  {
+   "path": "src/core/backend.py",
+   "bytes": 13163,
+   "sha256": "402a443ec2cb88d5b2fa10973d569bcd93d0a8f0316b89fc68b09475c6172d81"
+  },
+  {
+   "path": "src/core/backend_setup.py",
+   "bytes": 36180,
+   "sha256": "ce8535244facbeabe3540e5f4cad9fa33f90db28a56df34efaa1c42f73ac0a7e"
+  },
+  {
+   "path": "src/core/coupling_driver.py",
+   "bytes": 55069,
+   "sha256": "1ad77c4f889aeed4c4443c7dc3b48af765e91405e748754a170aa4b8da3cedc9"
+  },
+  {
+   "path": "src/core/critic_gate.py",
+   "bytes": 6744,
+   "sha256": "94173632cc78f16b4c5c142f8a3c3706ac43976988b0547152cab4d2e721a0ea"
+  },
+  {
+   "path": "src/core/fabrication_gate.py",
+   "bytes": 14356,
+   "sha256": "4efbca534fa92730c8bd44a84be05f233a91a5a21736c2bc41bfab659168e652"
+  },
+  {
+   "path": "src/core/field_transfer.py",
+   "bytes": 19622,
+   "sha256": "ad96383c6cde2b7f8f0300533ed0e4c7ee3fd6c139188e20a4ea2eb6692d69f1"
+  },
+  {
+   "path": "src/core/knowledge_aggregator.py",
+   "bytes": 5894,
+   "sha256": "d855248ffd279f8da26fbd2b141ad09841dae1ebfe12e0ac9ded2a5ccf848f54"
+  },
+  {
+   "path": "src/core/mesh_independence.py",
+   "bytes": 27905,
+   "sha256": "6ac16cf97cac8868a09ab17c206bb8062fe3c4ae310b712c1083c6885e342c93"
+  },
+  {
+   "path": "src/core/pitfall_index.py",
+   "bytes": 33084,
+   "sha256": "bad8c12083e53ac01b58bbb3a1546f59bfcaa345791be439886155a774b16fda"
+  },
+  {
+   "path": "src/core/post_processing.py",
+   "bytes": 17719,
+   "sha256": "f7209a2454cff79ba11473fc117e903a069014a4b4a56d239eab7c2d176373af"
+  },
+  {
+   "path": "src/core/precice_config.py",
+   "bytes": 33239,
+   "sha256": "175a891764bada59d4805db68c27e531e55ae81709fa3d67f32c4922aa80db83"
+  },
+  {
+   "path": "src/core/quality_checks.py",
+   "bytes": 63843,
+   "sha256": "3412eb959d569ace242ee49969b9b946d41fdbf408dacdfeb09974c27e1ccde8"
+  },
+  {
+   "path": "src/core/registry.py",
+   "bytes": 6398,
+   "sha256": "5265d9f8583af984139eb46329cd84ed551f046722e9274f4e9a8827fa0145ef"
+  },
+  {
+   "path": "src/core/residual_check.py",
+   "bytes": 20748,
+   "sha256": "47c0d1199a3a7434631a1a5d4619e385152008811229f6d00b69f2e7a2d673ec"
+  },
+  {
+   "path": "src/core/residual_gate.py",
+   "bytes": 16030,
+   "sha256": "e6769f35e92ae3fafe522e9f194a5d08726a4f230dfec24e062dbeaf6de8d18f"
+  },
+  {
+   "path": "src/core/session_analyzer.py",
+   "bytes": 11883,
+   "sha256": "b39709f1c5ca8775d80de0e3c741c16bd590893df183cf5b7f406754e6ae7200"
+  },
+  {
+   "path": "src/core/session_journal.py",
+   "bytes": 8026,
+   "sha256": "a5c272be412cd9f51a6c39e3f90e8181fa9dfa4a1ce69efe814fe5c3483cb7d1"
+  },
+  {
+   "path": "src/core/smoke_tests.py",
+   "bytes": 8614,
+   "sha256": "f26b8fe7381535bc57a1c5e6dede4fd03202537080112a6ecde1863da381001e"
+  },
+  {
+   "path": "src/core/source_build.py",
+   "bytes": 11605,
+   "sha256": "0da3297264eaccd751dd1aeff2aba655e6205e3bf46fd8d4f222477a6cabe409"
+  },
+  {
+   "path": "src/core/source_config.py",
+   "bytes": 11453,
+   "sha256": "81e472be86ac38b3f149b7d0339a0a363f4ff606dc9f35c0e1f4f8a253c39be0"
+  },
+  {
+   "path": "src/core/source_discovery.py",
+   "bytes": 17643,
+   "sha256": "6aa5c4b24726bf6ec18066792e229c3854223cf4db5b2c66ce575fbb444c2a8b"
+  },
+  {
+   "path": "src/core/source_fetch.py",
+   "bytes": 6126,
+   "sha256": "074e5ced60dae7a9cb9e21b6c7187602596389a1f330d4c1bf5844e1add36aeb"
+  },
+  {
+   "path": "src/core/source_orchestrator.py",
+   "bytes": 7142,
+   "sha256": "cc9bd5c4ee16e30707a1e65db0e0f3045ccfa43aaec31e813c8ceb9897185299"
   }
  ],
  "key_commitment": [

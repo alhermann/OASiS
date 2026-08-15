@@ -1,6 +1,6 @@
 Solve the following boundary value problem as a COUPLED simulation using TWO codes: 4C (write a YAML input file and run the 4C binary) on subdomain A and Kratos Multiphysics on subdomain B.
 
-GLOBAL DOMAIN: the {2: 'rectangle', 3: 'box'}[2] (0, 1.5) x (0, 1)
+GLOBAL DOMAIN: the rectangle (0, 1.5) x (0, 1)
 SUBDOMAIN A: A = (0, 0.625) x (0, 1), thermal conductivity k = 1
 SUBDOMAIN B: B = (0.625, 1.5) x (0, 1), thermal conductivity k = 200
 INTERFACE: the line x = 5/8, where the two materials meet

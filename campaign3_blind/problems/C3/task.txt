@@ -1,6 +1,6 @@
 Solve the following boundary value problem as a COUPLED simulation using TWO codes: DUNE-fem on subdomain A and 4C (write a YAML input file and run the 4C binary) on subdomain B.
 
-GLOBAL DOMAIN: the {2: 'rectangle', 3: 'box'}[2] (0, 1) x (0, 1.5)
+GLOBAL DOMAIN: the rectangle (0, 1) x (0, 1.5)
 SUBDOMAIN A: A = (0, 1) x (0, 0.625), diffusivity k = 1 with a linear reaction coefficient c = 10
 SUBDOMAIN B: B = (0, 1) x (0.625, 1.5), diffusivity k = 2, no reaction
 INTERFACE: the line y = 5/8, where the two materials meet

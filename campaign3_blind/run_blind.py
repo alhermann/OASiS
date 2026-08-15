@@ -39,7 +39,18 @@ if _envf.exists():
             k, v = _l.split("=", 1)
             os.environ.setdefault(k.strip(), v.strip())
 
-REPO = Path(os.environ.get("OASIS_REPO", "/home/alexander/Schreibtisch/open-fem-agent"))
+# The agent definition (both arms) MUST come from the checkout this campaign
+# lives in. The default used to be a hard-coded path to a DIFFERENT checkout
+# that exists on this machine, so any launch not going through the one
+# untracked driver script silently ran an uncommitted agent while the
+# pre-registration attested to this tree. Self-locate, and refuse a mismatch.
+REPO = Path(os.environ.get("OASIS_REPO", str(ROOT))).resolve()
+if REPO != ROOT.resolve():
+    sys.exit(
+        f"REFUSING TO RUN — OASIS_REPO points at {REPO}, but this campaign "
+        f"lives in {ROOT.resolve()}. The agent definition, the knowledge under "
+        f"test and the pre-registration must all come from one checkout. "
+        f"Unset OASIS_REPO or set it to {ROOT.resolve()}.")
 sys.path.insert(0, str(REPO / "langgraph_eval"))
 import agent as _agent                                            # noqa: E402
 from agent import build_bare_agent, build_mcp_agent               # noqa: E402

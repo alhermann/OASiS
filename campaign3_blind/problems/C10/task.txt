@@ -1,6 +1,6 @@
 Solve the following boundary value problem as a COUPLED simulation using TWO codes: Kratos Multiphysics on subdomain A and DUNE-fem on subdomain B.
 
-GLOBAL DOMAIN: the {2: 'rectangle', 3: 'box'}[3] (0, 1.5) x (0, 1) x (0, 1)
+GLOBAL DOMAIN: the box (0, 1.5) x (0, 1) x (0, 1)
 SUBDOMAIN A: A = (0, 0.625) x (0, 1) x (0, 1), thermal conductivity k = 1
 SUBDOMAIN B: B = (0.625, 1.5) x (0, 1) x (0, 1), thermal conductivity k = 4
 INTERFACE: the plane x = 5/8, where the two materials meet
