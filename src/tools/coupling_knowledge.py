@@ -1694,10 +1694,23 @@ def _fourc() -> str:
   `scatra-00000-0.vtu`, which is the INITIAL CONDITION — an all-zero field that
   looks like a converged solve of a trivial problem. Parse the FIRST number.
 * The scalar field is named `phi_1`, never `temperature`.
-* The flux field `flux_domain_phi_1` only appears if you set
-  `CALCFLUX_DOMAIN: "diffusive"` in `SCALAR TRANSPORT DYNAMIC`. It is the
-  diffusive flux vector `-D grad(phi)`; project it on your outward normal.
-  Computing the flux yourself from `phi_1` differences is unnecessary and worse.
+* USE THE BOUNDARY FLUX, NOT THE DOMAIN FLUX, ON THE DIRICHLET SIDE. Set
+  `CALCFLUX_BOUNDARY: "diffusive"` in `SCALAR TRANSPORT DYNAMIC` and give the
+  interface line a `DESIGN SURF/LINE TRANSPORT FLUX CALCULATION` condition
+  (`ScaTraFluxCalc`); 4C then reports the CONSISTENT (Gresho) boundary flux,
+  computed from its true residual exactly as the reaction recovery is derived
+  for every other backend in this corpus.
+
+  `CALCFLUX_DOMAIN: "diffusive"` is a DIFFERENT quantity: the L2 projection of
+  `-D grad(phi)` over the whole subdomain, sampled at the interface. The
+  gradient of a linear solution is only O(h) accurate ON the boundary — the
+  superconvergence points are interior — and the boundary trace is exactly
+  what the coupling reads. Measured on a manufactured solution: the projected
+  flux converges at order ~1.1 and drags the graded field order to ~1.75
+  against a band that ends at 1.6, while the consistent flux gives ~2.05. This
+  file used to recommend the domain flux; it was setting the answer.
+
+  Computing the flux yourself from `phi_1` differences is worse still.
 * A 4C VTU repeats every node once per element (QUAD4 -> 4 copies of each
   node). Collapse duplicates by coordinate before exporting, or `n_points` is
   four times too large and changes with the mesh.
@@ -2740,6 +2753,41 @@ def _dune() -> str:
   `discover(query='list')` reports for it, not OASiS's own.''')
 
 
+def _dealii_sources() -> str:
+    """The C++ the deal.II wrapper shells out to, INLINED.
+
+    The payload used to promise these files were "in the same directory the
+    payload came from". A payload comes from a tool call; there is no
+    directory, and no tool returned the source. Ten separate passages repeated
+    the promise. The measured consequence, in a round-1 transcript: the agent
+    hunted the filesystem, found the scalar solver, discovered it could not do
+    its anisotropic case, hand-wrote a replacement, segfaulted, and spent the
+    session there. A promise the corpus cannot keep is worse than an absence,
+    because it reads as an instruction.
+    """
+    out = ["\n## THE C++ SOLVER SOURCES — save these to disk, then build\n"]
+    for fn, what in (("heat_iface_dealii.cc", "scalar conduction interface solver"),
+                     ("elast_iface_dealii.cc", "vector elasticity interface solver"),
+                     ("CMakeLists.txt", "build file for either of them")):
+        p = _PARTICIPANT_DIR / fn
+        if not p.is_file():
+            out.append(f"\n### {fn} — MISSING FROM THIS INSTALL "
+                       f"(expected data/coupling_participants/{fn})\n")
+            continue
+        lang = "cmake" if fn.endswith(".txt") else "cpp"
+        out.append(f"\n### `{fn}` — {what}\n\n```{lang}\n{p.read_text()}```\n")
+    out.append(
+        "\nBoth solvers take their parameters on argv and exchange plain text "
+        "with the Python wrapper, so the wrapper is the only file you edit for "
+        "a new problem. The elasticity solver recovers the interface TRACTION "
+        "the same way the scalar one recovers the flux — from the residual of "
+        "the assembled system with no boundary condition applied "
+        "(`free_matrix.vmult(residual, solution); residual -= free_rhs;`), "
+        "which is the consistent recovery every backend in this corpus uses "
+        "and the reason the graded order comes out at 2 rather than 1.\n")
+    return "".join(out)
+
+
 def _dealii() -> str:
     return _payload(
         "deal.II",
@@ -2755,10 +2803,12 @@ def _dealii() -> str:
         '''\
 * THE PARTICIPANT IS TWO FILES: a compiled C++ solver and a thin Python
   wrapper. The wrapper converts imports.json into the solver's plain-text input
-  file, runs the executable, and converts its output into exports.json. OASiS
-  ships the C++ source and a CMakeLists next to this script
-  (`heat_iface_dealii.cc`, `CMakeLists.txt` in the same directory the payload
-  came from). Build it once:
+  file, runs the executable, and converts its output into exports.json. BOTH
+  SOURCES ARE PRINTED IN FULL BELOW — save them to disk and build. (This text
+  used to say the C++ source sits "in the same directory the payload came
+  from". A payload comes from a tool call; there is no such directory. Agents
+  searched the filesystem for it, failed, hand-wrote the solver and lost the
+  session on a segfault.) Build it once:
 
 ```
 cmake -S <dir with the .cc and CMakeLists> -B <build dir> \\
@@ -2783,7 +2833,8 @@ make -C <build dir> -j8
   one cell. Accumulate and divide by the count.
 * Neumann side: assemble `+ integral(g * v) ds` over the interface FACES only,
   selected by the boundary id you set from the interface coordinate. deal.II
-  will happily integrate over every boundary face if you do not restrict it.''')
+  will happily integrate over every boundary face if you do not restrict it.''',
+        extra=_dealii_sources())
 
 
 _BACKENDS.update({"dune": _dune, "dune-fem": _dune, "dunefem": _dune,
