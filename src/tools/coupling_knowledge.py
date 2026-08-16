@@ -476,6 +476,24 @@ loses through the interface is
 
     q_out = -k * dT/dn_A                            [W/m^2 in 2D]
 
+ANISOTROPIC MATERIAL: if the conductivity is a TENSOR K rather than a scalar
+k, the transmitted quantity is the full normal component of the flux vector,
+
+    q_out = -(K grad T) . n_A       NOT  -K_nn * dT/dn_A
+
+and the two are different numbers whenever K has off-diagonal entries: the
+flux vector is not parallel to the normal, so the tangential derivative
+contributes. Writing -k dT/dn with k = K[0][0] is the usual way an
+anisotropic coupling converges neatly to the wrong answer. The transmission
+condition the manufactured solution satisfies is continuity of
+(K_A grad T_A).n = (K_B grad T_B).n, each side with ITS OWN tensor.
+
+Nothing else changes. In particular the CONSISTENT (reaction) recovery below
+is tensor-agnostic: it reads the assembled residual r = A u - b, and A
+already contains K, whatever K is. That is another reason to prefer it —
+a gradient-sampling recovery makes you handle the tensor by hand, and the
+reaction recovery does not give you the chance to get it wrong.
+
 B's outward normal at the same interface points the other way, and B adds the
 Neumann datum to its weak form as `+ integral(g * v) ds_interface`. The two
 sign flips cancel:
