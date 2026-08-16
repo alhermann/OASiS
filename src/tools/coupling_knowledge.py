@@ -1405,6 +1405,29 @@ Full contract, relaxation guidance and failure modes: `knowledge(topic='coupling
 '''
 
 
+def _role_block(script_name: str) -> str:
+    """The OTHER interface role, when a backend ships a second participant.
+
+    A backend's payload used to carry exactly one script. Where that script
+    implements only one side — Kratos shipped the Dirichlet side and nothing
+    else — an agent handed the opposite role got prose and had to write the
+    participant itself. Two coupled cells of round 1 needed Kratos on the
+    Neumann side; both failed.
+    """
+    p = _PARTICIPANT_DIR / f"participant_{script_name}_neumann.py"
+    if not p.is_file():
+        return ""
+    return (
+        "\n## THE NEUMANN-SIDE PARTICIPANT — a separate, complete script\n\n"
+        "The script above is the DIRICHLET side: it imports the partner's "
+        "`values`, fixes them, and exports the consistent reaction flux. This "
+        "one is the other half: it imports the partner's `normal_fluxes`, "
+        "applies them UNCHANGED as the natural boundary condition, and "
+        "exports the interface values its solve produced. Use whichever role "
+        "the problem assigns this subdomain; they are not interchangeable.\n\n"
+        f"```python\n{p.read_text()}```\n")
+
+
 def _vector_block(script_name: str) -> str:
     """The VECTOR (elasticity) participant, when one ships for this backend.
 
@@ -1446,6 +1469,7 @@ def _payload(title: str, sides: str, script_name: str, launch: str,
             f"block only\n\n```python\n{_script(script_name)}```\n\n"
             f"## Launching it\n\n{launch}\n"
             f"## {title}-specific traps\n\n{traps}\n{extra}"
+            f"{_role_block(script_name)}"
             f"{_vector_block(script_name)}")
 
 
