@@ -83,9 +83,29 @@ OR_MODELS = {
 # the second, unstated limit underneath.
 RECURSION_LIMIT = 1000
 
+# EVERY PATH HERE IS CHECKED AT PREFLIGHT — see assert_environment_is_real().
+#
+# This block used to interpolate f"{REPO}/.venv/bin/python" for NGSolve and
+# scikit-fem. When the runner was made to self-locate, REPO became this
+# checkout, which has no .venv, and every agent was handed an interpreter that
+# does not exist. Ten of round 2's first twenty-one runs hit it; one OASiS run
+# died 8 calls in with a finished solver script it could not execute. Telling
+# an agent a tool is at a path where it is not is the same defect as promising
+# it source we do not serve — it reads as an instruction and burns the budget.
+_NGSOLVE_SKFEM_PY = "/home/alexander/Schreibtisch/open-fem-agent/.venv/bin/python"
+_ENV_PATHS = {
+    "NGSolve & scikit-fem": _NGSOLVE_SKFEM_PY,
+    "FEniCSx/dolfinx": "/home/alexander/miniconda3/envs/fenics/bin/python",
+    "DUNE-fem": "/home/alexander/miniconda3/envs/dune-fem-env/bin/python",
+    "Kratos Multiphysics (and gmsh)": "/usr/bin/python3",
+    "4C binary": "/home/alexander/4C/build/4C",
+    "FEBio binary": "/home/alexander/FEBio/bin/febio4",
+    "deal.II build tree (DEAL_II_DIR)": "/home/alexander/dealii/build",
+}
+
 ENVIRON = (
     "\nENVIRONMENT: NGSolve & scikit-fem -> "
-    f"{REPO}/.venv/bin/python ; "
+    f"{_NGSOLVE_SKFEM_PY} ; "
     "FEniCSx/dolfinx -> /home/alexander/miniconda3/envs/fenics/bin/python ; "
     "DUNE-fem -> /home/alexander/miniconda3/envs/dune-fem-env/bin/python ; "
     "Kratos Multiphysics (and gmsh) -> /usr/bin/python3 ; "
@@ -94,6 +114,20 @@ ENVIRON = (
     "4C binary -> /home/alexander/4C/build/4C ; "
     "FEBio binary -> /home/alexander/FEBio/bin/febio4 .\n"
 )
+
+
+def assert_environment_is_real() -> None:
+    """Refuse to run if anything ENVIRON names does not exist.
+
+    An environment string is a promise to the agent. A wrong path in it does
+    not fail loudly — the agent reads it, tries it, and spends its budget
+    working around a tool it was told it had.
+    """
+    missing = [f"{what} -> {p}" for what, p in _ENV_PATHS.items()
+               if not Path(p).exists()]
+    if missing:
+        sys.exit("REFUSING TO RUN — the ENVIRONMENT block promises paths that "
+                 "do not exist:\n  - " + "\n  - ".join(missing))
 
 _USAGE_CB = UsageMetadataCallbackHandler()
 
@@ -264,6 +298,8 @@ def preflight_or_die(problems: list) -> None:
     """
     import subprocess
     keys = _keys_dir()
+    assert_environment_is_real()
+
     failures = []
 
     if not keys_are_sealed():
