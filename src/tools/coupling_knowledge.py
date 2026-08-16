@@ -1462,6 +1462,42 @@ Full contract, relaxation guidance and failure modes: `knowledge(topic='coupling
 '''
 
 
+def _threed_block(script_name: str) -> str:
+    """The 3-D participant, when one ships for this backend.
+
+    Every participant in the corpus meshes a rectangle and samples the
+    partner along a straight interface by ONE coordinate. In 3-D the
+    interface is a plane, and the three things that change are all invisible
+    until they cost you an order.
+    """
+    p = _PARTICIPANT_DIR / f"participant_{script_name}_3d.py"
+    if not p.is_file():
+        return ""
+    return (
+        "\n## THE 3-D PARTICIPANT — a plane interface, not a line\n\n"
+        "Three things differ from 2-D, each measured rather than asserted:\n\n"
+        "  * QUADRATURE WEIGHTS ARE FACE AREAS, not edge lengths. On the same "
+        "converged solve the area weights give the interface integral as "
+        "-22.154 against an exact -22.026, while the 2-D edge formula gives "
+        "-0.923 AND DIVERGES under refinement — scaled by ~h — while the "
+        "flux field itself still looks smooth and the right shape. That is "
+        "the failure mode where conservation breaks and nothing else looks "
+        "wrong.\n"
+        "  * RESAMPLING ORDER MATTERS TO THE PARTNER, NOT TO YOU. Cubic "
+        "against bilinear interpolation between non-matching interface "
+        "grids, everything else identical: the VOLUME field converges at "
+        "1.98 either way, but the interface flux the partner consumes falls "
+        "from 1.97 to 1.32. Your own answer does not notice; the coupling "
+        "does.\n"
+        "  * THE RIM IS A BIGGER SHARE OF A PLANE THAN THE ENDS ARE OF A "
+        "LINE. Nodes on the interface rim that also sit on an outer boundary "
+        "carry that boundary's reaction too: 96 of 625 nodes (15%) at n=24 "
+        "in 3-D against 2 of 25 (8%) in 2-D. Unguarded, the whole-interface "
+        "flux loses its order outright (0.52) and the L2 error inflates by "
+        "19x to 83x.\n\n"
+        f"```python\n{p.read_text()}```\n")
+
+
 def _transient_block(script_name: str) -> str:
     """The time-dependent participant, when one ships for this backend.
 
@@ -1563,7 +1599,8 @@ def _payload(title: str, sides: str, script_name: str, launch: str,
             f"## {title}-specific traps\n\n{traps}\n{extra}"
             f"{_role_block(script_name)}"
             f"{_vector_block(script_name)}"
-            f"{_transient_block(script_name)}")
+            f"{_transient_block(script_name)}"
+            f"{_threed_block(script_name)}")
 
 
 _RIGHT_BLOCK = """\
