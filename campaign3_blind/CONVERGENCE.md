@@ -190,6 +190,35 @@ pointed at the wrong tree reports a confident, wrong negative.
        a mean 37% of budget while inventing deadlines (47 statements). Fixed
        72c9e7d7.
 
+  Round-1 defect closure, 2026-08-16 (all committed, all verified by
+  execution rather than by inspection):
+    CLOSED  critic never ran (async path; verified live — the critic really
+            called knowledge() and returned APPROVED)               f01d13c3
+    CLOSED  cross-run contamination: 19 scatter directories quarantined by
+            transcript evidence, 24 MB, nothing deleted; preflight now does
+            it automatically. The first version of that cleaner would have
+            moved 1043 directories — a dry run caught it              c07db06e
+    CLOSED  timeouts lost their transcript (0-byte trajectory.txt)    c07db06e
+    CLOSED  phantom X11: DISPLAY/XAUTHORITY unset, headless backends  c07db06e
+    CLOSED  anisotropic transmission never stated (tensor form + the
+            reaction recovery being tensor-agnostic)                  b916d262
+    CLOSED  4C plane-strain route uncallable: exact snippet, verified by
+            generating the deck AND running 4C to normal exit         b916d262
+    CLOSED  4C taught the L2 domain-flux recovery its own corpus condemns;
+            CALCFLUX_BOUNDARY (Gresho) now served                     904c8dc9
+    CLOSED  deal.II promised C++ sources no tool returned; inlined    904c8dc9
+    CLOSED  vector participants shipped but served to nobody          57917c0b
+    CLOSED  Kratos had no Neumann participant: built, measured at field
+            order 1.999, conservation at round-off, negative control shows a
+            sign-flipped flux still CONVERGES while being wrong by 29 K —
+            only the self-check catches it                            26b97939
+    CLOSED  coupled tasks lacked the precision contract; FB2 never stated
+            the temporal order it grades                              fa9c4da7
+    OPEN    FEBio constant traction (C7, C11) — build running
+    OPEN    DUNE vector participant (C12) — build running
+    OPEN    transient participant (C4) — build running
+    OPEN    3-D interface participant (C10) — build running
+
   Round 1 — 27B, seed 1, 2026-08-15. NOT CLEAN.
     D1 x3: grader import dead (645b3eb3); probe-grid row order (645b3eb3);
            tool exceptions killed runs (813625f6)
