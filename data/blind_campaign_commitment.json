@@ -1,8 +1,8 @@
 {
  "schema": 2,
  "campaign": "campaign3_blind",
- "generated_utc": "2026-08-16T06:48:36+00:00",
- "git_commit": "b916d2621621aff0b8124102393819d8d441467e",
+ "generated_utc": "2026-08-16T08:42:51+00:00",
+ "git_commit": "41abaffc4d027783bad1f5c39294ca997c4b7e55",
  "draw_seed": 20260814,
  "pinning": {
   "models": [
@@ -27,13 +27,13 @@
   },
   {
    "path": "campaign3_blind/CONVERGENCE.md",
-   "bytes": 11692,
-   "sha256": "916bf37460fcf4d95ffe62ce97d01825ec48c780a39c73eb52a793c3e06d4470"
+   "bytes": 13734,
+   "sha256": "bfe2e597766f0756c8c1d50b06893defa785765f6e5f22991a777888a38ac8f6"
   },
   {
    "path": "campaign3_blind/run_blind.py",
-   "bytes": 22923,
-   "sha256": "08647be335280a9874bc5dd1f77cf3d42914311fcf3af71710b891a6f467323c"
+   "bytes": 23690,
+   "sha256": "6c9f19022540decb2252493ce0fa05b4dd46b82530eeb38cb8ee88418b38000d"
   },
   {
    "path": "campaign3_blind/grade_blind_v2.py",
@@ -87,8 +87,8 @@
   },
   {
    "path": "langgraph_eval/agent.py",
-   "bytes": 17249,
-   "sha256": "c1137f939ac7e017224f0f45a3672564ae55891f7b3ed1a4f87c9414cb4ee8c5"
+   "bytes": 18787,
+   "sha256": "9ee4d018b779d9fb8483949f5e62d459053ed0e908b729bd281c4bb1e7fd46a8"
   },
   {
    "path": "src/server.py",
@@ -662,8 +662,8 @@
   },
   {
    "path": "src/tools/coupling_knowledge.py",
-   "bytes": 165196,
-   "sha256": "6760b85afa045bb2df15eee08e356f74cfea871dd53d867d754cd065cbd70380"
+   "bytes": 173757,
+   "sha256": "ad0212ad41a8b2c6ab93ab0ff444e95eb54e133cafb0a009a615e17300a2f998"
   },
   {
    "path": "src/tools/deep_knowledge.py",
@@ -1797,8 +1797,8 @@
   },
   {
    "path": "src/core/coupling_driver.py",
-   "bytes": 55069,
-   "sha256": "1ad77c4f889aeed4c4443c7dc3b48af765e91405e748754a170aa4b8da3cedc9"
+   "bytes": 57607,
+   "sha256": "428488c10a118c1705fb123f723d36d6b47749c0ba1af43946cad9d5bcd1489e"
   },
   {
    "path": "src/core/critic_gate.py",

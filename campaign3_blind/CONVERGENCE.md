@@ -214,10 +214,35 @@ pointed at the wrong tree reports a confident, wrong negative.
             only the self-check catches it                            26b97939
     CLOSED  coupled tasks lacked the precision contract; FB2 never stated
             the temporal order it grades                              fa9c4da7
-    OPEN    FEBio constant traction (C7, C11) — build running
-    OPEN    DUNE vector participant (C12) — build running
-    OPEN    transient participant (C4) — build running
-    OPEN    3-D interface participant (C10) — build running
+    CLOSED  FEBio exported ONE domain-averaged stress across the whole
+            interface — measured order 0.013/0.003/0.001, i.e. not
+            converging at all. Reaction-based recovery now measures
+            displacement order 2.02/1.99/1.99 in three configurations f054b4d9
+    CLOSED  DUNE vector participant: order 2.014/2.007/2.003, and 2.005/
+            2.001/2.000 on a cubic case; both role assignments agree to four
+            significant figures                                      9657eb63
+    CLOSED  transient participants (FEniCSx + deal.II C++, built not just
+            described): field order 2.00 x3, and 2.00 cross-code in the
+            failed cell's own role assignment                        73184f5c
+    CLOSED  3-D participants (Kratos + DUNE, either role, any interface
+            normal): temperature 1.98, interior flux 1.97, divergence
+            theorem at 1e-13, area recovered as exactly 1.000000     41abaffc
+    CLOSED  the sensitivity probe left PERTURBED solves on disk, including
+            the solution files a grader reads; probe defaults to True.
+            Round 1 unaffected (only three coupled runs reached that code
+            path), and it would have bitten round 2                  f2e007a8
+    CLOSED  infrastructure errors matched case-sensitively, so a lowercase
+            provider "error code: 504" was booked as a model failure — on a
+            BARE run, which inflates the measured uplift             e75c1be8
+    CLOSED  a timed-out shell killed the shell but not the solver: three
+            orphans found 23-24 h later at 100% CPU, 71 CPU-hours    fa3cf276
+
+  Payload size checked before round 2 rather than assumed: the largest
+  single knowledge response is deal.II at ~22.7k tokens, against a measured
+  262144-token context on all three campaign models (queried from the
+  provider). Under 9% of context, so serving the participants and C++
+  sources in one call stands — no chunking, and therefore no new promise the
+  corpus would have to keep.
 
   Round 1 — 27B, seed 1, 2026-08-15. NOT CLEAN.
     D1 x3: grader import dead (645b3eb3); probe-grid row order (645b3eb3);
