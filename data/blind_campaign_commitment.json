@@ -1,8 +1,8 @@
 {
  "schema": 2,
  "campaign": "campaign3_blind",
- "generated_utc": "2026-08-16T17:42:29+00:00",
- "git_commit": "59062bc51fadb8a7e739356c05ab302dbe81fe88",
+ "generated_utc": "2026-08-16T17:44:47+00:00",
+ "git_commit": "66df135c30ef5ece3ba84bd50485959cd4332fbc",
  "draw_seed": 20260814,
  "pinning": {
   "models": [
@@ -1938,74 +1938,74 @@
    "sha256": "5b1b6c8a35a8e179661b608b41d746e3e68e65edabdd69c8f2aa995d34fcf777"
   },
   {
-   "path": "C1/key.json",
-   "bytes": 4293,
-   "sha256": "dfa4658a53fdfb39592dafeb1c9695c4aa5e6db5cbc3fa2cabc449f5c63aa2c6"
+   "path": "C1/key.json.enc",
+   "bytes": 4346,
+   "sha256": "51251ea8a7316a20154f79941a98b039519bb717c747b13de3b3a75b026f4af7"
   },
   {
-   "path": "C10/key.json",
-   "bytes": 3591,
-   "sha256": "8399325301713da63b91d573acd35fc678cac2ba44ab8cdc5a434e154d4b0018"
+   "path": "C10/key.json.enc",
+   "bytes": 3644,
+   "sha256": "27cecb11ae158a0d674ace90f865a3f64b1815ab393decbc663214fedc5729c7"
   },
   {
-   "path": "C11/key.json",
-   "bytes": 3402,
-   "sha256": "846b32c9ac251865ceb3cf540461ea32259dc47c71014e2f97a169a4c1cbf82a"
+   "path": "C11/key.json.enc",
+   "bytes": 3455,
+   "sha256": "82b4a743943cde82a7bf053b5ee040a3f47c8612c3a2d93105380bef0091fb47"
   },
   {
-   "path": "C12/key.json",
-   "bytes": 3389,
-   "sha256": "44bf3a03f8e0d3ba166e5fc89e9988199fbb95cc165956d03f3a7d4a5daac60c"
+   "path": "C12/key.json.enc",
+   "bytes": 3442,
+   "sha256": "9e16d6809103f13264b6e1d725698f7b1e61c6f039ecc8b625d4324c56a53ce8"
   },
   {
-   "path": "C13/key.json",
-   "bytes": 3910,
-   "sha256": "2ccb1db63694b9da09a3ee0d7bed01558afa9fd8c6abcc3136b2b59184a79134"
+   "path": "C13/key.json.enc",
+   "bytes": 3963,
+   "sha256": "e95271b2ce6c4a3edb28f6741f70afd077c9f8443528a8c18cbeb8a9e1ac5542"
   },
   {
-   "path": "C14/key.json",
-   "bytes": 1237,
-   "sha256": "2658709fe7e701c326ca6126d15a2a96ce6c9de0ef9ad96fe67b8fbeb1cae611"
+   "path": "C14/key.json.enc",
+   "bytes": 1290,
+   "sha256": "b0c8b5b236bb6e52284a5c7e0a3dca514ef613f7b2489035a2f6e6d33b6d279e"
   },
   {
-   "path": "C2/key.json",
-   "bytes": 2293,
-   "sha256": "3e9a25b3b2fb266e4934570c1924f023b1e6f73ebda6c2e4fb1458ca3cbccfb9"
+   "path": "C2/key.json.enc",
+   "bytes": 2346,
+   "sha256": "00ea7a2684eaf9552a9d68570426027a6a5120612c5a1c67046ab44b61b1d682"
   },
   {
-   "path": "C3/key.json",
-   "bytes": 2130,
-   "sha256": "9cd6d6b9aad13403791f26f89907472fb7bf621c952e1ff4a01e1a415876fab7"
+   "path": "C3/key.json.enc",
+   "bytes": 2183,
+   "sha256": "d1398564b3e99de75faab3b4a8e054f53a2bcc784766aea201ad0776d420abeb"
   },
   {
-   "path": "C4/key.json",
-   "bytes": 2881,
-   "sha256": "60bb7a417592ce32afa5c10efb61954e86a5d1b70bdbf9730bd0cedaaa320093"
+   "path": "C4/key.json.enc",
+   "bytes": 2934,
+   "sha256": "08a9af67930c22844fd4152760d5aaaf2aef05b047681fac53efea9ad9132f09"
   },
   {
-   "path": "C5/key.json",
-   "bytes": 4250,
-   "sha256": "1e679828032a353d6caa2d21be417667af4dc32fc243ac9f7b76e11b31920cf3"
+   "path": "C5/key.json.enc",
+   "bytes": 4303,
+   "sha256": "aa02b9594c07f0a041e953006ae3e9302d91e43e49cbb6b32980eb603c567701"
   },
   {
-   "path": "C6/key.json",
-   "bytes": 2198,
-   "sha256": "ade8ed834c9be7ed2134f1b021a5ad167e7a5b8393ee019179e9a80c189eba8b"
+   "path": "C6/key.json.enc",
+   "bytes": 2251,
+   "sha256": "86bb705ecdaf7dbc7880f7171dc9fb7ca925f73432527730f15cea862c0d9162"
   },
   {
-   "path": "C7/key.json",
-   "bytes": 3275,
-   "sha256": "826b470a8556d07c9ec92e4564b0f712d229d13cea32a3fad34f2b03e8b1c350"
+   "path": "C7/key.json.enc",
+   "bytes": 3328,
+   "sha256": "4b21dfabce7a7313007a53ab773ef6d68c1dad15b38376f97a90ed216b69e17d"
   },
   {
-   "path": "C8/key.json",
-   "bytes": 2389,
-   "sha256": "6aea2d548b405418fb9f0482390a1e59c3850b16ba9e5f6150e88cb9c47333c0"
+   "path": "C8/key.json.enc",
+   "bytes": 2442,
+   "sha256": "4bb87b6de3b523c07ebd91f10b7d5525439c2cfa280fba85a991fd5e1e512df4"
   },
   {
-   "path": "C9/key.json",
-   "bytes": 3278,
-   "sha256": "5ae562a44ae000b19367be81599f4fb158c937e7db1dd559372b15218bc579b5"
+   "path": "C9/key.json.enc",
+   "bytes": 3331,
+   "sha256": "962bc3468131a82c311516cec8e42aa69f3766a2346a72f4da70a8cac383f7fc"
   },
   {
    "path": "D1/key.json.enc",
@@ -2048,94 +2048,94 @@
    "sha256": "0268f4d9ab78a6f42c6357c24e2946c375b03e836b2d4a27aa4a4a4e43aa0c60"
   },
   {
-   "path": "DL1/key.json",
-   "bytes": 1642,
-   "sha256": "63523ffb8bbf394093b5a9e44cb1a9e96326401966fda50cb0307dc2a3d40819"
+   "path": "DL1/key.json.enc",
+   "bytes": 1695,
+   "sha256": "d7f83dd2d7d52e5603df207bcf9db6e552c4fd35f69a94a55de13f34bfd56dd2"
   },
   {
-   "path": "DL2/key.json",
-   "bytes": 3077,
-   "sha256": "97c7726fc26e7f03eed51756a58ad462e0c3fd5befd90f9292129d49e84c2dd7"
+   "path": "DL2/key.json.enc",
+   "bytes": 3130,
+   "sha256": "e6586caddd13f4043df42647e4a870983776e5f290cc13226ac4563fcc295a64"
   },
   {
-   "path": "DU1/key.json",
-   "bytes": 1066,
-   "sha256": "485652c231c492b94846e60a19926e46e70c4f0a9e8c31ed30816e6ce5dd6491"
+   "path": "DU1/key.json.enc",
+   "bytes": 1119,
+   "sha256": "120cc1bc0bb4eb0834686032b8faba4b0bdcf54b4830e224f39895e3a35389d2"
   },
   {
-   "path": "DU2/key.json",
-   "bytes": 1009,
-   "sha256": "3a6007751fcb4effd412d88ec0d3822c678a700f1b8fb9b1c4f7c8d4c3104148"
+   "path": "DU2/key.json.enc",
+   "bytes": 1062,
+   "sha256": "dbf4ebfcd92718a417382362980622c050a96cefa2ec6b4d8f9549abd3915d57"
   },
   {
-   "path": "FB1/key.json",
-   "bytes": 1344,
-   "sha256": "e99a55e8552d9f48fddd4e2634ae2b3ea1bd15f6c187cee4303aea7ad6a02876"
+   "path": "FB1/key.json.enc",
+   "bytes": 1397,
+   "sha256": "674a4309a3603e7ac9bcb6b7b06900b23192896e299830eb54e6637917895735"
   },
   {
-   "path": "FB2/key.json",
-   "bytes": 1496,
-   "sha256": "fb117243c51476afece920ead71d796a8ba4bd21b8d3e166f78a3cd6b9533b79"
+   "path": "FB2/key.json.enc",
+   "bytes": 1549,
+   "sha256": "7f7b5349210452d0a670de8c16cf54741eb0d801a61a30f0f03ac875d5a3173c"
   },
   {
-   "path": "FC1/key.json",
-   "bytes": 1464,
-   "sha256": "2f9be2f6dee013fd1208604e7c97bfb665b20ff08d69eb9d4519f72d5ba39543"
+   "path": "FC1/key.json.enc",
+   "bytes": 1517,
+   "sha256": "70578d08d5b05b10140704a4e2bacbfc81b869178652b600cd9f340def3b093a"
   },
   {
-   "path": "FC2/key.json",
-   "bytes": 2836,
-   "sha256": "e9520841c204b7fc2f87bb9215d6ea0c5ce4f22edebfdc66a0fc3796582113f3"
+   "path": "FC2/key.json.enc",
+   "bytes": 2889,
+   "sha256": "54aab72d81c8f338e94795e837bab718d9fbed5d2b205a5fa1b4944b2a60ad76"
   },
   {
-   "path": "FE1/key.json",
-   "bytes": 2169,
-   "sha256": "f0059b71d276b3347a486cc6df0bbba57a530ebb1296c4a11c25792f41b89008"
+   "path": "FE1/key.json.enc",
+   "bytes": 2222,
+   "sha256": "e8bbb77b752ffa611406b7c9e8672f4d21d6d8a4c2f9e032837bdbeff884c938"
   },
   {
-   "path": "FE2/key.json",
-   "bytes": 3038,
-   "sha256": "049d440714a7b1fd189ead8db92abff363c99916bfd011074083a2fce2ef072f"
+   "path": "FE2/key.json.enc",
+   "bytes": 3091,
+   "sha256": "75bce554db6ea45962031bb0a60ebf347ee9d7516061cf51d438d077618b165d"
   },
   {
-   "path": "KR1/key.json",
-   "bytes": 3494,
-   "sha256": "b6fedbea97fb87746ac374e9031ea9059287841fc09b50eb20b23b66226ddb52"
+   "path": "KR1/key.json.enc",
+   "bytes": 3547,
+   "sha256": "0e06d6f3f77a2e478fdeff185d61de50d4abbc618e07b0ba3f2feb177bb83091"
   },
   {
-   "path": "KR2/key.json",
-   "bytes": 915,
-   "sha256": "4c9c71e06b58c18c18ecd1b8fa07249d078dbcf4d54d16a987c89365134f0be0"
+   "path": "KR2/key.json.enc",
+   "bytes": 968,
+   "sha256": "7abc894d252fcd67d07fcbfa6e2cc87b5db368c27f533e814eecadbd7fb134a6"
   },
   {
-   "path": "NG1/key.json",
-   "bytes": 1074,
-   "sha256": "a2a0b5537cd5fd5ebbb61e9c6a7bda9641688890111173c6d3b83313a30e6612"
+   "path": "NG1/key.json.enc",
+   "bytes": 1127,
+   "sha256": "0abd583b0973e78e3ecdd528bf4d7ce70b4fb77cf065043981a96c471c3521bd"
   },
   {
-   "path": "NG2/key.json",
-   "bytes": 3512,
-   "sha256": "b8ac5fe8158d7cdd07b86ea2c61b48ec3e89e4af81320d8f9d6e8258a8153778"
+   "path": "NG2/key.json.enc",
+   "bytes": 3565,
+   "sha256": "1f74d03e7625204a6a084110d386d0b2790c2b7940d0391c6f7d3a0ecc02565b"
   },
   {
-   "path": "SK1/key.json",
-   "bytes": 1897,
-   "sha256": "6db32ce35ea4f7c392215a4969303b4d7b9c0bd655b51c6cef033d9ee59fd57e"
+   "path": "SK1/key.json.enc",
+   "bytes": 1950,
+   "sha256": "7f8bdce2fe52dc63834fc86e1df5d1599fb88fe27f569901912e231ebc5a45f2"
   },
   {
-   "path": "SK2/key.json",
-   "bytes": 1233,
-   "sha256": "58b741036927b355ab7a235f0098f6a6b76c178475197d62a437be15650fffc9"
+   "path": "SK2/key.json.enc",
+   "bytes": 1286,
+   "sha256": "2871cd9e5e995f54bb18f64af933f44080ef7d255eb6f402e6e74beb9717c7b0"
   },
   {
-   "path": "SP1/key.json",
-   "bytes": 1158,
-   "sha256": "615a8701723dfcd01d3b5eabcd407c46d7c0796cb6735e1f43d0c1244ade6090"
+   "path": "SP1/key.json.enc",
+   "bytes": 1211,
+   "sha256": "d2c0b597b207dc6ac98c380dd92582bd021c7350debe04fd3c054f1e16e91ad9"
   },
   {
-   "path": "SP2/key.json",
-   "bytes": 1142,
-   "sha256": "0a8c3b6fc036bc70d7523e6e636adacc06bb914a5fec5a81c70ca0e565e907f6"
+   "path": "SP2/key.json.enc",
+   "bytes": 1195,
+   "sha256": "c50e0cf5ed35852720848e2251769fae5cad0918fee26fc394bc670d265da5a3"
   }
  ],
  "note": "Regenerate ONLY via scripts/make_campaign_commitment.py, and only before the freeze marker exists. After the freeze any change here invalidates the campaign."
