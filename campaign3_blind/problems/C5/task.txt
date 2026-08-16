@@ -36,6 +36,10 @@ Evaluate (interpolate) your finite element solution at these points. They are
 deliberately not mesh nodes. Write full precision; every probe point must
 appear exactly once and no other points may appear.
 
+PRECISION: write every value with AT LEAST 12 significant digits (for
+example the format %.11e). Values rounded to fewer digits do not carry the
+information the assessment needs and the submission is rejected.
+
 (2) INTERFACE. For every mesh level and EACH subdomain, write
     interface_level<k>_<side>.csv
 with a header line and one row per interface probe point, in this order:

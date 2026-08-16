@@ -1,8 +1,8 @@
 {
  "schema": 2,
  "campaign": "campaign3_blind",
- "generated_utc": "2026-08-15T18:00:51+00:00",
- "git_commit": "27c58193a93ec223cea711cfc3d7bec4da84090a",
+ "generated_utc": "2026-08-16T06:48:36+00:00",
+ "git_commit": "b916d2621621aff0b8124102393819d8d441467e",
  "draw_seed": 20260814,
  "pinning": {
   "models": [
@@ -27,18 +27,18 @@
   },
   {
    "path": "campaign3_blind/CONVERGENCE.md",
-   "bytes": 6046,
-   "sha256": "5d0c6349a11df6161c2002dd3d1b84d7c3a3aae66b37aecda54d77bfef3bb439"
+   "bytes": 11692,
+   "sha256": "916bf37460fcf4d95ffe62ce97d01825ec48c780a39c73eb52a793c3e06d4470"
   },
   {
    "path": "campaign3_blind/run_blind.py",
-   "bytes": 16479,
-   "sha256": "c4b05ff8d107106a29ed5a0ac0b0d3f3174e935a3bbcf6250e2998d10aafac59"
+   "bytes": 22923,
+   "sha256": "08647be335280a9874bc5dd1f77cf3d42914311fcf3af71710b891a6f467323c"
   },
   {
    "path": "campaign3_blind/grade_blind_v2.py",
-   "bytes": 16524,
-   "sha256": "711f46df08fc937177c56c6639dc61d561db5c140dd20dbca9aa6851686d0696"
+   "bytes": 16533,
+   "sha256": "e3422315df003f45ff2c88ad93df5cd6d0669459b4bd663a41ef54d02cf9ce4f"
   },
   {
    "path": "campaign3_blind/grade_blind.py",
@@ -77,8 +77,8 @@
   },
   {
    "path": "campaign3_blind/dev_driver.sh",
-   "bytes": 1786,
-   "sha256": "ea68314d541306d33a1fbd609d165531db9a03d599e0d95357b1a4f2df7a6c02"
+   "bytes": 2170,
+   "sha256": "d9848d2f60f84438cdadd4c311dec39130eee9823b2df54c61a06b6c6a0dca9f"
   },
   {
    "path": "scripts/blind_grade.py",
@@ -87,8 +87,8 @@
   },
   {
    "path": "langgraph_eval/agent.py",
-   "bytes": 16160,
-   "sha256": "6b1b979d13b240660d06caeb41ee8b7d594d195b87e4010c52b869a1d77221bf"
+   "bytes": 17249,
+   "sha256": "c1137f939ac7e017224f0f45a3672564ae55891f7b3ed1a4f87c9414cb4ee8c5"
   },
   {
    "path": "src/server.py",
@@ -137,8 +137,8 @@
   },
   {
    "path": "campaign3_blind/grading/submission.py",
-   "bytes": 5815,
-   "sha256": "11c1d137cef9f28a072fff00362de353b87fa219e1d7d8a059c472fb770fe496"
+   "bytes": 8623,
+   "sha256": "b0c21d531dcce5f6b9060851683254be34ef8a0a7cf062c557783fb2a8880963"
   },
   {
    "path": "campaign3_blind/problems/B1/task.txt",
@@ -177,23 +177,23 @@
   },
   {
    "path": "campaign3_blind/problems/C1/task.txt",
-   "bytes": 8158,
-   "sha256": "19016f7eeafa6cb1a065db90080097675c60baf6d8c3cbe1c756f2f7da8efea5"
+   "bytes": 8369,
+   "sha256": "97adfe15fe3da9b9cf08b73ee44824cac38ecc522a58278076f8e7168f8e25e4"
   },
   {
    "path": "campaign3_blind/problems/C10/task.txt",
-   "bytes": 7038,
-   "sha256": "f9591152f6b6c36e7450f423717644ddecf82d72ce0c3a66c21bee38fc99ba20"
+   "bytes": 7249,
+   "sha256": "3c42b4a428fc2690f1e025aff58d84d2e1dacf8e1c85bd48b22a9fbf2190114c"
   },
   {
    "path": "campaign3_blind/problems/C11/task.txt",
-   "bytes": 7060,
-   "sha256": "690fc56bb1f69e19cda046c3925769c95cb3a1a6748ac4ab5e5b8134927f383d"
+   "bytes": 7271,
+   "sha256": "149404f2cf5ccbab7844637dfb45d17d712dd1fa68023fc5d7995f11fa75dae9"
   },
   {
    "path": "campaign3_blind/problems/C12/task.txt",
-   "bytes": 7025,
-   "sha256": "8339cd9b8ebb9c31b2c90efd39e191a9423be25ca496d70634601afca1cecde2"
+   "bytes": 7236,
+   "sha256": "c6ce528dff27e7739085e07307020a703162eb84b45eaedf479a66754075e320"
   },
   {
    "path": "campaign3_blind/problems/C13/task.txt",
@@ -207,43 +207,43 @@
   },
   {
    "path": "campaign3_blind/problems/C2/task.txt",
-   "bytes": 6144,
-   "sha256": "30772833c0d7f38cea0886dba69b128a4f4ae332b5f643a48b96c4d67ee6b245"
+   "bytes": 6355,
+   "sha256": "ba0783d41a3f4e2ef6c250b4659b33f0faf7e7ca4689ea2289b2430a57a23708"
   },
   {
    "path": "campaign3_blind/problems/C3/task.txt",
-   "bytes": 6189,
-   "sha256": "968530337bf3d4c2b7f949ca7ad589b175b1fe58ffaff043d94be66fb1ee626d"
+   "bytes": 6400,
+   "sha256": "13f31977699086245ebba6658faca5e710654a44fede304eb69df8996ed1ba1b"
   },
   {
    "path": "campaign3_blind/problems/C4/task.txt",
-   "bytes": 6890,
-   "sha256": "257a7a459ddc5fbd448d546d337b967547d08c92b414f1b3016cd5840e568688"
+   "bytes": 7101,
+   "sha256": "feb83f1665a53f800f1ddba6b90d3d306b6bec5568bf4501294b7c7fada3582f"
   },
   {
    "path": "campaign3_blind/problems/C5/task.txt",
-   "bytes": 7945,
-   "sha256": "829ef9ecc12d0f530c89d6c7c601e9bd0cd55042e9e514343d1ada30d92a9713"
+   "bytes": 8156,
+   "sha256": "ff1f4b24d7ea16762084ec20873ba4485a9e712baee4b58fe564e417435b7b80"
   },
   {
    "path": "campaign3_blind/problems/C6/task.txt",
-   "bytes": 6176,
-   "sha256": "99893408bf26de09219b1e3c8633f1ef34b40ee261ba08f45f25edf5c9c78744"
+   "bytes": 6387,
+   "sha256": "799182f34f2bf4b7e5b12bfe390f7466e91264bc521c1e3679397598faa310e9"
   },
   {
    "path": "campaign3_blind/problems/C7/task.txt",
-   "bytes": 6978,
-   "sha256": "69d6f22ee86dcca039c56582135876679ed6ad50419ccd575dafeb69c9f40d35"
+   "bytes": 7189,
+   "sha256": "8f9366976c5118d2fce48d5cb5f888d4fa8c0a5ce291d925b4b82d3e3dd3ef8d"
   },
   {
    "path": "campaign3_blind/problems/C8/task.txt",
-   "bytes": 6263,
-   "sha256": "30a2c27689e165790e8c23523f36b4a955e7b4a0a512de57ae732f5c95d79ec7"
+   "bytes": 6474,
+   "sha256": "f6f3621cc665c7e47b4cd4378e121ca004511e17abd93cb04e9db9564dd6f300"
   },
   {
    "path": "campaign3_blind/problems/C9/task.txt",
-   "bytes": 6956,
-   "sha256": "40aab98f605b87c9d37c73e739b846ac534f0204c71c4d8866be6df4547bf2eb"
+   "bytes": 7167,
+   "sha256": "b2efc36aaf52c6e9ec1390a73526a490e0fbdede7d76b58447d894b9189d7542"
   },
   {
    "path": "campaign3_blind/problems/D1/task.txt",
@@ -312,8 +312,8 @@
   },
   {
    "path": "campaign3_blind/problems/FB2/task.txt",
-   "bytes": 4948,
-   "sha256": "ce143430300a7218fb3d3ba98be5d974f13fb271d05c33ab997f229d0d5f0772"
+   "bytes": 5142,
+   "sha256": "4459433d44b2f53531f344b6dd5d2d5dfc38a8c9cc8a80f64a8665516d09ab4d"
   },
   {
    "path": "campaign3_blind/problems/FC1/task.txt",
@@ -662,8 +662,8 @@
   },
   {
    "path": "src/tools/coupling_knowledge.py",
-   "bytes": 159396,
-   "sha256": "c18ea2d0ad208c9be204f7e7a556f87a6bd4868805c455db258c033b0a7cb95d"
+   "bytes": 165196,
+   "sha256": "6760b85afa045bb2df15eee08e356f74cfea871dd53d867d754cd065cbd70380"
   },
   {
    "path": "src/tools/deep_knowledge.py",
@@ -1367,8 +1367,8 @@
   },
   {
    "path": "src/backends/fourc/generators/tsi.py",
-   "bytes": 37665,
-   "sha256": "8e75149717e65a9443a158f4a9919a7575a5abe159ba7757913cd36679533326"
+   "bytes": 38874,
+   "sha256": "cb71753f1598cb890507a4f1d99995dc0a9a6dfa3f8a479013e175729afbb0d9"
   },
   {
    "path": "src/backends/fourc/generators/xfem_fluid.py",
