@@ -514,6 +514,30 @@ a NOT VERIFIED verdict on a coupling that converged perfectly well.
 
 In one line: **apply the same number, export opposite numbers.**
 
+WHAT A CORRECT RECOVERY LOOKS LIKE WHEN YOU MEASURE IT — do not "fix" this.
+With the consistent (reaction) recovery on a manufactured problem, expect:
+
+    the FIELD (temperature/displacement)      order 2
+    the INTEGRATED interface flux             order 2
+    the interface flux in the INTERIOR        order 2
+    the interface flux in the WHOLE L2 norm   order ~1.5
+
+The last line is not a bug and not yours to chase. The one or two nodes where
+the interface meets ANOTHER boundary condition carry that boundary's reaction
+as well as the interface's, so they are O(h); an O(h) error over an O(h)
+width is O(h^1.5) in an L2 norm taken over the whole interface. Measured
+independently three times here — 1.53 with Kratos against three different
+partners, 1.50 with FEBio in three configurations, and the same shape in a
+4C-side study — while the field order stayed at 1.99-2.00 in every one.
+
+So: if your field converges at 2 and your whole-interface flux looks like
+1.5, your recovery is RIGHT. If you report an interface flux order, say
+which norm and whether the end nodes are in it, because those two choices
+change the number more than the method does. And if the field order is also
+~1 or ~1.5, then the recovery IS wrong — that is the signature of a
+differenced or L2-projected gradient, which is O(h) on the boundary trace no
+matter how fine the mesh gets.
+
 EXPORT A FLUX DENSITY, AND ALWAYS SHIP `coordinates` WITH IT. The two sides of
 a partitioned coupling normally sample the interface differently — that is the
 point of partitioning. With `coordinates` present the check integrates the
