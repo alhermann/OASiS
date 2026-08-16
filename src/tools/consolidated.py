@@ -21,30 +21,12 @@ from core.critic_gate import (CriticRegistry, CriticGateError,
 from core.quality_checks import check_result_files_finite, check_summary_finite
 from core import pitfall_index
 
-# WHERE SIMULATION OUTPUT LANDS.
-#
-# This was unconditionally <repo>/simulation_outputs — a single directory
-# shared by every caller, inside the installation. Two consequences, both bad
-# and both silent:
-#
-#   1. A caller working in its own directory (an evaluation cell, a CI job, a
-#      user with two projects open) has its results written somewhere else
-#      entirely. Anything that reads the working directory afterwards sees
-#      nothing and concludes the run produced nothing. Measured: 8 of 14
-#      OASiS-arm runs in one evaluation round wrote through this path.
-#   2. The namespace is shared, so two callers using the same job name
-#      overwrite each other, and one can read the other's results. There were
-#      169 accumulated directories in the repo when this was found.
-#
-# OASIS_OUTPUT_DIR overrides it. The runner sets it per cell; a user can set
-# it per project. The old location remains the default so nothing breaks for
-# someone who never sets it.
-_OUTPUT_DIR = Path(os.environ.get(
-    "OASIS_OUTPUT_DIR",
-    str(Path(__file__).resolve().parents[2] / "simulation_outputs")))
-_COUPLING_DIR = Path(os.environ.get(
-    "OASIS_COUPLING_DIR",
-    str(Path(__file__).resolve().parents[2] / "benchmarks" / "coupling")))
+# Output locations come from core.output_paths, the single resolver — see
+# the long note there. Keeping a private copy here is exactly how this
+# defect survived its first repair.
+from core.output_paths import output_dir as _output_dir
+_OUTPUT_DIR = _output_dir("simulation_outputs")
+_COUPLING_DIR = _output_dir("coupling")
 FOURC_ROOT = Path(os.environ.get("FOURC_ROOT", ""))
 _jobs: dict = {}
 

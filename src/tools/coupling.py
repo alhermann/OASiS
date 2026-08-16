@@ -27,7 +27,8 @@ from core.backend import sorted_by_step
 
 logger = logging.getLogger("oasis.coupling")
 
-_COUPLING_DIR = Path(__file__).resolve().parents[2] / "benchmarks" / "coupling"
+from core.output_paths import output_dir as _output_dir  # noqa: E402
+_COUPLING_DIR = _output_dir("coupling")
 
 
 def _fenics_heat_subdomain_script(

@@ -14,7 +14,8 @@ from core.backend import JobHandle
 _jobs: dict[str, JobHandle] = {}
 
 # Output directory
-_OUTPUT_DIR = Path(__file__).resolve().parents[2] / "simulation_outputs"
+from core.output_paths import output_dir as _output_dir  # noqa: E402
+_OUTPUT_DIR = _output_dir("simulation_outputs")
 
 
 def register_simulation_tools(mcp: FastMCP):

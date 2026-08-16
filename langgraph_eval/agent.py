@@ -333,6 +333,8 @@ def _load_oasis_mcp_tools(workdir: Path | None = None) -> list[BaseTool]:
     if workdir is not None:
         env["OASIS_OUTPUT_DIR"] = str(Path(workdir) / "simulation_outputs")
         env["OASIS_COUPLING_DIR"] = str(Path(workdir) / "coupling")
+        env["OASIS_MESH_DIR"] = str(Path(workdir) / "meshes")
+        env["OASIS_BENCHMARK_DIR"] = str(Path(workdir) / "benchmark_results")
 
     # THE SERVER INTERPRETER, RESOLVED — NOT ASSUMED.
     #

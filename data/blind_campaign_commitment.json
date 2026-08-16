@@ -1,8 +1,8 @@
 {
  "schema": 2,
  "campaign": "campaign3_blind",
- "generated_utc": "2026-08-16T16:27:43+00:00",
- "git_commit": "f6a20c1f1f285264c240caaa37819d45be9632f8",
+ "generated_utc": "2026-08-16T17:42:29+00:00",
+ "git_commit": "59062bc51fadb8a7e739356c05ab302dbe81fe88",
  "draw_seed": 20260814,
  "pinning": {
   "models": [
@@ -82,8 +82,8 @@
   },
   {
    "path": "langgraph_eval/agent.py",
-   "bytes": 19514,
-   "sha256": "d755873cec65a8f4874e15546ab855f3f4dfc222305dc8f2ba5f7aff397cbeb9"
+   "bytes": 19654,
+   "sha256": "55fe08fb57345b509e69eeb78c184a251b91c1efef39939324d2aee8ce705153"
   },
   {
    "path": "src/server.py",
@@ -642,18 +642,18 @@
   },
   {
    "path": "src/tools/benchmark.py",
-   "bytes": 7009,
-   "sha256": "80d779aa82b9e966968d10955f93475c455286404fd8556aafe354286b37af0c"
+   "bytes": 7049,
+   "sha256": "7f59112072bcba890d7c33af45161392d07d57887ba0a693e0beca16cff0546e"
   },
   {
    "path": "src/tools/consolidated.py",
-   "bytes": 281811,
-   "sha256": "73fe53cf96b21f9238c2094f8eab351a3502b9e36f8cb4efdda8743be68851e1"
+   "bytes": 280887,
+   "sha256": "eaa3ae479af4aaadb9ad7ceb854eb5d1e0fa65d6554e86b8ecf1acccadc058b0"
   },
   {
    "path": "src/tools/coupling.py",
-   "bytes": 97214,
-   "sha256": "f9531b431e97fa27ba4c603a08ad3f841c9c02cee91b0ab6e4af35225ad2632b"
+   "bytes": 97244,
+   "sha256": "95055eea458a224ce466430c5fcf857bd4f8fe9ae2893c094e0ca75e9ba3f704"
   },
   {
    "path": "src/tools/coupling_knowledge.py",
@@ -687,8 +687,8 @@
   },
   {
    "path": "src/tools/mesh_generation.py",
-   "bytes": 10288,
-   "sha256": "583eaae8976ebbb372f2048be4906dd6c4b644ce32ca6cb895db15331a12e430"
+   "bytes": 10333,
+   "sha256": "75f1c3b63dee59fb50cb4d76855414e7052accb1d1b236729471c45ca4478d8e"
   },
   {
    "path": "src/tools/schema_validation.py",
@@ -697,8 +697,8 @@
   },
   {
    "path": "src/tools/simulation.py",
-   "bytes": 13462,
-   "sha256": "3d828d79f2a0dcfa72fbe42380e072e3c4e98bad968e3669c9a487d9fee3d7c1"
+   "bytes": 13507,
+   "sha256": "1bf67f8417cd7029db81406cb50f67f35b10d1e59ad5dfe763fa62c7da856ceb"
   },
   {
    "path": "src/tools/visualization.py",
@@ -707,8 +707,8 @@
   },
   {
    "path": "src/tools/workflows.py",
-   "bytes": 25843,
-   "sha256": "6f603258c8b5bc7eae8d8bc8bda7a27a6db055c4b39f490dcc654d9c39ecdb5d"
+   "bytes": 25882,
+   "sha256": "d21d9971fbcb35d67c9733f975e8bf2fd87876056a4e2f7ab479f198b783ff38"
   },
   {
    "path": "src/backends/__init__.py",
@@ -1819,6 +1819,11 @@
    "path": "src/core/mesh_independence.py",
    "bytes": 27905,
    "sha256": "6ac16cf97cac8868a09ab17c206bb8062fe3c4ae310b712c1083c6885e342c93"
+  },
+  {
+   "path": "src/core/output_paths.py",
+   "bytes": 2259,
+   "sha256": "b4270d0b785494a82d34c8b6ad3b5c30f0322013a7ff2c428ee087f7e7de466d"
   },
   {
    "path": "src/core/pitfall_index.py",
