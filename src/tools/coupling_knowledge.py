@@ -691,11 +691,21 @@ Each runs plane-strain elasticity split by a straight interface, exchanging a
 meshes, and asserts componentwise: continuity of both displacement components,
 equilibrium of both traction components, per-component conservation, and
 agreement with BOTH a closed form and an un-split monolithic solve. Shipped
-participant scripts: `participant_{fenics,skfem,ngsolve,dealii}_elastic.py`
+participant scripts:
+`participant_{fenics,skfem,ngsolve,dealii,dune,febio}_elastic.py`
 (the deal.II one needs `elast_iface_dealii` built from the same CMake tree).
-No other backend has a vector participant yet — 4C, DUNE-fem, FEBio, Kratos
-and SPARTA are scalar-only here, and that is an absence of evidence rather
-than a demonstrated inability.
+
+DUNE-fem and FEBio were added on 2026-08-16 and both were measured, not
+assumed: DUNE displacement order 2.014 / 2.007 / 2.003 over four meshes and
+2.005 / 2.001 / 2.000 on a cubic two-material case, with the two role
+assignments agreeing to four significant figures; FEBio 2.015 / 1.991 / 1.986
+with FEBio on the Dirichlet side, and again on the Neumann side and on both
+sides at once. FEBio's replaced an export that broadcast ONE domain-averaged
+stress across the whole interface, which measured order 0.013 / 0.003 / 0.001
+— it did not converge at all.
+
+4C, Kratos and SPARTA still have no vector participant. That is an absence of
+evidence rather than a demonstrated inability.
 
 ### The one thing that does NOT hold
 
@@ -710,7 +720,29 @@ is not a discretisation error. Use the displacement channel for the answer,
 check traction equilibrium on the interface INTERIOR, and do not read the
 end-node traction as a result. Fixture:
 coupling/vector_traction_recovery_at_the_interface_ends.
-'''
+
+WHAT THIS DOES TO A MEASURED ORDER, so nobody reports the wrong number.
+Four independent builds measured the same shape on 2026-08-16 — Kratos,
+FEBio, DUNE-fem and the transient FEniCSx/deal.II pair, across different
+physics, partners and geometries:
+
+    displacement / temperature field        order 2
+    integrated interface flux or force      order 2
+    traction on a band clear of the ends    order 2  (DUNE: 2.022, 2.067, 2.007)
+    traction in the whole-interface L2 norm order ~1.5 (DUNE: 1.500 x3;
+                                            Kratos 1.53; FEBio 1.50)
+    traction in the max norm over the ends  order 1
+
+The end nodes are O(h) by construction — their error is the corner-guard
+substitution, measured as exactly q'*h (predicted 3.6, measured 3.41 at
+h=0.06; predicted 1.8, measured 1.70 at h=0.03) — and an O(h) error over an
+O(h)-wide layer is O(h^1.5) in an L2 norm taken over the whole interface.
+Those end entries are never consumed by the coupling: the interface corners
+are outer-Dirichlet on both sides.
+
+So if you REPORT an interface traction order, say which norm and whether the
+end nodes are in it. Both choices change the number more than the recovery
+method does.
 
 _SIDES = (_SIDES_TABLE.replace("## WHICH SIDE", "## 6. WHICH SIDE", 1)
           + "\n" + _VECTOR)
