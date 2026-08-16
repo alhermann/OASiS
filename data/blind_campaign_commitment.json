@@ -1,8 +1,8 @@
 {
  "schema": 2,
  "campaign": "campaign3_blind",
- "generated_utc": "2026-08-16T08:42:51+00:00",
- "git_commit": "41abaffc4d027783bad1f5c39294ca997c4b7e55",
+ "generated_utc": "2026-08-16T09:03:09+00:00",
+ "git_commit": "f427c41d4067c4f2ee74db640c0ff521e2bd981a",
  "draw_seed": 20260814,
  "pinning": {
   "models": [
@@ -24,11 +24,6 @@
    "path": "campaign3_blind/DESIGN.md",
    "bytes": 61117,
    "sha256": "e6a8794d6a728c1135684197ab5f5e1c0ea1533ad2c0413da656096f3170cf92"
-  },
-  {
-   "path": "campaign3_blind/CONVERGENCE.md",
-   "bytes": 13734,
-   "sha256": "bfe2e597766f0756c8c1d50b06893defa785765f6e5f22991a777888a38ac8f6"
   },
   {
    "path": "campaign3_blind/run_blind.py",

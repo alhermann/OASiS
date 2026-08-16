@@ -44,9 +44,14 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 OUT = REPO / "data" / "blind_campaign_commitment.json"
 
+# NOT COMMITTED, DELIBERATELY: campaign3_blind/CONVERGENCE.md and
+# DEV_FINDINGS.md. They are running logs — every defect closed appends to
+# them — so hashing them makes --verify report drift after ordinary
+# note-taking. An integrity check that cries wolf on every edit is one nobody
+# reads, and then real drift goes past. The commitment covers what can change
+# a RESULT: tasks, keys, grader, runner, agent, served knowledge.
 FILES = [
     "campaign3_blind/DESIGN.md",
-    "campaign3_blind/CONVERGENCE.md",
     "campaign3_blind/run_blind.py",
     "campaign3_blind/grade_blind_v2.py",
     "campaign3_blind/grade_blind.py",
