@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import signal
 import subprocess
 from pathlib import Path
 from typing import Sequence
@@ -109,18 +110,52 @@ def _bash_tool_for(workdir: Path):
     @tool
     def run_bash(command: str) -> str:
         """Run a shell command inside the cell's sandbox dir. Returns stdout+stderr (truncated to 12 KB)."""
+        # THE WHOLE PROCESS GROUP DIES ON TIMEOUT, NOT JUST THE SHELL.
+        #
+        # This was subprocess.run(..., timeout=900). On timeout Python kills
+        # its direct child — which is `bash` — and every GRANDCHILD survives,
+        # reparented to init. A solver launched from that shell then runs
+        # forever: three DUNE processes from round-1 timeouts were found
+        # 23-24 hours later, still at 100% CPU, having burned 71 CPU-hours
+        # between them. They also contend for the machine with whatever runs
+        # next, which silently slows and can time out later cells.
+        #
+        # start_new_session puts the shell and everything it spawns in one
+        # process group; on timeout that group is signalled, TERM then KILL.
+        proc = None
         try:
-            p = subprocess.run(
-                ["bash", "-lc", command],
-                cwd=workdir, capture_output=True, text=True, timeout=900,
+            proc = subprocess.Popen(
+                ["bash", "-lc", command], cwd=workdir,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                start_new_session=True,
             )
-            out = (p.stdout or "") + (("\n[stderr]\n" + p.stderr) if p.stderr else "")
+            out_s, err_s = proc.communicate(timeout=900)
+            out = (out_s or "") + (("\n[stderr]\n" + err_s) if err_s else "")
             return out[-12000:] if len(out) > 12000 else out
         except subprocess.TimeoutExpired:
-            return "[timeout after 900s]"
+            _kill_group(proc)
+            return ("[timeout after 900s; the command and everything it "
+                    "spawned were terminated]")
         except (OSError, UnicodeError, ValueError) as e:
+            _kill_group(proc)
             return f"[command failed to launch: {type(e).__name__}: {e}]"
     return run_bash
+
+
+def _kill_group(proc) -> None:
+    """TERM then KILL the process group `proc` leads. Never raises."""
+    if proc is None or proc.poll() is not None:
+        return
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        try:
+            os.killpg(os.getpgid(proc.pid), sig)
+        except (ProcessLookupError, PermissionError, OSError):
+            return
+        try:
+            proc.wait(timeout=10)
+            return
+        except subprocess.TimeoutExpired:
+            continue
 
 
 def _read_write_tools_for(workdir: Path):
