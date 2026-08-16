@@ -208,7 +208,7 @@ def _make_spawn_subagent_tool(
     """
 
     @tool
-    def spawn_subagent(role: str, task: str, context: str = "") -> str:
+    async def spawn_subagent(role: str, task: str, context: str = "") -> str:
         """Spawn a sub-agent. role∈{critic, researcher, verifier}; task = what it should do; context = facts to pass in.
 
         The critic role should ruthlessly challenge the parent's setup; the
@@ -216,6 +216,17 @@ def _make_spawn_subagent_tool(
         should look things up via web_search and the OASiS knowledge tool.
         Returns the sub-agent's final message text.
         """
+        # ASYNC, AND ainvoke BELOW, BECAUSE THE MCP TOOLS ARE ASYNC-ONLY.
+        # This was a sync `def` calling `sub_agent.invoke`. The sub-agent
+        # inherits the parent's OASiS tools, which langchain_mcp_adapters
+        # returns as coroutine-only StructuredTools, so the first time a
+        # critic reached for `knowledge` or `discover` it raised
+        # "NotImplementedError: StructuredTool does not support sync
+        # invocation" — caught by the except below and returned to the model
+        # as a string, so it looked like a critic verdict rather than a dead
+        # mechanism. Round 1: this fired in 14 of 14 coupled and 16 of 18
+        # single-code OASiS runs, i.e. the MANDATORY critic the server
+        # instructions demand never ran once in the entire campaign.
         if depth >= 2:
             return "[spawn_subagent denied: max depth 2 to prevent recursion]"
         sub_tools = list(parent_tools)
@@ -246,13 +257,17 @@ def _make_spawn_subagent_tool(
         )
         msg = f"Task: {task}\n\nContext provided by parent:\n{context}"
         try:
-            out = sub_agent.invoke(
+            out = await sub_agent.ainvoke(
                 {"messages": [("user", msg)]},
                 config={"recursion_limit": 40},
             )
             return out["messages"][-1].content
         except Exception as e:
-            return f"[sub-agent error: {type(e).__name__}: {e}]"
+            # Still returned as text so one bad sub-agent cannot kill the run,
+            # but marked loudly enough that a transcript sweep finds it: a
+            # broken mechanism must not read like a verdict.
+            return (f"[SUBAGENT FAILED — this is NOT a review verdict — "
+                    f"{type(e).__name__}: {e}]")
 
     return spawn_subagent
 
