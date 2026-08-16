@@ -1,8 +1,8 @@
 {
  "schema": 2,
  "campaign": "campaign3_blind",
- "generated_utc": "2026-08-16T14:27:23+00:00",
- "git_commit": "6f0124de3821b44b176b3788bad01bdbf99cbe7c",
+ "generated_utc": "2026-08-16T16:27:43+00:00",
+ "git_commit": "f6a20c1f1f285264c240caaa37819d45be9632f8",
  "draw_seed": 20260814,
  "pinning": {
   "models": [
@@ -82,8 +82,8 @@
   },
   {
    "path": "langgraph_eval/agent.py",
-   "bytes": 18787,
-   "sha256": "9ee4d018b779d9fb8483949f5e62d459053ed0e908b729bd281c4bb1e7fd46a8"
+   "bytes": 19514,
+   "sha256": "d755873cec65a8f4874e15546ab855f3f4dfc222305dc8f2ba5f7aff397cbeb9"
   },
   {
    "path": "src/server.py",
@@ -647,8 +647,8 @@
   },
   {
    "path": "src/tools/consolidated.py",
-   "bytes": 280713,
-   "sha256": "5544627e6b3a43eabd5b7086489c0a4867e1fa1e889e2c1616686828dfc61fe9"
+   "bytes": 281811,
+   "sha256": "73fe53cf96b21f9238c2094f8eab351a3502b9e36f8cb4efdda8743be68851e1"
   },
   {
    "path": "src/tools/coupling.py",

@@ -310,7 +310,7 @@ def _make_spawn_subagent_tool(
 # ────────────────────────────────────────────────────────────────────
 # OASiS MCP tool loader (langchain-mcp-adapters)
 # ────────────────────────────────────────────────────────────────────
-def _load_oasis_mcp_tools() -> list[BaseTool]:
+def _load_oasis_mcp_tools(workdir: Path | None = None) -> list[BaseTool]:
     from langchain_mcp_adapters.client import MultiServerMCPClient
 
     env = os.environ.copy()
@@ -322,6 +322,17 @@ def _load_oasis_mcp_tools() -> list[BaseTool]:
     env["LD_LIBRARY_PATH"] = env.get(
         "LD_LIBRARY_PATH", "/opt/4C-dependencies/lib")
     env["PYTHONPATH"] = str(REPO / "src")
+    # THE TOOLS MUST WRITE INTO THIS CELL'S SANDBOX.
+    #
+    # run_simulation and friends wrote to <repo>/simulation_outputs, a single
+    # directory shared by every caller. An agent that followed the documented
+    # OASiS workflow therefore produced its solution files where nothing
+    # downstream looks, and where another cell could overwrite or read them.
+    # It is the OASiS-arm tools that do this, so the cost fell entirely on the
+    # arm under test: 8 of 14 coupled OASiS runs in round 1 went through it.
+    if workdir is not None:
+        env["OASIS_OUTPUT_DIR"] = str(Path(workdir) / "simulation_outputs")
+        env["OASIS_COUPLING_DIR"] = str(Path(workdir) / "coupling")
 
     # THE SERVER INTERPRETER, RESOLVED — NOT ASSUMED.
     #
@@ -378,7 +389,7 @@ def build_bare_agent(*, size: str, seed: int, workdir: Path, depth: int = 0):
 
 
 def build_mcp_agent(*, size: str, seed: int, workdir: Path, depth: int = 0):
-    mcp_tools = _load_oasis_mcp_tools()
+    mcp_tools = _load_oasis_mcp_tools(workdir)
     host = _host_tools(workdir, size=size, seed=seed,
                        parent_tools=mcp_tools, depth=depth)
     llm = _llm(size, temperature=0.2, seed=seed)
