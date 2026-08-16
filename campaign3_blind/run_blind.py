@@ -25,6 +25,8 @@ import argparse
 import asyncio
 import json
 import os
+import re
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -156,6 +158,73 @@ def _keys_dir():
     return Path(v) if v else HERE / "keys"
 
 
+_WROTE_RE = re.compile(r"wrote \d+ chars to (/[^\s\"']+)")
+
+
+def _quarantine_stray_scratch() -> list:
+    """Move aside exactly what PRIOR RUNS wrote outside their sandbox.
+
+    Driven by the recorded transcripts, not by a filesystem sweep. The first
+    version of this searched /tmp and $HOME for campaign-shaped artefacts and
+    a dry run showed it would have moved 1043 directories — including this
+    session's own scratch and unrelated pytest trees. Precision matters more
+    than reach here: the only directories that can contaminate a run are the
+    ones an earlier run actually created, and every one of those is named in
+    that run's trajectory.
+
+    Never deletes; moves into runs_quarantine/stray_scratch/ and returns what
+    it moved.
+    """
+    dest_root = HERE / "runs_quarantine" / "stray_scratch"
+    repo, here = REPO.resolve(), HERE.resolve()
+    roots = {Path("/tmp").resolve(), Path.home().resolve(),
+             (Path.home() / "Schreibtisch").resolve()}
+    targets, moved = set(), []
+    # Quarantined runs count too: their run directory was moved aside, but
+    # whatever they wrote into /tmp or $HOME is still sitting there.
+    trajectories = list((HERE / "runs").glob("*/work/trajectory*.txt")) + \
+        list((HERE / "runs_quarantine").glob("**/work/trajectory*.txt"))
+    for traj in trajectories:
+        try:
+            text = traj.read_text(errors="replace")
+        except OSError:
+            continue
+        for m in _WROTE_RE.finditer(text):
+            p = Path(m.group(1))
+            try:
+                rp = p.resolve()
+            except OSError:
+                continue
+            if repo in rp.parents or rp == repo:
+                continue                      # inside the campaign: fine
+            if "claude-" in str(rp):
+                continue                      # this session's own scratch
+            # The directory to move is the highest ancestor still under a
+            # scatter root — /tmp/coupled_heat, not /tmp/coupled_heat/level1.
+            top = None
+            for anc in list(rp.parents):
+                if anc in roots:
+                    break
+                top = anc
+            if top is not None and top.exists() and top.resolve() not in roots:
+                targets.add(top)
+    for d in sorted(targets):
+        if not d.exists() or d.resolve() == here:
+            continue
+        dest = dest_root / d.name
+        n = 1
+        while dest.exists():
+            n += 1
+            dest = dest_root / f"{d.name}__{n}"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            shutil.move(str(d), str(dest))
+            moved.append(f"{d} -> {dest.relative_to(HERE)}")
+        except OSError as e:
+            print(f"[preflight] could not quarantine {d}: {e}")
+    return moved
+
+
 def preflight_or_die(problems: list) -> None:
     """Every custody control, executed, before a single paid run starts.
 
@@ -201,6 +270,25 @@ def preflight_or_die(problems: list) -> None:
     if sweep.returncode != 0:
         failures.append("exposure sweep found readable solution-bearing files:\n"
                         + sweep.stdout[-1500:])
+
+    # PRIOR RUNS' LEAVINGS ARE READABLE BY THIS RUN.
+    #
+    # write_file is confined to the sandbox now, but bash is not, and round 1
+    # scattered participants, RESULT.txt files and solution CSVs across /tmp
+    # and $HOME. Two runs then READ them: C2-MCP picked up a previous
+    # attempt's RESULT.txt and CSVs in /tmp/coupled_heat, and C4-MCP read
+    # C6's deal.II source out of $HOME. That is one cell's work leaking into
+    # another cell's measurement.
+    #
+    # Quarantined by EVIDENCE, never by name — a directory is moved only if
+    # it actually contains campaign-shaped artefacts — and moved, never
+    # deleted, so nothing is lost.
+    stray = _quarantine_stray_scratch()
+    if stray:
+        print(f"[preflight] quarantined {len(stray)} directory(ies) of prior "
+              f"agent scratch so this run cannot read them:")
+        for s in stray[:12]:
+            print(f"             {s}")
 
     # A coupled task whose intended path has never executed measures the path.
     ready = HERE / "path_readiness.json"
@@ -332,6 +420,20 @@ def run_one(pid: str, model: str, cond: str, seed: int, timeout_s: int) -> dict:
         (work / "trajectory.txt").write_text("\n".join(lines), errors="replace")
     except Exception:
         pass
+    # A TIMED-OUT RUN STILL HAS A TRANSCRIPT. `final` is None on timeout, so
+    # the block above wrote nothing and trajectory.txt was 0 bytes for exactly
+    # the runs whose evidence matters most — every timeout of round 1. The
+    # live log was on disk the whole time; promote it.
+    _traj = work / "trajectory.txt"
+    _live = work / "trajectory_live.txt"
+    if (not _traj.exists() or _traj.stat().st_size == 0) and _live.exists():
+        try:
+            _traj.write_text(
+                "[reconstructed from trajectory_live.txt: the run did not "
+                "exit cleanly, so no final message list existed]\n"
+                + _live.read_text(errors="replace"), errors="replace")
+        except Exception:
+            pass
     if n_calls == 0 and (work / "trajectory_live.txt").exists():
         n_calls = sum(1 for ln in (work / "trajectory_live.txt")
                       .read_text(errors="replace").splitlines()
