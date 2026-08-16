@@ -98,6 +98,32 @@ the evaluation problems are fresh and drawn after everything is frozen.
   5. Every round's findings land in DEV_FINDINGS.md before the next round
      starts, with the commit that fixed each one.
 
+## Anchoring audit of the knowledge added between rounds 1 and 2
+
+Seven participants were written or repaired between the rounds. If any of
+them encoded this campaign's specifics, the evaluation phase would be
+measuring recall of our own problem set rather than transferable knowledge,
+and a reviewer would be right to say so. Checked 2026-08-16 against the four
+markers that identify a campaign cell — extent 1.5 x 1, interface at x = 5/8,
+mesh sequence 8/16/32, probe grid 44 per side:
+
+  * NONE of the seven contains any of those. The interface defaults are 0.5,
+    0.55, 0.6 — deliberately not 0.625 — and the mesh and probe values appear
+    nowhere.
+  * Every literal that pattern-matched turned out to be a MEASURED RESULT in
+    a header comment (`1.5e-5`, `O(h^1.5)`, `45.4%`), not geometry.
+  * One off-convention default: participant_febio_elastic.py ships
+    E_MOD = 1040 where the four pre-existing elastic participants all use
+    1000. It comes from the builder's own manufactured test (lambda 600,
+    mu 400). It is NOT a FEBio cell's material — the FEBio cells use
+    lambda 500 with mu 250 and 1250 — so it gives no head start on anything
+    in the set. Left as-is because the measured numbers in that file's header
+    were taken at those values, and a default nobody can reproduce is worse
+    than one that is merely unusual.
+
+The general rule this enforces, from the project's standing instructions:
+templates carry PLACEHOLDERS and an EDIT block, never a problem's dimensions.
+
 ## A trap this campaign keeps falling into: measuring the wrong checkout
 
 Two OASiS checkouts exist on this machine and they are NOT the same code:
