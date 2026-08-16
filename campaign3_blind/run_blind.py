@@ -100,9 +100,25 @@ def _or_llm(size, *, temperature, seed):
 
 _agent._llm = _or_llm
 
+# MATCHED CASE-INSENSITIVELY. The provider returns lowercase
+# "error code: 504" while this list carried "Error code: 5", so a gateway
+# failure went unrecognised and was booked as a normal run: FC2 BARE died
+# after 10 tool calls to a 504 and was graded FAILED, charging OUR outage to
+# the model — and to the BARE arm, which inflates the measured uplift. Same
+# defect class as the evidence patterns that were lowercased on one side only.
 _INFRA_ERRS = ("APIConnectionError", "Connection error", "UnicodeDecodeError",
-               "InternalServerError", "empty response", "Error code: 5",
-               "RateLimit", "ReadTimeout", "ServiceUnavailable")
+               "InternalServerError", "empty response",
+               "error code: 5", "error code: 429", "status code: 5",
+               "RateLimit", "rate limit", "ReadTimeout", "ServiceUnavailable",
+               "BadGateway", "Timeout error", "overloaded")
+
+
+def _is_infra(err: str) -> bool:
+    """True when the run died of OUR infrastructure, not the model's work."""
+    if not err:
+        return False
+    low = err.lower()
+    return any(s.lower() in low for s in _INFRA_ERRS)
 
 
 class TrajLiveLog(BaseCallbackHandler):
@@ -444,7 +460,7 @@ def run_one(pid: str, model: str, cond: str, seed: int, timeout_s: int) -> dict:
                wall_s=round(time.time() - t0, 1), tool_calls=n_calls,
                tokens_in=tin, tokens_out=tout, error=err,
                graded=False, note="grading is offline: run grade_blind.py")
-    if err and any(s in err for s in _INFRA_ERRS):
+    if _is_infra(err):
         rec["outcome"] = "INVALID_INFRA"
     ledger.write_text(json.dumps(rec, indent=2))
     print(f"[{pid} {model} {cond} s{seed}] done  calls={n_calls} "
