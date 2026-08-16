@@ -1,8 +1,8 @@
 {
  "schema": 2,
  "campaign": "campaign3_blind",
- "generated_utc": "2026-08-16T09:03:09+00:00",
- "git_commit": "f427c41d4067c4f2ee74db640c0ff521e2bd981a",
+ "generated_utc": "2026-08-16T10:26:14+00:00",
+ "git_commit": "21d98a3324827e70ed832238bd7dc62f1d20b7be",
  "draw_seed": 20260814,
  "pinning": {
   "models": [
@@ -27,8 +27,8 @@
   },
   {
    "path": "campaign3_blind/run_blind.py",
-   "bytes": 23690,
-   "sha256": "6c9f19022540decb2252493ce0fa05b4dd46b82530eeb38cb8ee88418b38000d"
+   "bytes": 24573,
+   "sha256": "a518f8c96d0357e90091cc4749363206c3a211bab3d4c195cbed0c48ab01c54b"
   },
   {
    "path": "campaign3_blind/grade_blind_v2.py",

@@ -67,8 +67,21 @@ OR_MODELS = {
 }
 
 # LangGraph counts one node execution per step, so a tool-calling agent burns
-# roughly two per tool call. Named because the prompt now quotes it.
-RECURSION_LIMIT = 250
+# roughly two per tool call. Named because the prompt quotes it.
+#
+# THERE MUST BE ONE BUDGET, AND IT IS THE CLOCK. At 250 the step cap bound
+# FIRST and silently: round 2 opened with NG1-BARE cut off at 124 calls having
+# used 30% of its 45 minutes — with a COMPLETE submission already on disk —
+# and NG2-BARE cut off at 66% while still solving. Measured cost across the
+# first eight runs of that round is 6.5-29 s per call (one outlier at 102),
+# so 2700 s buys roughly 90-400 calls. A 500-call ceiling therefore sits
+# above what the clock can ever reach, which is the point: the agent is told
+# 45 minutes, and 45 minutes is what actually stops it.
+#
+# In round 1 the cap almost never bound because the models quit voluntarily at
+# ~37% of budget. Telling them their budget fixed that and promptly exposed
+# the second, unstated limit underneath.
+RECURSION_LIMIT = 1000
 
 ENVIRON = (
     "\nENVIRONMENT: NGSolve & scikit-fem -> "
@@ -382,12 +395,13 @@ def run_one(pid: str, model: str, cond: str, seed: int, timeout_s: int) -> dict:
     # bugs in hand. An agent that cannot see its budget guesses, and guesses
     # low. Both arms get the identical sentence.
     budget = (
-        f"\nBUDGET: you have {timeout_s // 60} minutes of wall-clock and "
-        f"about {RECURSION_LIMIT // 2} tool calls for this task, and no "
-        f"other deadline exists. Nothing is gained by stopping early: if you "
-        f"are making progress, keep working. Write COULD_NOT_COMPLETE only "
-        f"when you have genuinely exhausted what you can do, not when the "
-        f"task looks long.\n")
+        f"\nBUDGET: you have {timeout_s // 60} minutes of wall-clock for this "
+        f"task. That is the only limit that will stop you — the tool-call "
+        f"ceiling ({RECURSION_LIMIT // 2}) sits above what the clock can "
+        f"reach. No other deadline exists. Nothing is gained by stopping "
+        f"early: if you are making progress, keep working. Write "
+        f"COULD_NOT_COMPLETE only when you have genuinely exhausted what you "
+        f"can do, not when the task looks long.\n")
     prompt = task + ENVIRON + budget
 
     _USAGE_CB.usage_metadata.clear()
