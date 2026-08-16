@@ -743,6 +743,7 @@ are outer-Dirichlet on both sides.
 So if you REPORT an interface traction order, say which norm and whether the
 end nodes are in it. Both choices change the number more than the recovery
 method does.
+'''
 
 _SIDES = (_SIDES_TABLE.replace("## WHICH SIDE", "## 6. WHICH SIDE", 1)
           + "\n" + _VECTOR)
