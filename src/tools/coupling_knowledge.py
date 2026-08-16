@@ -1429,6 +1429,41 @@ Full contract, relaxation guidance and failure modes: `knowledge(topic='coupling
 '''
 
 
+def _transient_block(script_name: str) -> str:
+    """The time-dependent participant, when one ships for this backend.
+
+    Every participant in the corpus used to be STEADY, and the word
+    "transient" appeared nowhere in the core coupling text. A coupled cell
+    with time-dependent physics therefore had no starting point at all.
+    """
+    p = _PARTICIPANT_DIR / f"participant_{script_name}_transient.py"
+    if not p.is_file():
+        return ""
+    return (
+        "\n## THE TRANSIENT PARTICIPANT — time-dependent coupling\n\n"
+        "Two things about a time-dependent coupling that a steady one never "
+        "makes you decide:\n\n"
+        "  * WHAT ONE INVOCATION COVERS. This participant marches the WHOLE "
+        "time window per call and exchanges the entire trace: `values[i][n]` "
+        "is the value at step n, `normal_fluxes[i][n]` the flux over step n. "
+        "Coupling once per time step is NOT reachable inside a single "
+        "`couple` call — InterfaceData carries exactly five keys, so there is "
+        "nowhere to say which step a payload belongs to; the driver re-runs "
+        "participants on identical imports to measure sensitivity, so hidden "
+        "time state reads as noise; and the convergence test is 'the export "
+        "stopped changing', which a self-advancing participant satisfies "
+        "while its partner is at a different step. Per-step coupling means "
+        "owning the outer loop yourself, one driver call per step, with "
+        "restart files.\n"
+        "  * THE EXPORTED FLUX IS THETA-AVERAGED. A theta-scheme residual "
+        "recovers `theta*q^(n+1) + (1-theta)*q^n`, not the flux at the new "
+        "time, and that average is exactly what the Neumann side's "
+        "theta-combined right-hand side needs. Exporting it as 'the flux at "
+        "t^(n+1)' injects an O(dt) error that looks like a scheme stuck at "
+        "first order.\n\n"
+        f"```python\n{p.read_text()}```\n")
+
+
 def _role_block(script_name: str) -> str:
     """The OTHER interface role, when a backend ships a second participant.
 
@@ -1494,7 +1529,8 @@ def _payload(title: str, sides: str, script_name: str, launch: str,
             f"## Launching it\n\n{launch}\n"
             f"## {title}-specific traps\n\n{traps}\n{extra}"
             f"{_role_block(script_name)}"
-            f"{_vector_block(script_name)}")
+            f"{_vector_block(script_name)}"
+            f"{_transient_block(script_name)}")
 
 
 _RIGHT_BLOCK = """\
@@ -2833,8 +2869,11 @@ def _dealii_sources() -> str:
     """
     out = ["\n## THE C++ SOLVER SOURCES — save these to disk, then build\n"]
     for fn, what in (("heat_iface_dealii.cc", "scalar conduction interface solver"),
+                     ("heat_iface_dealii_transient.cc",
+                      "TIME-DEPENDENT scalar conduction (theta-scheme, "
+                      "waveform exchange, theta-averaged reaction flux)"),
                      ("elast_iface_dealii.cc", "vector elasticity interface solver"),
-                     ("CMakeLists.txt", "build file for either of them")):
+                     ("CMakeLists.txt", "build file for all of them")):
         p = _PARTICIPANT_DIR / fn
         if not p.is_file():
             out.append(f"\n### {fn} — MISSING FROM THIS INSTALL "

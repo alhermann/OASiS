@@ -9,6 +9,13 @@ project(heat_iface_dealii CXX)
 add_executable(heat_iface_dealii heat_iface_dealii.cc)
 deal_ii_setup_target(heat_iface_dealii)
 
+# ── the TRANSIENT scalar participant: theta-scheme heat, waveform exchange ──
+# The deal.II side of a time-dependent coupling. Needs nothing beyond deal.II
+# itself (the three problem functions arrive as muparser expressions, and
+# muparser is part of every standard deal.II build).
+add_executable(heat_iface_dealii_transient heat_iface_dealii_transient.cc)
+deal_ii_setup_target(heat_iface_dealii_transient)
+
 # ── the VECTOR participant: plane-strain elasticity, displacement/traction ──
 # The deal.II side of vector-valued interface exchange. Built unconditionally
 # alongside the scalar one; it needs nothing beyond deal.II itself.
