@@ -78,6 +78,7 @@ bit-identical, the floor is 0, and `max(tol, 0) == tol`.
 from __future__ import annotations
 import hashlib
 import json
+import tempfile
 import shutil
 import subprocess
 from dataclasses import dataclass, field
@@ -852,12 +853,15 @@ def probe_interface_sensitivity(participants: list[Participant],
         if not ep.exists():
             out[p.name] = _blank("no exports.json left from the run")
             continue
+        snapshot = None
         try:
             base_vec = _stack(InterfaceData.from_json(ep))
             saved_exports = ep.read_text()
             saved_imports = last_imports.get(
                 p.name, ip.read_text() if ip.exists() else "{}")
             imp = json.loads(saved_imports or "{}")
+            # taken before the first perturbed re-run, restored in `finally`
+            snapshot = _snapshot_tree(p.work_dir)
         except Exception as e:
             out[p.name] = _blank(f"could not read the run state: {e}")
             continue
@@ -926,12 +930,67 @@ def probe_interface_sensitivity(participants: list[Participant],
                                       for k, v in blocks.items()},
                            "detail": ""}
         finally:
+            # RESTORE THE WHOLE WORK DIRECTORY, NOT JUST THE TWO JSON FILES.
+            #
+            # This probe re-runs the participant TWICE — once on its own saved
+            # imports, once on imports nudged by `delta` — and used to restore
+            # only imports.json and exports.json. Every OTHER file the
+            # participant writes was therefore left in the state produced by
+            # the PERTURBED run: solution CSVs, VTU dumps, logs, RESULT files.
+            # Anything downstream that reads those files reads a solve of a
+            # deliberately wrong problem, off by a relative 1e-3, with nothing
+            # in the output saying so. Found when a convergence study measured
+            # orders 1.98, 0.32, -0.12 off a perturbed dump.
+            #
+            # The snapshot is taken lazily, only for participants that are
+            # actually probed, and only of regular files.
             try:
                 ip.write_text(saved_imports)
                 ep.write_text(saved_exports)
             except OSError:
                 pass
+            if snapshot is not None:
+                _restore_tree(p.work_dir, snapshot)
+                shutil.rmtree(snapshot, ignore_errors=True)
     return out
+
+
+def _snapshot_tree(work_dir: Path) -> Optional[Path]:
+    """Copy every regular file under `work_dir` into a temp tree."""
+    try:
+        dest = Path(tempfile.mkdtemp(prefix="oasis_probe_snap_"))
+        for src in work_dir.rglob("*"):
+            if not src.is_file():
+                continue
+            rel = src.relative_to(work_dir)
+            (dest / rel).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dest / rel)
+        return dest
+    except OSError:
+        return None
+
+
+def _restore_tree(work_dir: Path, snapshot: Path) -> None:
+    """Put back everything the snapshot holds; delete what it does not.
+
+    Files the probe CREATED are removed too — a stray output from a perturbed
+    solve is as misleading as a modified one.
+    """
+    try:
+        kept = set()
+        for src in snapshot.rglob("*"):
+            if not src.is_file():
+                continue
+            rel = src.relative_to(snapshot)
+            kept.add(rel)
+            dst = work_dir / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+        for cur in list(work_dir.rglob("*")):
+            if cur.is_file() and cur.relative_to(work_dir) not in kept:
+                cur.unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 def _f(x) -> Optional[float]:
