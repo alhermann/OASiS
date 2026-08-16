@@ -1173,6 +1173,16 @@ def main():
     ap.add_argument("--apply", action="store_true")
     ap.add_argument("--only", nargs="*", default=None)
     ap.add_argument("--seed", type=int, default=None)
+    ap.add_argument("--problems-root", default=None,
+                    help="write task/spec here instead of campaign3_blind/"
+                         "problems — use a fresh root for a new draw so a "
+                         "spent instance is never overwritten")
+    ap.add_argument("--keys-root", default=None,
+                    help="write answer keys here instead of $OASIS_BLIND_KEYS")
+    ap.add_argument("--overwrite-spent", action="store_true",
+                    help="permit replacing instances that already exist; "
+                         "refused by default because a drawn instance, its "
+                         "key and the runs graded against it belong together")
     args = ap.parse_args()
 
     built, failed = [], []
@@ -1220,10 +1230,34 @@ def main():
         print("(dry run -- pass --apply to write tasks and keys)")
         return 0
 
-    problems = HERE / "problems"
-    keys = Path(os.environ.get(
+    problems = Path(args.problems_root) if args.problems_root else HERE / "problems"
+    keys = Path(args.keys_root) if args.keys_root else Path(os.environ.get(
         "OASIS_BLIND_KEYS",
         "/home/alexander/Schreibtisch/qwen_uplift_test/campaign3_blind/keys"))
+
+    # A REBUILD MUST NOT DESTROY A SPENT INSTANCE OR ITS ANSWER KEY.
+    #
+    # This wrote problems/<id> and keys/<id> with a FIXED id list, so running
+    # it again to draw the evaluation set would have overwritten the
+    # development tasks AND their sealed keys in place — the graded rounds
+    # would lose the very answers they were graded against, and the new
+    # instances would carry ids the phase gate already lists as spent.
+    # Refuse, and name the alternative.
+    clash = [r["spec"]["id"] for r in built
+             if (problems / r["spec"]["id"]).exists()
+             or (keys / r["spec"]["id"]).exists()]
+    if clash and not args.overwrite_spent:
+        print(f"REFUSING: {len(clash)} instance(s) already exist and would be "
+              f"overwritten: {clash[:8]}{' ...' if len(clash) > 8 else ''}")
+        print("  A drawn instance is evidence: its task, its key and the runs "
+              "graded against it belong together.")
+        print("  For a NEW draw use --problems-root/--keys-root pointing at a "
+              "fresh directory (evaluation instances live apart from "
+              "development ones).")
+        print("  To genuinely replace these, pass --overwrite-spent and be "
+              "sure the keys are backed up.")
+        return 1
+
     for r in built:
         s = r["spec"]
         s.pop("_task", None)

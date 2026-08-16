@@ -1726,6 +1726,16 @@ def main():
     ap.add_argument("--apply", action="store_true")
     ap.add_argument("--only", nargs="*", default=None)
     ap.add_argument("--seed", type=int, default=None)
+    ap.add_argument("--problems-root", default=None,
+                    help="write task/spec here instead of campaign3_blind/"
+                         "problems — use a fresh root for a new draw so a "
+                         "spent instance is never overwritten")
+    ap.add_argument("--keys-root", default=None,
+                    help="write answer keys here instead of $OASIS_BLIND_KEYS")
+    ap.add_argument("--overwrite-spent", action="store_true",
+                    help="permit replacing instances that already exist; "
+                         "refused by default because a drawn instance, its "
+                         "key and the runs graded against it belong together")
     ap.add_argument("--sparta", action="store_true",
                     help="emit the two band-only SPARTA cells (task + spec + "
                          "sealed band key); they carry no manufactured "
@@ -1767,10 +1777,26 @@ def main():
         print("(dry run -- pass --apply to write tasks and keys)")
         return 0
 
-    problems = HERE / "problems"
-    keys = Path(os.environ.get(
+    problems = Path(a.problems_root) if a.problems_root else HERE / "problems"
+    keys = Path(a.keys_root) if a.keys_root else Path(os.environ.get(
         "OASIS_BLIND_KEYS",
         "/home/alexander/Schreibtisch/qwen_uplift_test/campaign3_blind/keys"))
+
+    # A REBUILD MUST NOT DESTROY A SPENT INSTANCE OR ITS ANSWER KEY. Same
+    # reasoning as build_balanced.py: this wrote a FIXED id list into
+    # problems/<id> and keys/<id>, so drawing the evaluation set would have
+    # overwritten the development tasks and the sealed keys the graded rounds
+    # depend on.
+    clash = [r["spec"]["id"] for r in built
+             if (problems / r["spec"]["id"]).exists()
+             or (keys / r["spec"]["id"]).exists()]
+    if clash and not a.overwrite_spent:
+        print(f"REFUSING: {len(clash)} instance(s) already exist and would be "
+              f"overwritten: {clash[:8]}{' ...' if len(clash) > 8 else ''}")
+        print("  Use --problems-root/--keys-root for a new draw, or "
+              "--overwrite-spent to replace them deliberately.")
+        return 1
+
     for r in built:
         s = r["spec"]
         pdir = problems / s["id"]
