@@ -21,31 +21,55 @@ development problems generalises to problems nobody tuned against. A reviewer
 who asks "did you tune on your test set?" must get: no, we tuned on the
 development set, it is burnt and listed, and here are the frozen fresh draws.
 
-## The convergence criterion (per model tier)
+## The convergence criterion — THE PAPER'S, not one I invented
 
-A ROUND is a full sweep: every cell, both arms, one model tier, one seed.
+Section 3.2 of the paper states it, and it is the only definition that counts:
 
-A round is CLEAN when every failure in it is attributable to the model — its
-capability or its use of the budget — and NONE to us. Concretely, the round
-must produce zero findings in all four defect classes:
+    "During development, each agent failure was root-caused and distilled
+     into a general primitive ... a reusable piece of knowledge, never the
+     answer to one specific problem, then verified by running and merged
+     into the code knowledge. WHEN THIS FAILURE-TO-PRIMITIVE CYCLE STOPPED
+     YIELDING NEW ENTRIES, OASiS was frozen."
 
-  D1 INSTRUMENT  a grader or harness behaviour that changes any outcome
-                 (round 1: 3 of these — dead grader import, probe-grid row
-                 order, escaped tool exceptions killing runs)
-  D2 TASK        a cell that is impossible, self-contradictory, or demands
-                 what the named codes cannot do
-  D3 KNOWLEDGE   a cell whose intended path we know and have walked, which
-                 the served knowledge does not convey, so the agent had to
-                 rediscover it or gave up (round 1: C1, 4C's 2D
-                 thermoelasticity decomposition — suspected, under audit)
-  D4 CUSTODY     any leak, contamination, or bookkeeping error (spent lists,
-                 seals, commitment drift, out-of-sandbox artifacts)
+So the question each round asks is NOT "was the harness clean". It is:
 
-A tier is CONVERGED when one full round is clean AND an independent critical
-audit of that round's runs — a sub-agent that did not run it, told to hunt
-for D1-D4 — also finds nothing. One clean round with a second opinion, which
-is the same freeze criterion the rest of this project uses: rounds run until
-a round finds nothing.
+    DID THIS ROUND TEACH OASiS ANYTHING NEW AND REUSABLE?
+
+Freeze when a round answers no. Alexander's phrasing: we run it a few times,
+and when OASiS provides everything necessary to solve problems from the
+distribution, we go to evaluation.
+
+A primitive qualifies only under the paper's two rules for knowledge
+(Section 3.1): it must be GENERAL — a pattern, a calling convention, a
+failure mechanism — never the answer to a benchmark problem; and it may not
+be merged until the documented pattern has been EXECUTED end to end on the
+installed code and shown to behave as described.
+
+An earlier version of this file substituted my own criterion — "a round with
+zero findings in four defect classes" — and reported against it for two
+rounds. That was inventing a standard while the real one was written down.
+The defect classes below are still worth tracking, but as a PRECONDITION,
+not the criterion: a failure caused by our own broken instrument teaches
+nothing about which knowledge is missing, so the instrument must be clean
+before a round's primitive count means anything at all.
+
+  D1 INSTRUMENT  grader or harness behaviour that changes an outcome
+  D2 TASK        a cell that is impossible or self-contradictory
+  D3 KNOWLEDGE   a path we have walked that the served knowledge does not
+                 convey — THIS is the class that produces primitives
+  D4 CUSTODY     leak, contamination, or bookkeeping error
+
+## Primitives produced, per round (the number that decides the freeze)
+
+  Round 1 — many. Vector participants for four backends served to nobody;
+    FEBio exporting one averaged traction (measured order 0.001); the 4C
+    plane-strain route uncallable; CALCFLUX_BOUNDARY vs CALCFLUX_DOMAIN;
+    the anisotropic transmission rule; deal.II C++ promised but not served.
+  Round 2 — the four built participants (FEBio traction, DUNE vector,
+    transient pair, 3-D pair), each verified by running to order 2.
+  Round 3 — in progress.
+
+The rate is not yet falling. We are not close to a freeze.
 
 ## The ladder
 
