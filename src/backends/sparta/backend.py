@@ -247,7 +247,32 @@ _PHYSICS = {
 # a deck. Deliberately EXCLUDES anything host-specific: no binary paths, no
 # distribution paths, no machine-local data directories. Those belong to
 # _find_sparta_binary()/_sparta_data_dirs(), not to knowledge served to a model.
+# EVERY PHYSICS ROW THAT CAN PRODUCE A FLUX MUST CARRY THIS.
+#
+# The mechanism was already in the corpus, filed under surface_interaction and
+# written about `compute surf` in a dump. An agent doing a boundary-flux
+# problem in rarefied_flow or conjugate_heat_transfer never saw it, and the
+# arm lost 5-1 on exactly this point: five of six unequipped runs used
+# Nevery=1, one of six equipped runs did. Filing a rule where the relevant
+# reader does not look is the same as not having it.
+_TALLY_SAMPLING = (
+    "SAMPLING RULE, and it decides the number. SPARTA CLEARS a tally compute "
+    "on every timestep it is invoked, so reading `compute <tally>` straight "
+    "through `stats N`, a dump, or any other consumer gives you ONE TIMESTEP "
+    "— not an N-step average, and not the quantity you meant. Measured on a "
+    "plane-Couette wall-shear deck: the raw read swings between -4.2 and "
+    "+38.5 Pa on a 1.9 Pa answer, while `fix ave/time 1 1000 1000 c_<C>[*] "
+    "mode vector` on the same run is within 15% on the first window. Route "
+    "EVERY tally through the averaging fix with Nevery=1 and Nrepeat = the "
+    "whole window, starting after the transient (`start <step>`). "
+    "ARGUMENT LIST: `fix ave/grid` and `fix ave/surf` take a group ID; "
+    "`fix ave/time` DOES NOT — `fix <ID> ave/time <Nevery> <Nrepeat> <Nfreq> "
+    "c_<C>[*] mode vector`. A group there fails with 'ERROR: No values in fix "
+    "ave/time command (../fix_ave_time.cpp:69)'."
+)
+
 _CROSS_CUTTING = {
+    "tally_sampling": _TALLY_SAMPLING,
     "hard_ordering_errors": HARD_ORDERING_ERRORS,
     "more": "build facts (compiled styles, accelerator status), the full "
             "output-reading reference and the list of things SPARTA accepts "
