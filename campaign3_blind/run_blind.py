@@ -160,6 +160,22 @@ _INFRA_ERRS = ("APIConnectionError", "Connection error", "UnicodeDecodeError",
                "BadGateway", "Timeout error", "overloaded")
 
 
+# The provider refuses a request whose input exceeds its window. That is the
+# agent having accumulated too much history, not an outage — a different thing
+# from both a timeout and an infrastructure fault, and worth counting per arm
+# because the arms are not equally exposed to it.
+_CONTEXT_ERRS = ("input length", "context length", "maximum context",
+                 "context_length_exceeded", "too many tokens",
+                 "reduce the length")
+
+
+def _is_context_exhausted(err: str) -> bool:
+    if not err:
+        return False
+    low = err.lower()
+    return any(s in low for s in _CONTEXT_ERRS)
+
+
 def _is_infra(err: str) -> bool:
     """True when the run died of OUR infrastructure, not the model's work."""
     if not err:
@@ -512,6 +528,17 @@ def run_one(pid: str, model: str, cond: str, seed: int, timeout_s: int) -> dict:
                graded=False, note="grading is offline: run grade_blind.py")
     if _is_infra(err):
         rec["outcome"] = "INVALID_INFRA"
+    elif _is_context_exhausted(err):
+        # NOT infrastructure, and not a timeout: the agent filled the context
+        # window and the provider refused the request. That is the agent's own
+        # accumulation — this harness never trims history — so the run counts
+        # as a model result, but it is labelled distinctly because it is a
+        # different failure from running out of clock, and because the arms
+        # are not equally exposed: the OASiS arm receives much larger tool
+        # responses (a single knowledge call can return ~23k tokens). Measured
+        # so far: 1 occurrence in 109 runs, in the BARE arm, so no bias yet —
+        # but it is worth counting per arm at every tier.
+        rec["outcome"] = "CONTEXT_EXHAUSTED"
     ledger.write_text(json.dumps(rec, indent=2))
     print(f"[{pid} {model} {cond} s{seed}] done  calls={n_calls} "
           f"tok={tin}/{tout} {rec['wall_s']}s"
