@@ -98,6 +98,55 @@ the evaluation problems are fresh and drawn after everything is frozen.
   5. Every round's findings land in DEV_FINDINGS.md before the next round
      starts, with the commit that fixed each one.
 
+## THE MEASUREMENT IS NOT REPEATABLE AT n=1 (2026-08-17)
+
+Round 2 graded worse than round 1 in both arms — single-code solved 4→2 bare
+and 7→4 OASiS, asserted-wrong 11→15 and 6→16. The campaign's own rule says a
+number that gets worse is our bug until proven otherwise, so before hunting a
+cause I measured whether a single run per cell can detect a change at all.
+
+Re-ran cells with the SAME seed, the SAME code and the SAME knowledge as
+round 2. Nothing differed. Result:
+
+    REPRODUCED 1 OF 6.
+
+    DU1 BARE   round1 CORRECT   round2 COMPLETED_UNPHYSICAL  repeat HONEST_INCOMPLETE
+    KR2 BARE   round1 CORRECT   round2 CORRECT               repeat COMPLETED_UNPHYSICAL
+    KR2 MCP    round1 CORRECT   round2 COMPLETED_UNPHYSICAL  repeat CORRECT
+    FE1 BARE   round1 CORRECT   round2 CONFIDENTLY_WRONG     repeat HONEST_INCOMPLETE
+    FC1 BARE   round1 FAILED    round2 FAILED                repeat MALFORMED_SUBMISSION
+    DU1 MCP    round1 CORRECT   round2 CORRECT               repeat CORRECT
+
+Three different verdicts from three runs of the same cell is normal here. The
+`seed` argument is advisory on a hosted endpoint — the provider batches and
+shards, and temperature is 0.2, not 0 — so it does not pin the trajectory.
+
+WHAT THIS MEANS
+
+  * Round 2 being "worse" than round 1 is NOT evidence of a defect. Both
+    rounds are single draws from a wide distribution. The honest statement is
+    that we cannot distinguish them.
+  * No cell-level claim survives at n=1, in either direction. Neither "OASiS
+    solved this cell" nor "the bare arm fabricated here" is reproducible on
+    its own.
+  * The aggregate over 32 cells is better than any single cell, but its error
+    bar is unknown and has to be measured, not assumed.
+  * The same weakness applies to the paper's existing 39%/70% numbers if they
+    came from one run per problem. A referee asking "how many times did you
+    run it?" currently has no good answer, and that question ends papers.
+
+WHAT THE DESIGN HAS TO BECOME
+
+  Replicates per cell per arm, reported as a distribution rather than a
+  verdict, with the arms compared by a statistic that accounts for the spread.
+  The cost is real — N replicates multiplies a 64-run round by N — so the
+  number of replicates is a decision for Alexander, and the honest floor is
+  the smallest N whose confidence interval separates the arms.
+
+  This is a finding about the EXPERIMENT, not about OASiS, and it is worth
+  more than either round's score: it is the difference between a result that
+  survives review and one that does not.
+
 ## Anchoring audit of the knowledge added between rounds 1 and 2
 
 Seven participants were written or repaired between the rounds. If any of
