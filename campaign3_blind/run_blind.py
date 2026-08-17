@@ -27,6 +27,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -97,7 +98,7 @@ _ENV_PATHS = {
     "NGSolve & scikit-fem": _NGSOLVE_SKFEM_PY,
     "FEniCSx/dolfinx": "/home/alexander/miniconda3/envs/fenics/bin/python",
     "DUNE-fem": "/home/alexander/miniconda3/envs/dune-fem-env/bin/python",
-    "Kratos Multiphysics (and gmsh)": "/usr/bin/python3",
+    "Kratos Multiphysics (and gmsh)": _NGSOLVE_SKFEM_PY,
     "4C binary": "/home/alexander/4C/build/4C",
     "FEBio binary": "/home/alexander/FEBio/bin/febio4",
     "deal.II build tree (DEAL_II_DIR)": "/home/alexander/dealii/build",
@@ -108,12 +109,44 @@ ENVIRON = (
     f"{_NGSOLVE_SKFEM_PY} ; "
     "FEniCSx/dolfinx -> /home/alexander/miniconda3/envs/fenics/bin/python ; "
     "DUNE-fem -> /home/alexander/miniconda3/envs/dune-fem-env/bin/python ; "
-    "Kratos Multiphysics (and gmsh) -> /usr/bin/python3 ; "
+    f"Kratos Multiphysics (and gmsh) -> {_NGSOLVE_SKFEM_PY} ; "
     "deal.II -> build C++ with cmake using DEAL_II_DIR=/home/alexander/dealii/build "
     "(run with LD_LIBRARY_PATH=/opt/4C-dependencies/lib) ; "
     "4C binary -> /home/alexander/4C/build/4C ; "
     "FEBio binary -> /home/alexander/FEBio/bin/febio4 .\n"
 )
+
+
+# An interpreter that EXISTS but cannot import its backend is the same defect
+# as a path that does not exist — the agent is told a tool is there, tries it,
+# and spends its budget working around it. This bit twice: ofa-v2/.venv for
+# NGSolve/scikit-fem (did not exist) and /usr/bin/python3 for Kratos (exists,
+# is Python 3.8, and this Kratos is built for 3.12). Two coupled runs died
+# believing the second one; the runs that scored found Kratos by searching the
+# filesystem themselves.
+_IMPORT_CHECKS = {
+    "NGSolve & scikit-fem": (_NGSOLVE_SKFEM_PY, "import ngsolve, skfem"),
+    "Kratos Multiphysics (and gmsh)": (_NGSOLVE_SKFEM_PY,
+                                       "import KratosMultiphysics"),
+    "FEniCSx/dolfinx": ("/home/alexander/miniconda3/envs/fenics/bin/python",
+                        "import dolfinx"),
+    "DUNE-fem": ("/home/alexander/miniconda3/envs/dune-fem-env/bin/python",
+                 "import dune.fem"),
+}
+
+
+def assert_backends_importable() -> None:
+    """Every interpreter we name must actually import what we claim it has."""
+    bad = []
+    for what, (interp, stmt) in _IMPORT_CHECKS.items():
+        r = subprocess.run([interp, "-c", stmt], capture_output=True,
+                           text=True, timeout=300)
+        if r.returncode != 0:
+            bad.append(f"{what}: {interp} cannot `{stmt}` "
+                       f"({(r.stderr or '').strip().splitlines()[-1][:90]})")
+    if bad:
+        sys.exit("REFUSING TO RUN — an interpreter we advertise cannot import "
+                 "its backend:\n  - " + "\n  - ".join(bad))
 
 
 def assert_environment_is_real() -> None:
@@ -315,6 +348,7 @@ def preflight_or_die(problems: list) -> None:
     import subprocess
     keys = _keys_dir()
     assert_environment_is_real()
+    assert_backends_importable()
 
     failures = []
 

@@ -5,7 +5,10 @@ CONTRACT (do not change): runs in its work_dir with no arguments, reads
 imports.json (written every iteration; it is `{}` on iteration 1, so an
 iteration-1 fallback is mandatory), writes exports.json LAST and exits 0.
 Needs KratosMultiphysics + ConvectionDiffusionApplication importable in the
-interpreter named in `command` (on a system install that is /usr/bin/python3,
+interpreter named in `command` (on THIS install that is
+/home/alexander/Schreibtisch/open-fem-agent/.venv/bin/python — verified by
+importing KratosMultiphysics there; /usr/bin/python3 is Python 3.8 and this
+Kratos is built for 3.12, so it raises ModuleNotFoundError,
 NOT a venv).
 
 Physics: steady conduction  -div(K grad T) = f  on one BOX subdomain of a box
