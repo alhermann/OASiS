@@ -349,9 +349,17 @@ class SpartaBackend(SolverBackend):
             "in sparta_knowledge.json['commands'] and is returned by the "
             "python method SpartaBackend.get_command_reference('<command>') — "
             "which is NOT exposed as an MCP tool on this build, so an MCP "
-            "client cannot call it. Until it is wired up, treat 'key_commands' "
-            "plus knowledge(topic='input_guide', solver='sparta') as the whole "
-            "of the syntax you have.")
+            "client cannot call it. FOR ANYTHING NOT COVERED ABOVE, READ THE "
+            "INSTALLED DOCS: SPARTA ships the full reference as HTML/text next "
+            "to its source, at $SPARTA_ROOT/doc (on this install "
+            "/home/alexander/Schreibtisch/sparta/doc) — e.g. "
+            "doc/compute_boundary.html, doc/fix_ave_time.html, "
+            "doc/surf_collide.html. This knowledge layer is a shortcut over "
+            "that reference, never a replacement for it. An earlier version of "
+            "this entry said to treat the served text as 'the whole of the "
+            "syntax you have'; agents obeyed, stopped looking, and lost runs "
+            "to sampling and argument-order details that are stated plainly "
+            "two directories away.")
         out.update(_CROSS_CUTTING)
         return out
 
