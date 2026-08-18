@@ -144,7 +144,18 @@ def build(draw_seed: int) -> dict:
         "schema": 1,
         "frozen_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "git_commit": _git("rev-parse", "HEAD"),
-        "git_dirty": bool(_git("status", "--porcelain")),
+        # Tracked modifications only. `git status --porcelain` also lists
+        # UNTRACKED files, and this tree always has some — a driver written
+        # for the round in flight, a quarantine directory, solver output. On
+        # the old test every freeze was therefore "dirty" and the signal meant
+        # nothing. What invalidates a freeze is a tracked file differing from
+        # the commit the marker names; untracked paths are recorded instead of
+        # judged, so a reader can see whether one of them looks like a served
+        # payload rather than scratch.
+        "git_dirty": bool([ln for ln in _git("status", "--porcelain").splitlines()
+                           if not ln.startswith("??")]),
+        "untracked": [ln[3:] for ln in _git("status", "--porcelain").splitlines()
+                      if ln.startswith("??")],
         "commitment_sha256": _sha(COMMITMENT),
         "commitment_entries": len(json.loads(COMMITMENT.read_text())["entries"])
         if COMMITMENT.is_file() else 0,
