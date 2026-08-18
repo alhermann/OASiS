@@ -429,3 +429,32 @@ pointed at the wrong tree reports a confident, wrong negative.
     run, which is exactly the kind of drift that makes wall-clock and timeout
     counts incomparable between rounds. A post-round sweep for processes whose
     cwd is under runs/ is the missing piece.
+
+  PENDING FOR ROUND 5 — the critic tool costs the OASiS arm a call it should
+    never have to spend. Measured over round 3's 64 OASiS runs: 22 critic
+    submissions, of which 11 were rejected outright with "pass exactly one of
+    `setup` or `coupling_args`", across 10 runs. Half of every critic call is
+    a wasted round trip, and the agent has already written a long review text
+    before it learns the call shape was wrong.
+
+    It biases against OASiS by construction: the bare arm has no critic tool,
+    so it pays nothing, while the OASiS arm is under a MANDATORY critic
+    instruction and must keep trying. It plausibly contributes to the budget
+    exhaustion behind SPARTA finishing 1 of 6 mesh sequences against bare's
+    6 of 6.
+
+    The docstring describes both parameters and says coupling_args is used
+    "for the coupling tools instead of `setup`", but never states that exactly
+    one is REQUIRED, so an agent that passes neither — the common failure —
+    only finds out by failing.
+
+    NOT FIXED YET, DELIBERATELY. Round 4 is in flight, and changing what the
+    agent sees mid-round would split the round into before-and-after
+    populations and make its 128 runs uncomparable. This file is campaign
+    documentation and is never served, so recording it here is safe. The fix
+    goes in after round 4 closes, and round 5 measures it.
+
+    An earlier count in this investigation said "13 of 15 runs never got an
+    approval". That was a regex searching for "approved" when the field is
+    "accepted", and it described my own pattern rather than the tool's
+    behaviour. The numbers above come from the actual JSON.
