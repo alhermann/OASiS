@@ -120,6 +120,39 @@ def _find_febio_binary() -> Optional[Path]:
     return Path(p) if p else None
 
 
+_BODY_FORCE_TRAP = (
+    "A BODY FORCE IN FEBio IS NOT THE FORCE YOU WROTE. "
+    "<body_load type=\"body force\"> assembles -H[a]*density*f*J0 and is "
+    "assembled the way INTERNAL forces are, so <force>f</force> applies a "
+    "physical body force of MINUS f, and it is a SPECIFIC force: the value is "
+    "multiplied by the material's <density>, so the same number means "
+    "different loads in different materials. Measured on this install: the "
+    "deck route and an equivalent consistent nodal load agree to 1e-15 ONLY "
+    "after negating the deck value. "
+    "Two further limits. type=\"const\" and \"non-const\" are FEBio-2 "
+    "classes that FEBio 4 still registers but marks obsolete since 3.0 — the "
+    "current name is \"body force\". And the parameter is ONE vec3 for the "
+    "whole domain: a math string cannot make it vary per element, so a "
+    "POSITION-DEPENDENT source (any manufactured solution, any polynomial "
+    "load) cannot be written in the deck at all. Compute the consistent nodal "
+    "load vector F_i = int b.phi_i dV yourself and apply it as a nodal_force "
+    "map — data/coupling_participants/participant_febio_elastic.py does "
+    "exactly this, with Gauss quadrature over the hex8 elements. "
+    "If you take that route, remember FEBio's reported reaction Rx/Ry is "
+    "m_Fr, accumulated only on the ELEMENT path: FENodalLoad::LoadVector "
+    "calls the scalar Assemble(), which at a prescribed dof adds to nothing. "
+    "So a nodal load never reaches the reported reaction, and any use of "
+    "r = A u - b must subtract the consistent load itself. Skipping that "
+    "correction leaves a spurious FIRST-ORDER error in a recovered traction "
+    "that is otherwise exact.")
+
+# Merged into every physics row, because a mechanics fact filed under one row
+# is invisible to the other eleven and this trap applies to all of them.
+_CROSS_CUTTING = {
+    "body_force_trap": _BODY_FORCE_TRAP,
+}
+
+
 class FebioBackend(SolverBackend):
 
     def name(self) -> str:
@@ -331,7 +364,12 @@ class FebioBackend(SolverBackend):
         ]
 
     def get_knowledge(self, physics: str) -> dict:
-        return _FEBIO_KNOWLEDGE.get(physics, {})
+        kn = _FEBIO_KNOWLEDGE.get(physics)
+        if not kn:
+            return {}
+        out = dict(kn)
+        out.update(_CROSS_CUTTING)
+        return out
 
     def generate_input(self, physics: str, variant: str, params: dict) -> str:
         key = f"{physics}_{variant}"
