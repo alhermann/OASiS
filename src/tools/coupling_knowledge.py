@@ -181,7 +181,54 @@ things about it:
     a JSON object>, findings=<what the critic concluded>)` first.
 
 A run that did not converge is reported as FAILURE — never report its numbers
-as a result.
+as a result. A run that DID converge is a result even if a downstream check
+complains about it — see section 3b, which is the difference between a scored
+run and a wasted one.
+
+## 3b. FROM A CONVERGED COUPLING TO A SUBMITTED ANSWER
+
+Getting the iteration to converge is the hard part and it is not the last
+part. In one evaluation round, six runs produced converged two-code couplings
+— residuals to 1e-7 and better, both participants responsive — and every one
+of them scored zero. None of them lost on physics. They lost on the four
+points below, none of which was written down anywhere.
+
+ONE `couple` CALL IS ONE MESH. A REFINEMENT STUDY IS N CALLS.
+A participant takes no arguments, no environment and no stdin, so the mesh
+level lives inside the script. Give each level its OWN work_dir with its own
+copy of both scripts (or write a small `level.json` into each work_dir before
+the call and read it at the top of the script), and call `couple` once per
+level. Never reuse a work_dir between levels: imports.json and exports.json
+are not deleted, so a stale pair from level k-1 silently seeds level k. Budget
+for the whole ladder before you start — the first converged level is a third
+of the work, not the end of it.
+
+THE FIELD DOES NOT COME BACK THROUGH THE DRIVER.
+`couple` returns the INTERFACE state, and the exports it hands back are the
+driver's relaxed blend, not your solve. Your volume solution never passes
+through it. So every iteration, after you solve and before you write
+exports.json, write your own field to your own file in work_dir; the last one
+written is the converged one. The `history` array in the return is the
+coupling residual history and is the only place it exists — copy it out if you
+need it.
+
+A CONVERGED RUN WITH A FAILED CONSERVATION CHECK IS STILL A RESULT.
+Order of operations the moment `converged: true` arrives: (1) write every
+deliverable from the state you have, now; (2) then investigate the finding;
+(3) re-run and overwrite if you fix it. "Interface flux NOT balanced" is a
+statement about the SIGN of the normal_fluxes you exported. It does not change
+the fields your participants computed, and it is not a reason to discard the
+run or to declare you could not complete it. NOT VERIFIED and NOT A RESULT are
+different verdicts, and only one of them is worth zero.
+
+THE POINTS YOU EXCHANGE ARE NOT THE POINTS YOU REPORT.
+Each side exports its own interface nodes. The two sides having different
+counts is the contract working, not a bug — do not rewrite your participants
+to make the counts agree. Anything a task asks you to report at prescribed
+locations is obtained afterwards, by interpolating each side's converged
+solution on that side, with that side's own material and its own outward
+normal. Where the interface meets a constrained outer boundary, those end
+points belong to the outer boundary and are not interface data on either side.
 '''
 
 _DRIVER_BEHAVIOUR = '''\
