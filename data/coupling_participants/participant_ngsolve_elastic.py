@@ -53,6 +53,24 @@ NU        = 0.3           # Poisson ratio (PLANE STRAIN)
 #     u_y = UDY[0] + UDY[1]*x + UDY[2]*y + UDY[3]*y*y
 UDX = (0.0, 0.0, 0.0, 0.0)
 UDY = (0.0, 0.0, 0.0, 0.0)
+
+
+def B_SRC(x, y):
+    """Body force per unit volume, (b_x, b_y), as a function of position.
+
+    Returns zero as shipped, which is a PLACEHOLDER like every number above
+    and is almost never what your problem wants: with displacement prescribed
+    on the whole outer boundary and no body force, the only solution is
+    u = 0 everywhere, and the coupling will converge beautifully to it.
+
+    If your problem states a body force, or gives you a manufactured solution
+    whose source term you derived, put it here. `x` and `y` are NumPy arrays,
+    so build the answer with NumPy and return two arrays of the same shape:
+
+        return (2.0 * MU * np.pi**2 * np.sin(np.pi * x) * np.cos(np.pi * y),
+                np.zeros_like(x))
+    """
+    return np.zeros_like(x), np.zeros_like(y)
 NX, NY    = 24, 16        # this subdomain's own mesh (netgen maxh derived below)
 UI_X, UI_Y = 0.0, 0.0     # iteration-1 fallback interface displacement
 TI_X, TI_Y = 0.0, 0.0     # iteration-1 fallback interface traction export
@@ -146,7 +164,22 @@ ev = eps_of(gv)
 a += (2.0 * MU * (eu[0] * ev[0] + eu[1] * ev[1] + 2.0 * eu[2] * ev[2])
       + LAM * (eu[0] + eu[1]) * (ev[0] + ev[1])) * dx
 f = LinearForm(fes)
-f += CF((0.0, 0.0)) * v * dx
+# BODY FORCE. B_SRC is sampled at the vertices and carried by a GridFunction,
+# which IS a CoefficientFunction, so the linear form's source varies in space
+# instead of being the constant it used to be. ORDER = 1, so this is the P1
+# interpolant of the source; its quadrature error is O(h^2), the same order as
+# the P1 discretization error itself. Do NOT hand B_SRC ngsolve's symbolic x, y
+# instead: a CoefficientFunction carries no NumPy ufuncs, so np.sin(x) raises
+# and np.zeros_like(x) returns a 0-d OBJECT array — the source collapses to a
+# constant and the subdomain solves the wrong problem with no error raised.
+# Nodal writes go through vdof, because VectorH1 blocks BY COMPONENT.
+gfb = GridFunction(fes)
+gfb.vec[:] = 0.0
+bx, by = B_SRC(vxy[:, 0], vxy[:, 1])
+bvals = gfb.vec.FV().NumPy()
+bvals[vdof[:, 0]] = np.broadcast_to(np.asarray(bx, float), (mesh.nv,))
+bvals[vdof[:, 1]] = np.broadcast_to(np.asarray(by, float), (mesh.nv,))
+f += InnerProduct(gfb, v) * dx
 
 gfu = GridFunction(fes)                    # also carries the Dirichlet data
 gfu.vec[:] = 0.0

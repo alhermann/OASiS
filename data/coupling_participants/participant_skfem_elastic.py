@@ -72,6 +72,24 @@ NU        = 0.3           # Poisson ratio (PLANE STRAIN)
 # problem is not the un-split one.
 UDX = (0.0, 0.0, 0.0, 0.0)
 UDY = (0.0, 0.0, 0.0, 0.0)
+
+
+def B_SRC(x, y):
+    """Body force per unit volume, (b_x, b_y), as a function of position.
+
+    Returns zero as shipped, which is a PLACEHOLDER like every number above
+    and is almost never what your problem wants: with displacement prescribed
+    on the whole outer boundary and no body force, the only solution is
+    u = 0 everywhere, and the coupling will converge beautifully to it.
+
+    If your problem states a body force, or gives you a manufactured solution
+    whose source term you derived, put it here. `x` and `y` are NumPy arrays,
+    so build the answer with NumPy and return two arrays of the same shape:
+
+        return (2.0 * MU * np.pi**2 * np.sin(np.pi * x) * np.cos(np.pi * y),
+                np.zeros_like(x))
+    """
+    return np.zeros_like(x), np.zeros_like(y)
 NX, NY    = 24, 16        # this subdomain's own mesh (need not match the partner)
 UI_X, UI_Y = 0.0, 0.0     # iteration-1 fallback interface displacement
 TI_X, TI_Y = 0.0, 0.0     # iteration-1 fallback interface traction export
@@ -172,6 +190,19 @@ def mass(u, v, w):
 
 
 @LinearForm
+def body_force(v, w):
+    """The loading functional, int_Omega b . v dx.
+
+    `w.x` is the (2, nelems, nqp) array of GLOBAL coordinates of the quadrature
+    points, so B_SRC is evaluated exactly where the integration rule needs it
+    and a polynomial source is integrated to quadrature accuracy — no detour
+    through a P1 interpolant of the source, and no constant standing in for a
+    field that varies over the element."""
+    bx, by = B_SRC(w.x[0], w.x[1])
+    return bx * v[0] + by * v[1]
+
+
+@LinearForm
 def traction(v, w):
     return w["t"][0] * v[0] + w["t"][1] * v[1]
 
@@ -195,7 +226,7 @@ def unit_load(v, w):
 
 
 A = stiffness.assemble(basis)          # UNCONSTRAINED: condense() below does
-b = basis.zeros()                      # not modify A or b in place
+b = body_force.assemble(basis)         # not modify A or b in place
 fbi = FacetBasis(mesh, elem,
                  facets=mesh.facets_satisfying(
                      lambda p: np.abs(p[0] - IFACE_X) < TOL))
