@@ -59,6 +59,24 @@ NU        = 0.3           # Poisson ratio (PLANE STRAIN)
 # problem is not the un-split one.
 UDX = (0.0, 0.0, 0.0, 0.0)
 UDY = (0.0, 0.0, 0.0, 0.0)
+
+
+def B_SRC(x, y):
+    """Body force per unit volume, (b_x, b_y), as a function of position.
+
+    Returns zero as shipped, which is a PLACEHOLDER like every number above
+    and is almost never what your problem wants: with displacement prescribed
+    on the whole outer boundary and no body force, the only solution is
+    u = 0 everywhere, and the coupling will converge beautifully to it.
+
+    If your problem states a body force, or gives you a manufactured solution
+    whose source term you derived, put it here. `x` and `y` are NumPy arrays,
+    so build the answer with NumPy and return two arrays of the same shape:
+
+        return (2.0 * MU * np.pi**2 * np.sin(np.pi * x) * np.cos(np.pi * y),
+                np.zeros_like(x))
+    """
+    return np.zeros_like(x), np.zeros_like(y)
 NX, NY    = 24, 16        # this subdomain's OWN mesh; need not match the partner
 UI_X, UI_Y = 0.0, 0.0     # iteration-1 fallback interface displacement
 TI_X, TI_Y = 0.0, 0.0     # iteration-1 fallback interface traction export
@@ -147,8 +165,9 @@ def sigma(w):
 
 u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
 a = ufl.inner(sigma(u), eps(v)) * ufl.dx
-L = ufl.inner(fem.Constant(domain, np.zeros(2, dtype=default_scalar_type)),
-              v) * ufl.dx
+b_src = fem.Function(V)
+b_src.interpolate(lambda X: np.vstack(B_SRC(X[0], X[1])))
+L = ufl.inner(b_src, v) * ufl.dx
 
 # ── Dirichlet on the WHOLE non-interface boundary ─────────────────────────
 g_out = fem.Function(V)
