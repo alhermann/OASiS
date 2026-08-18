@@ -68,9 +68,64 @@ def _pins() -> dict:
                                   (ROOT / "langgraph_eval" / "agent.py").read_text())))
     timeout = re.search(r'"--timeout".*?default=(\d+)', run, re.S)
     recursion = re.search(r"RECURSION_LIMIT\s*=\s*(\d+)", run)
+    # The output cap is part of the budget, not a detail: every request
+    # reserves it from the same context window the history lives in, so
+    # changing it changes how many turns an agent gets before the provider
+    # refuses. It was unpinned (the provider's own 65536) until 2026-08-18.
+    max_out = re.search(r"_MAX_OUT\s*=\s*(\d+)", run)
+    # Which endpoint served the request. The model id is not sufficient: the
+    # same id behind a different upstream provider is a different measurement,
+    # and one provider's context accounting is what killed FC2 BARE seed3.
+    base = re.search(r'base_url="([^"]+)"', run)
     return {"models": models, "temperatures": temps,
             "timeout_default_s": int(timeout.group(1)) if timeout else None,
-            "recursion_limit": int(recursion.group(1)) if recursion else None}
+            "recursion_limit": int(recursion.group(1)) if recursion else None,
+            "max_output_tokens": int(max_out.group(1)) if max_out else None,
+            "endpoint": base.group(1) if base else None}
+
+
+def _tree_digest(*rels: str) -> dict:
+    """sha256 over every file under the given paths, plus a combined digest.
+
+    THE KNOWLEDGE IS THE SYSTEM UNDER TEST. The whole reason a freeze exists,
+    in this file's own words, is that "the knowledge could have been changed
+    in response to the very problems being graded" — and until now nothing
+    here hashed it. git_commit only helps if the change was committed; an
+    uncommitted edit to a served payload between the freeze and the
+    evaluation would have passed every check.
+
+    The grader is included for the same reason with more force: it decides
+    every outcome, so a grader edited after the freeze can move the numbers
+    without touching a single run.
+    """
+    out, h = {}, hashlib.sha256()
+    for rel in rels:
+        base = ROOT / rel
+        if base.is_file():
+            files = [base]
+        elif base.is_dir():
+            files = sorted(f for f in base.rglob("*")
+                           if f.is_file() and "__pycache__" not in f.parts)
+        else:
+            out[rel] = "MISSING"
+            continue
+        d = hashlib.sha256()
+        for f in files:
+            d.update(f.relative_to(ROOT).as_posix().encode())
+            d.update(f.read_bytes())
+        out[rel] = d.hexdigest()
+        h.update(out[rel].encode())
+    out["combined"] = h.hexdigest()
+    return out
+
+
+# What must not move between the freeze and the evaluation. Served knowledge,
+# the participant scripts that knowledge hands out, and the grader.
+_FROZEN_TREES = ("src/tools", "src/backends", "src/core",
+                 "data/coupling_participants",
+                 "campaign3_blind/grade_blind.py",
+                 "campaign3_blind/grade_blind_v2.py",
+                 "campaign3_blind/run_blind.py")
 
 
 def _vault_state() -> str:
@@ -98,6 +153,7 @@ def build(draw_seed: int) -> dict:
         "key_vault": _vault_state(),
         "development_spent": sorted(phase.DEVELOPMENT),
         "development_fingerprints": phase.development_fingerprints(),
+        "trees": _tree_digest(*_FROZEN_TREES),
     }
 
 
@@ -132,6 +188,17 @@ def verify() -> int:
           f"{len(drifted)} drifted: {drifted[:5]}")
     check("the freeze was taken on a clean tree", not m.get("git_dirty"),
           "frozen from a dirty working tree")
+    # The one that matters most: knowledge, participants and grader unchanged.
+    frozen_trees = m.get("trees") or {}
+    if not frozen_trees:
+        check("marker records tree digests", False,
+              "marker predates tree hashing — re-freeze before evaluating")
+    else:
+        now_trees = _tree_digest(*_FROZEN_TREES)
+        moved = [k for k, v in frozen_trees.items()
+                 if k != "combined" and now_trees.get(k) != v]
+        check("served knowledge, participants and grader unchanged",
+              not moved, f"{len(moved)} changed: {moved}")
     print(f"  frozen at {m.get('frozen_utc')} on {str(m.get('git_commit'))[:12]}"
           f", {bad} problem(s)")
     return 1 if bad else 0
