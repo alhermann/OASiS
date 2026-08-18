@@ -416,3 +416,16 @@ pointed at the wrong tree reports a confident, wrong negative.
 
     Not one of the 128 runs fabricated a result. Every failure was an honest
     incomplete, which is the reliability claim the paper actually needs.
+
+  ORPHAN, SECOND OCCURRENCE — 2026-08-18. A `coupling_main.py` from
+    C10_27b_BARE_seed3 was found at 99.9% CPU, 7 h 10 min after its run had
+    finished and its ledger had been written. Same mechanism as fa3cf276: the
+    agent's shell hit its timeout, the shell died, the solver it had started
+    did not. That entry is recorded as CLOSED and it is not — the earlier fix
+    did not cover this path, and nothing sweeps for survivors after a round.
+    Cost here was about 7 CPU-hours and a core taken from round 4's first
+    minutes. It cannot corrupt a result: the ledger was already written and
+    the grader reads files, not processes. But it silently taxes every later
+    run, which is exactly the kind of drift that makes wall-clock and timeout
+    counts incomparable between rounds. A post-round sweep for processes whose
+    cwd is under runs/ is the missing piece.
