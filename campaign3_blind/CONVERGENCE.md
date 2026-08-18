@@ -67,9 +67,37 @@ before a round's primitive count means anything at all.
     the anisotropic transmission rule; deal.II C++ promised but not served.
   Round 2 — the four built participants (FEBio traction, DUNE vector,
     transient pair, 3-D pair), each verified by running to order 2.
-  Round 3 — in progress.
+  Round 3 — 128 runs, replicates 2 and 3, zero infrastructure faults. Nine
+    primitives, and for the first time the round diagnosed itself: the agents
+    named our gaps in their own COULD_NOT_COMPLETE notes rather than failing
+    silently.
+      1  SPARTA: stop foreclosing the docs; point at $SPARTA_ROOT/doc
+      2  SPARTA: the tally sampling rule, filed in _CROSS_CUTTING where a
+         flux problem actually reads it (first attempt filed it where the
+         physics rows do not serve it — the same defect it was fixing)
+      3  Kratos: the interpreter we named cannot import Kratos
+      4  Kratos curved_mms: environment entry re-measured, it had ROTTED and
+         was inverted on two of three interpreters
+      5  Coupling: a refinement study is N calls to `couple`, one per level
+      6  Coupling: the volume solution never returns through the driver
+      7  Coupling: converged-with-a-failed-check is still a result
+      8  Coupling: the points exchanged are not the points reported
+      9  The elastic participants we ship cannot express a body force, so
+         following our own "edit the marked block only" instruction yields a
+         participant whose only solution is u = 0
 
 The rate is not yet falling. We are not close to a freeze.
+
+A new defect class appeared in round 3 and the rules did not cover it.
+Entry 4 was TRUE when it was written and FALSE nine days later, because the
+machine changed under it. The merge rule ("no entry is merged until it has
+been executed and shown to behave as described") is satisfied at merge time
+and says nothing about the following week. Entries that describe the
+INSTALLED ENVIRONMENT — interpreter paths, which build has which apps —
+rot silently, and nothing re-checks them. Entries that describe a code's
+SYNTAX or a method's MATHEMATICS do not rot. Until there is a re-measurement
+gate, environment entries must tell the reader to probe rather than trust
+any recorded path, including their own.
 
 ## The ladder
 
@@ -352,3 +380,39 @@ pointed at the wrong tree reports a confident, wrong negative.
     Result after repairs: single-code bare 4/18, OASiS 7/18; coupled 0/14
     both arms. The coupled result is not yet attributable to the model: the
     round was not clean, so it is not evidence about capability.
+
+  Round 2 — 27B, seed 1, 2026-08-16. CLEAN, and it graded WORSE than round 1
+    in both arms. That is not evidence of a defect: at one run per cell the
+    measurement cannot detect a change of this size. The repeatability probe
+    settled it — re-running eight cells with the same seed, same code and
+    same knowledge reproduced the original verdict in 1 of 8. Per-cell
+    verdicts are noise; only pooled rates over replicates mean anything.
+
+  Round 3 — 27B, seeds 2 and 3, 2026-08-17. CLEAN: 128 runs, zero
+    infrastructure faults, 18 non-null errors all of them model results
+    (16 ran out of the 2700 s clock, 1 exhausted the graph step limit, 1
+    filled the provider's context window).
+    Graded: single-code bare 22.9%, OASiS 33.3% (+10.4 points, p = 0.33 —
+    not significant at n = 48 pairs). Coupled 0/36 in BOTH arms.
+    SPARTA bare 4/6, OASiS 0/6.
+
+    Neither zero is a physics failure, and both diagnoses produced primitives
+    rather than excuses:
+
+      * The coupled 0/36 splits in two. Eight OASiS runs reached the `couple`
+        tool and six drove a two-code coupling to convergence (residuals to
+        1e-7) — and scored zero on the four steps between a converged
+        coupling and a submitted answer, now written down as section 3b of
+        the coupling core. The other twenty never called `couple` at all:
+        they stopped voluntarily after a median of 36 tool calls and 874 s
+        against a 2700 s clock, and wrote COULD_NOT_COMPLETE naming OUR gaps
+        — the missing body force above all. The bare arm called `couple`
+        zero times (it has no such tool) and reached convergence zero times
+        across 2505 shell commands.
+
+      * SPARTA tied on physics: both arms put 4 of 6 values in band. They
+        differed on completing the three-level sequence, 6/6 bare against
+        1/6 OASiS. The OASiS arm was spending its budget elsewhere.
+
+    Not one of the 128 runs fabricated a result. Every failure was an honest
+    incomplete, which is the reliability claim the paper actually needs.
