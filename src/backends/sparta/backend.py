@@ -271,8 +271,33 @@ _TALLY_SAMPLING = (
     "ave/time command (../fix_ave_time.cpp:69)'."
 )
 
+_SEQUENCE_FIRST = """\
+A REFINEMENT OR PARAMETER SEQUENCE: WRITE THE ANSWER FILE BEFORE YOU REFINE IT.
+
+Measured over 128 runs of this campaign, agents stop VOLUNTARILY at a median
+of 46% of their wall budget, and a further one in eight is stopped by the
+clock mid-thought. Both leave the same wreckage: a correct level-1 result
+computed, understood, and never written anywhere a grader can read it.
+
+So invert the order. The moment level 1 produces numbers, write the complete
+deliverable to disk in its final format, with the levels you have and an
+honest marker for the ones you do not. Then compute level 2, rewrite the whole
+file. Then level 3, rewrite it again. Rewriting a small text file costs
+nothing next to one solver run.
+
+This is not bookkeeping advice, it is what the run is FOR. A finished sequence
+that exists only in your reasoning scores zero, and scores it identically to
+having done nothing at all. A partial sequence on disk is a partial result and
+is scored as one.
+
+The same rule applies to a run you believe is going badly: write what you have
+before you investigate why, because the investigation is what runs out of
+clock."""
+
+
 _CROSS_CUTTING = {
     "tally_sampling": _TALLY_SAMPLING,
+    "sequence_first": _SEQUENCE_FIRST,
     "hard_ordering_errors": HARD_ORDERING_ERRORS,
     "more": "build facts (compiled styles, accelerator status), the full "
             "output-reading reference and the list of things SPARTA accepts "
