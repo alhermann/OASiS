@@ -40,9 +40,11 @@
  * All problem numbers come from the input file — nothing is hardcoded.
  */
 #include <deal.II/base/function.h>
+#include <deal.II/base/function_lib.h>
 #include <deal.II/base/index_set.h>
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/symmetric_tensor.h>
+#include <deal.II/base/table.h>
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_tools.h>
 #include <deal.II/fe/fe_q.h>
@@ -66,6 +68,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <vector>
 
 using namespace dealii;
@@ -171,9 +174,57 @@ int main(int argc, char *argv[])
     }
   const Sampled2D samples(sy, svx, svy);
 
+  /* OPTIONAL BODY FORCE, appended at the END of the input file so an input
+   * written by a wrapper that knows nothing about it still parses:
+   *     nbx nby
+   *     bx by      (nbx*nby pairs, x index fastest)
+   * sampled on a UNIFORM tensor grid spanning [x0,x1] x [y0,y1] -- the wrapper
+   * puts the samples on the FE node grid, so bilinear interpolation of them IS
+   * the Q1 interpolant of the source for degree 1.  Absent or malformed means
+   * ZERO, i.e. the -div(sigma) = 0 this file used to hardcode. */
+  unsigned int     nbx = 0, nby = 0;
+  Table<2, double> btab_x, btab_y;
+  bool             have_body = false;
+  if ((in >> nbx >> nby) && nbx >= 2 && nby >= 2)
+    {
+      btab_x.reinit(nbx, nby);
+      btab_y.reinit(nbx, nby);
+      for (unsigned int j = 0; j < nby; ++j)
+        for (unsigned int i = 0; i < nbx; ++i)
+          in >> btab_x(i, j) >> btab_y(i, j);
+      have_body = static_cast<bool>(in);
+      if (!have_body)
+        {
+          std::cerr << "malformed body-force block\n";
+          return 1;
+        }
+    }
+  /* Announce it unconditionally. A binary built BEFORE this block existed
+   * stops reading at the samples and ignores a body force in silence, which
+   * returns u = 0 -- the exact bug this block was added to fix, now hidden
+   * behind a participant that looks correct. The wrapper checks for this line
+   * and refuses to believe a zero result without it. */
+  std::cout << "BODY_FORCE " << (have_body ? "on " : "off ") << nbx << " "
+            << nby << std::endl;
+
   /* Plane strain. */
   const double lambda = E * nu / ((1.0 + nu) * (1.0 - 2.0 * nu));
   const double mu     = E / (2.0 * (1.0 + nu));
+
+  /* Bilinear interpolation of the sampled body force, one scalar field per
+   * component.  InterpolatedUniformGridData is deal.II's own device for exactly
+   * this and needs no extra dependency. */
+  std::unique_ptr<Functions::InterpolatedUniformGridData<2>> body_x, body_y;
+  if (have_body)
+    {
+      const std::array<std::pair<double, double>, 2> ends{
+        {{x0, x1}, {y0, y1}}};
+      const std::array<unsigned int, 2> nsub{{nbx - 1, nby - 1}};
+      body_x = std::make_unique<Functions::InterpolatedUniformGridData<2>>(
+        ends, nsub, btab_x);
+      body_y = std::make_unique<Functions::InterpolatedUniformGridData<2>>(
+        ends, nsub, btab_y);
+    }
 
   /* colorize=true gives 0: x = x0, 1: x = x1, 2: y = y0, 3: y = y1. */
   const bool         iface_at_x1 = std::abs(iface_x - x1) < std::abs(iface_x - x0);
@@ -238,7 +289,8 @@ int main(int argc, char *argv[])
 
   const QGauss<2> quadrature(degree + 1);
   FEValues<2>     fe_values(fe, quadrature,
-                            update_values | update_gradients | update_JxW_values);
+                            update_values | update_gradients |
+                              update_quadrature_points | update_JxW_values);
   const QGauss<1> face_quadrature(degree + 2);
   FEFaceValues<2> fe_face_rhs(fe, face_quadrature,
                               update_values | update_quadrature_points |
@@ -271,6 +323,24 @@ int main(int argc, char *argv[])
                 cell_matrix(i, j) +=
                   (2.0 * mu * (eps_i * eps_j) + lambda * div_i * div_j) *
                   fe_values.JxW(q);
+              }
+          }
+
+      /* BODY FORCE: + \int b . v dx.  It goes into cell_rhs, which feeds BOTH
+       * the constrained system AND free_rhs, so the consistent reaction
+       * traction below is computed against the FULL right-hand side -- drop it
+       * there and the exported traction is wrong by the load the cell carries.
+       */
+      if (have_body)
+        for (unsigned int q = 0; q < quadrature.size(); ++q)
+          {
+            const Point<2> &p = fe_values.quadrature_point(q);
+            const double    b[2] = {body_x->value(p), body_y->value(p)};
+            for (unsigned int i = 0; i < dofs_per_cell; ++i)
+              {
+                const unsigned int c = fe.system_to_component_index(i).first;
+                cell_rhs(i) +=
+                  b[c] * fe_values.shape_value(i, q) * fe_values.JxW(q);
               }
           }
 

@@ -28,6 +28,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import numpy as np
+
 # ── EDIT THIS BLOCK ─ every number below is an ARBITRARY PLACEHOLDER.
 #    Replace ALL of them with your problem's geometry, material and BCs.
 #    As shipped this is the LEFT / Dirichlet side.
@@ -44,6 +46,24 @@ NU        = 0.3           # Poisson ratio (PLANE STRAIN)
 #     u_y = UDY[0] + UDY[1]*x + UDY[2]*y + UDY[3]*y*y
 UDX = (0.0, 0.0, 0.0, 0.0)
 UDY = (0.0, 0.0, 0.0, 0.0)
+
+
+def B_SRC(x, y):
+    """Body force per unit volume, (b_x, b_y), as a function of position.
+
+    Returns zero as shipped, which is a PLACEHOLDER like every number above
+    and is almost never what your problem wants: with displacement prescribed
+    on the whole outer boundary and no body force, the only solution is
+    u = 0 everywhere, and the coupling will converge beautifully to it.
+
+    If your problem states a body force, or gives you a manufactured solution
+    whose source term you derived, put it here. `x` and `y` are NumPy arrays,
+    so build the answer with NumPy and return two arrays of the same shape:
+
+        return (2.0 * MU * np.pi**2 * np.sin(np.pi * x) * np.cos(np.pi * y),
+                np.zeros_like(x))
+    """
+    return np.zeros_like(x), np.zeros_like(y)
 NX, NY    = 24, 16
 UI_X, UI_Y = 0.0, 0.0     # iteration-1 fallback interface displacement
 TI_X, TI_Y = 0.0, 0.0     # iteration-1 fallback interface traction export
@@ -51,6 +71,8 @@ DEALII_EXE = "./elast_iface_dealii"   # the compiled solver; see the build note
 # ─────────────────────────────────────────────────────────────────────────
 
 DEGREE = 1                # FE_Q degree used inside the FESystem
+LAM = E_MOD * NU / ((1.0 + NU) * (1.0 - 2.0 * NU))   # plane strain
+MU = E_MOD / (2.0 * (1.0 + NU))
 
 
 def read_imports():
@@ -97,6 +119,27 @@ lines = [f"{side_flag} {E_MOD!r} {NU!r} {X0!r} {X1!r} {Y0!r} {Y1!r} "
          " ".join(repr(float(c)) for c in UDY),
          str(len(triples))]
 lines += [f"{y:.16g} {vx:.16g} {vy:.16g}" for y, vx, vy in triples]
+
+# BODY FORCE. The compiled solver assembles + \int b . v dx from samples of
+# B_SRC on a UNIFORM tensor grid and interpolates them bilinearly, so the grid
+# is put exactly on the FE nodes (NX*DEGREE+1 by NY*DEGREE+1): the interpolant
+# the solver integrates is then the Q1 interpolant of the source, the same
+# semantics as the Python participants. The block is appended LAST because the
+# solver reads it optionally -- but note that a solver binary built before this
+# block existed reads the file up to the samples and STOPS, so it would ignore
+# the body force silently. Rebuild elast_iface_dealii after changing B_SRC for
+# the first time.
+nbx, nby = NX * DEGREE + 1, NY * DEGREE + 1
+gx, gy = np.meshgrid(np.linspace(X0, X1, nbx), np.linspace(Y0, Y1, nby),
+                     indexing="ij")
+bx = np.broadcast_to(np.asarray(B_SRC(gx, gy)[0], float), gx.shape)
+by = np.broadcast_to(np.asarray(B_SRC(gx, gy)[1], float), gx.shape)
+lines.append(f"{nbx} {nby}")
+flat = np.empty(2 * bx.size)
+flat[0::2] = bx.ravel(order="F")       # x index fastest, as the solver reads it
+flat[1::2] = by.ravel(order="F")
+lines += [" ".join(f"{val:.16g}" for val in flat[k:k + 2 * nbx])
+          for k in range(0, flat.size, 2 * nbx)]
 Path("dealii_input.txt").write_text("\n".join(lines) + "\n")
 
 out_txt = Path("dealii_output.txt")
@@ -108,6 +151,23 @@ if r.returncode != 0 or not out_txt.is_file():
     sys.stderr.write("deal.II elasticity solver failed (rc=%s)\n%s\n%s\n"
                      % (r.returncode, r.stdout[-2000:], r.stderr[-2000:]))
     sys.exit(1)
+
+# Unlike the pure-Python participants, this one talks to a COMPILED binary, so
+# the script and the solver can disagree about what the input file contains. A
+# binary built before the body-force block existed stops reading at the samples
+# and drops the body force without a word — and a dropped body force returns
+# u = 0, which is the failure this block was added to prevent, now wearing a
+# participant that looks correct. The solver therefore announces what it read,
+# and a non-zero B_SRC that produced no announcement is a hard error, never a
+# quiet zero.
+if not any(ln.startswith("BODY_FORCE on") for ln in r.stdout.splitlines()):
+    if float(np.abs(bx).max()) > 0.0 or float(np.abs(by).max()) > 0.0:
+        sys.stderr.write(
+            "B_SRC is non-zero but the solver did not report reading a body "
+            "force. The binary at %s is older than the input this script "
+            "writes: rebuild elast_iface_dealii.cc. Refusing to return a "
+            "result that silently ignores the source term.\n" % DEALII_EXE)
+        sys.exit(1)
 
 coords, disp, trac = [], [], []
 for line in out_txt.read_text().splitlines():
