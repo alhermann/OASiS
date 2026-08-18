@@ -82,9 +82,14 @@ def _curved_mms_annulus_2d(params: dict) -> str:
     values and fit the L2_ERROR lines to measure the convergence order
     (theoretical L2 order for P1 triangles: 2).
 
-    NOTE: on hosts where the pip Kratos wheel is GLIBC-incompatible with the
-    venv Python, run the generated script with the system interpreter that has
-    a working Kratos (here /usr/bin/python3) — see KNOWLEDGE['curved_mms'].
+    NOTE: run the generated script with an interpreter that imports Kratos.
+    RE-MEASURED 2026-08-18: the repo venv
+    (/home/alexander/Schreibtisch/open-fem-agent/.venv/bin/python, 3.12) now
+    imports Kratos 10.3 with ConvectionDiffusion, StructuralMechanics,
+    FluidDynamics AND gmsh; /mnt/kratos-tier2/kv/bin/python (3.12) imports
+    Kratos 10.4.3 with the same applications but NO gmsh; /usr/bin/python3
+    (3.8) does NOT import Kratos at all. Always probe rather than trust a
+    recorded path — see KNOWLEDGE['curved_mms'].
     """
     errs = validate_parameters(params)
     if errs:
@@ -352,11 +357,18 @@ KNOWLEDGE = {
             "run, and never grade a run against a number that came from a "
             "different parameter set."),
         "pitfalls": [
-            '[Environment] The pip Kratos wheel inside the repo .venv is BROKEN: its '
-            'shared libraries require GLIBC 2.32 which the OS libc does not provide. Two '
-            'interpreters on this host DO import Kratos 10.4 — the system '
-            '/usr/bin/python3 (3.8) and the Tier-2 environment '
-            '/mnt/kratos-tier2/kv/bin/python (3.12). Signal: from the repo .venv the '
+            '[Environment] RE-MEASURED 2026-08-18, and the earlier entry is now WRONG — '
+            'the host changed under it. TODAY: the repo venv '
+            '/home/alexander/Schreibtisch/open-fem-agent/.venv/bin/python (3.12) DOES '
+            'import Kratos 10.3 with ConvectionDiffusion, StructuralMechanics, '
+            'FluidDynamics and gmsh; /mnt/kratos-tier2/kv/bin/python (3.12) imports '
+            'Kratos 10.4.3 with those applications but WITHOUT gmsh; /usr/bin/python3 '
+            '(3.8) does NOT import Kratos at all (ModuleNotFoundError). ALWAYS PROBE '
+            'the interpreter you are about to use with `import KratosMultiphysics` '
+            'rather than trusting any path recorded here, including this one: an '
+            'entry about the installed environment is true on the day it is measured '
+            'and silently rots afterwards. The historical GLIBC failure, kept because '
+            'its signature is distinctive: from a venv whose wheel is incompatible the '
             'import dies inside the DYNAMIC LINKER, before any Kratos code runs, so no '
             'Kratos diagnostic is produced at all: an ImportError naming '
             '/lib/x86_64-linux-gnu/libc.so.6 and a GLIBC_2.32 version that is not found, '
