@@ -165,17 +165,58 @@ def assert_environment_is_real() -> None:
 _USAGE_CB = UsageMetadataCallbackHandler()
 
 
+class TruncationWatch(BaseCallbackHandler):
+    """Records replies the output cap cut short.
+
+    A truncated reply is not a model failure and must never be graded as one:
+    it is the harness taking the pen out of the agent's hand mid-word. Counted
+    per run and surfaced in the ledger so it can be re-run rather than scored.
+    """
+
+    def __init__(self):
+        self.hits = 0
+
+    def on_llm_end(self, response, **kw):
+        try:
+            for gen in (response.generations or []):
+                for g in gen:
+                    info = getattr(g, "generation_info", None) or {}
+                    if info.get("finish_reason") == "length":
+                        self.hits += 1
+        except Exception:
+            pass
+
+
+_TRUNC_CB = TruncationWatch()
+
+
 def _usage_totals():
     ti = sum(int(u.get("input_tokens", 0) or 0) for u in _USAGE_CB.usage_metadata.values())
     to = sum(int(u.get("output_tokens", 0) or 0) for u in _USAGE_CB.usage_metadata.values())
     return ti, to
 
 
+# Every request reserves its max output from the SAME 262144-token window the
+# history lives in. Unset, the provider reserved its own default of 65536 —
+# a quarter of the window, gone whether or not the model wrote a single token,
+# which is what killed FC2 BARE seed3 at 196609 input tokens. The arms are not
+# equally exposed: the OASiS arm accumulates faster because one knowledge call
+# can return ~23k tokens, so an unnecessarily large reservation costs OASiS
+# more turns than it costs bare. Measured over 128 round-3 runs, output is 839
+# tokens per call on average and 2480 in the worst whole-run average, so 16384
+# is roughly six times the worst case observed and frees 49152 tokens of input.
+# A cap can truncate mid-sentence, so TruncationWatch below makes that loud
+# rather than letting a half-written tool call be graded as the agent's answer.
+_MAX_OUT = 16384
+
+
 def _or_llm(size, *, temperature, seed):
     return ChatOpenAI(base_url="https://openrouter.ai/api/v1",
                       api_key=os.environ["OPENROUTER_API_KEY"],
                       model=OR_MODELS[size], temperature=temperature, seed=seed,
-                      timeout=600, max_retries=30, callbacks=[_USAGE_CB])
+                      max_tokens=_MAX_OUT,
+                      timeout=600, max_retries=30,
+                      callbacks=[_USAGE_CB, _TRUNC_CB])
 
 
 _agent._llm = _or_llm
@@ -190,7 +231,9 @@ _INFRA_ERRS = ("APIConnectionError", "Connection error", "UnicodeDecodeError",
                "InternalServerError", "empty response",
                "error code: 5", "error code: 429", "status code: 5",
                "RateLimit", "rate limit", "ReadTimeout", "ServiceUnavailable",
-               "BadGateway", "Timeout error", "overloaded")
+               "BadGateway", "Timeout error", "overloaded",
+               # our own output cap, not the model's doing — see TruncationWatch
+               "OutputTruncated")
 
 
 # The provider refuses a request whose input exceeds its window. That is the
@@ -491,6 +534,7 @@ def run_one(pid: str, model: str, cond: str, seed: int, timeout_s: int) -> dict:
     prompt = task + ENVIRON + budget
 
     _USAGE_CB.usage_metadata.clear()
+    _TRUNC_CB.hits = 0
     ag = (build_bare_agent if cond == "BARE" else build_mcp_agent)(
         size=model, seed=seed, workdir=work)
 
@@ -559,7 +603,17 @@ def run_one(pid: str, model: str, cond: str, seed: int, timeout_s: int) -> dict:
     rec = dict(problem=pid, model=model, condition=cond, seed=seed,
                wall_s=round(time.time() - t0, 1), tool_calls=n_calls,
                tokens_in=tin, tokens_out=tout, error=err,
+               truncated_replies=_TRUNC_CB.hits,
                graded=False, note="grading is offline: run grade_blind.py")
+    if _TRUNC_CB.hits and not err:
+        # The cap cut a reply short. Whatever the agent produced after that is
+        # an artefact of our configuration, so the run is flagged for re-run
+        # instead of being graded as the agent's own work. Only when the run
+        # carried no other error: a timeout that also truncated is still a
+        # timeout, and overwriting it here would lose the real cause.
+        rec["outcome"] = "INVALID_INFRA"
+        rec["error"] = (f"OutputTruncated: {_TRUNC_CB.hits} reply(ies) hit the "
+                        f"{_MAX_OUT}-token output cap")
     if _is_infra(err):
         rec["outcome"] = "INVALID_INFRA"
     elif _is_context_exhausted(err):
