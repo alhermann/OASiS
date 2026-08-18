@@ -1,7 +1,8 @@
 """FEBio 4 VECTOR participant for the OASiS `couple` driver.
 
-Plane-strain linear elasticity  -div(sigma(u)) = 0  on ONE rectangular
-subdomain of a domain split by a straight interface at x = IFACE_X. Like the
+Plane-strain linear elasticity  -div(sigma(u)) = b  on ONE rectangular
+subdomain of a domain split by a straight interface at x = IFACE_X, with the
+body force b given by B_SRC in the edit block. Like the
 other *_elastic participants (and unlike the scalar ones), the exchanged
 interface state is a VECTOR on BOTH channels:
 
@@ -173,6 +174,75 @@ result is applied as <nodal_load type="nodal_force"> through a vec3 NodeData
 map. Same variational statement, no interpolation loss, and it is a standard
 FEBio load.
 
+THE BODY FORCE GOES IN THE SAME WAY, AND NOT AS <body_load>. B_SRC in the edit
+block is a NumPy function of (x, y) — the same contract the FEniCSx and
+scikit-fem siblings use — and it is integrated HERE,
+
+    F_i = int_Omega b . phi_i dV,     3x3x3 Gauss on each hex8,
+
+then applied over ALL nodes through the same vec3 NodeData map machinery, as a
+SECOND <nodal_load>. On the Neumann side the interface entry is left exactly as
+it was: FEBio adds every model load into the same residual, so the partner's
+numbers still reach the solver UNCHANGED, which is what the coupling contract
+says. Why not the deck's own body load:
+
+  * it cannot take a polynomial. FEBio 4 registers "const" and "non-const" as
+    FEBio-2 loads obsolete since 3.0, and the current "body force"
+    (FEGenericBodyForce) carries ONE vec3 `force` parameter. Replacing a
+    polynomial source by a constant is not an approximation of the problem, it
+    is a different problem. The parameter does accept a math STRING, but then
+    the source has to be written twice in two languages, and everything a
+    NumPy callable can do that a math string cannot — a table, a np.where, an
+    interpolant — is lost;
+  * and it would not mean what it says. FEElasticSolidDomain::BodyForce sets
+    the integrand to -H[a] * density * f * J0 and assembles it the way INTERNAL
+    forces are assembled, so the deck number is multiplied by the material
+    density AND enters with the opposite sign: <force>f</force> applies a
+    physical body force of MINUS f. Measured, not inferred — the two routes
+    agree only after the deck value is negated;
+  * nothing is given up by integrating here: the rule above is exact through
+    degree 5 per direction, and the statement is the same `inner(b, v) * dx`
+    the siblings assemble.
+
+b is a force per unit VOLUME, the same number the 2-D siblings take. The slab's
+volume integral, its stiffness and its interface load each carry one factor of
+ZTHICK, so it cancels and the solution stays thickness-independent.
+
+AND THE DIRICHLET SIDE MUST TAKE IT BACK OUT OF THE REACTION. m_Fr, the vector
+behind the Rx/Ry log data, is accumulated ONLY in
+FEResidualVector::Assemble(en, elm, fe) — the ELEMENT path — so internal forces
+and element-based loads land in it. A nodal load does not go through that path:
+FENodalLoad::LoadVector calls the scalar FEResidualVector::Assemble(node, dof,
+f), which adds to m_R when the equation number is >= 0 and otherwise DROPS f
+(it only hands it to the rigid solver). At a prescribed dof m_Fr is therefore
+F_int alone, while the reaction identity needs r = A u_h - b with the FULL b.
+The traction export below subtracts the body-force entries by hand — the same
+array that was written into the deck, so nothing is approximated. Omitting that
+correction leaves an error of b_i / w_i ~ |b| h / 2, i.e. O(h), on a quantity
+that is otherwise second order.
+
+That is read off the source, and then MEASURED both ways. The assembly path
+first: one constant load applied once as this file's <nodal_load> and once as
+FEBio's own <body_load> gives displacements identical to 1e-15 absolute
+(1.7e-12 relative) — so the consistent vector below IS the load FEBio would
+have integrated itself — and reactions differing by exactly the consistent body
+load, to 5e-15 on values of 5.5e-4. Then the export, on the manufactured
+solution u_x = K x y (y - 1), u_y = 0, whose trace on all three OUTER faces is
+identically zero (UDX = UDY = 0 represents it exactly) and whose source
+b = (-2 mu K x, -(mu + lam) K (2y - 1)) is a genuine polynomial. Exported
+traction against the closed-form -(sigma . n_own), the exact interface
+displacement handed in through imports.json, meshes 8/16/32/64, relative L2
+over the interface minus its two corners:
+
+    correction ON    2.51e-2  6.39e-3  1.61e-3  4.06e-4   ORDER 1.97 1.99 1.99
+    correction OFF   5.61e-2  3.32e-2  1.80e-2  9.40e-3   ORDER 0.76 0.88 0.94
+
+Second order with it, first order without it, and 23x worse on the finest mesh.
+With a CONSTANT source instead (quadratic manufactured u, where the Q1 solution
+is nodally exact) the corrected export sits at the finite-strain floor
+discussed below — 6.3e-6 relative on all four meshes, no h-dependence — while
+the uncorrected one runs 9.75e-2 4.84e-2 2.41e-2 1.20e-2, order 1.01 1.01 1.00.
+
 WHAT IS APPROXIMATED, HONESTLY.
 
   * FEBio has no small-strain material. `isotropic elastic` is
@@ -254,6 +324,29 @@ NU        = 0.3           # Poisson ratio (PLANE STRAIN)
 # problem is not the un-split one.
 UDX = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 UDY = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+
+
+def B_SRC(x, y):
+    """Body force per unit volume, (b_x, b_y), as a function of position.
+
+    Returns zero as shipped, which is a PLACEHOLDER like every number above
+    and is almost never what your problem wants: with displacement prescribed
+    on the whole outer boundary and no body force, the only solution is
+    u = 0 everywhere, and the coupling will converge beautifully to it.
+
+    If your problem states a body force, or gives you a manufactured solution
+    whose source term you derived, put it here. `x` and `y` are NumPy arrays,
+    so build the answer with NumPy and return two arrays of the same shape:
+
+        return (2.0 * MU * np.pi**2 * np.sin(np.pi * x) * np.cos(np.pi * y),
+                np.zeros_like(x))
+
+    Write it exactly as you would for the FEniCSx or scikit-fem sibling, in the
+    same units. It does NOT become a <body_load>, which could not carry a
+    polynomial anyway: this file integrates B_SRC against the element shape
+    functions and applies the consistent nodal force vector (see the header).
+    """
+    return np.zeros_like(x), np.zeros_like(y)
 NX, NY    = 16, 16        # this subdomain's OWN mesh; need not match the partner
 UI_X, UI_Y = 0.0, 0.0     # iteration-1 fallback interface displacement
 TI_X, TI_Y = 0.0, 0.0     # iteration-1 fallback interface traction export
@@ -456,11 +549,59 @@ class Mesh:
                 F[f] += np.outer(N, (N @ tv)) * dj
         return F
 
+    # ---- volume integral of the body force -----------------------------
+    def body_load(self):
+        """F_i = int_Omega B_SRC . phi_i dV over the hex8 elements: the
+        consistent nodal force vector of the body force, i.e. exactly
+        `inner(b, v) * dx` of the FEniCSx/scikit-fem siblings, evaluated here
+        because the deck cannot be handed a non-constant source (header).
+
+        3x3x3 Gauss — exact through degree 5 per direction. The integrand is
+        b times a shape function, so a source polynomial up to degree 4 per
+        direction is integrated EXACTLY and anything else to that order.
+        Returns a (nnodes + 1, 2) array indexed by node id, so row 0 is the
+        1-based padding row and stays zero.
+
+        B_SRC may return arrays (the documented contract) or two plain floats
+        (a constant body force); both broadcast."""
+        conn = np.array([c for (_, c) in self.elems], dtype=int)   # (ne, 8)
+        P = self.xyz[conn]                                         # (ne, 8, 3)
+        # the corner signs of hex8 in THIS file's connectivity order: the z=0
+        # face counter-clockwise, then the z=ZTHICK face above it.
+        sg = np.array([(-1, -1, -1), (1, -1, -1), (1, 1, -1), (-1, 1, -1),
+                       (-1, -1, 1), (1, -1, 1), (1, 1, 1), (-1, 1, 1)], float)
+        g, w5, w8 = np.sqrt(0.6), 5.0 / 9.0, 8.0 / 9.0
+        gp, gw = (-g, 0.0, g), (w5, w8, w5)
+        Fx = np.zeros(len(self.nodes) + 1)
+        Fy = np.zeros(len(self.nodes) + 1)
+        for xi, wi in zip(gp, gw):
+            for et, we in zip(gp, gw):
+                for ze, wz in zip(gp, gw):
+                    N = 0.125 * ((1 + sg[:, 0] * xi) * (1 + sg[:, 1] * et)
+                                 * (1 + sg[:, 2] * ze))             # (8,)
+                    dN = 0.125 * np.column_stack([
+                        sg[:, 0] * (1 + sg[:, 1] * et) * (1 + sg[:, 2] * ze),
+                        sg[:, 1] * (1 + sg[:, 0] * xi) * (1 + sg[:, 2] * ze),
+                        sg[:, 2] * (1 + sg[:, 0] * xi) * (1 + sg[:, 1] * et)])
+                    jac = np.einsum("eai,aj->eij", P, dN)           # (ne, 3, 3)
+                    dv = np.abs(np.linalg.det(jac)) * (wi * we * wz)
+                    xg = np.einsum("a,eai->ei", N, P)               # (ne, 3)
+                    bx, by = B_SRC(xg[:, 0], xg[:, 1])
+                    np.add.at(Fx, conn,
+                              N[None, :] * (np.asarray(bx, float) * dv)[:, None])
+                    np.add.at(Fy, conn,
+                              N[None, :] * (np.asarray(by, float) * dv)[:, None])
+        return np.column_stack([Fx, Fy])
+
 
 # -------------------------------------------------------------- deck text
-def write_deck(mesh, u_if, f_if):
+def write_deck(mesh, u_if, f_if, f_bd):
     """u_if: node id -> (ux, uy) for the interface Dirichlet set (dirichlet
-    side). f_if: node id -> (Fx, Fy) consistent nodal forces (neumann side)."""
+    side). f_if: node id -> (Fx, Fy) consistent nodal forces (neumann side).
+    f_bd: the body force's consistent nodal forces as a (nnodes + 1, 2) array
+    indexed by node id, or None when B_SRC is identically zero — in which case
+    no map and no load are written at all and the deck is the one this file
+    produced before B_SRC existed."""
     ux_o, uy_o = u_dirichlet(mesh.xyz[mesh.outer, 0], mesh.xyz[mesh.outer, 1])
     L = ['<?xml version="1.0" encoding="ISO-8859-1"?>',
          '<febio_spec version="4.0">',
@@ -516,6 +657,19 @@ def write_deck(mesh, u_if, f_if):
         L += [f'      <node lid="{lid}">{_n(f_if[n][0])},{_n(f_if[n][1])},0'
               f'</node>' for lid, n in enumerate(mesh.iface_free, 1)]
         L.append('    </NodeData>')
+    if f_bd is not None:
+        # The body force, over ALL nodes — including the prescribed ones. At a
+        # prescribed dof the load changes nothing (the constraint replaces the
+        # equation), but leaving those nodes out would be a DIFFERENT load
+        # vector, and this array is also what the reaction export subtracts.
+        # `mesh.nodes` in this order IS the all_nodes node set declared above,
+        # so lid and node id line up.
+        L.append('    <NodeData name="b_map" node_set="all_nodes" '
+                 'data_type="vec3">')
+        L += [f'      <node lid="{lid}">{_n(f_bd[nd[0]][0])},'
+              f'{_n(f_bd[nd[0]][1])},0</node>'
+              for lid, nd in enumerate(mesh.nodes, 1)]
+        L.append('    </NodeData>')
     L.append('  </MeshData>')
 
     L += ['  <Boundary>',
@@ -539,15 +693,27 @@ def write_deck(mesh, u_if, f_if):
               '<relative>0</relative></bc>']
     L.append('  </Boundary>')
 
+    loads = []
     if SIDE == "neumann":
         # APPLY the partner's numbers UNCHANGED, as the consistent nodal force
         # vector of +int_Gamma q_out_partner . v ds (see the header).
-        L += ['  <Loads>',
-              '    <nodal_load name="iface_f" type="nodal_force" '
-              'node_set="iface_free">',
-              '      <value lc="1" type="map">f_map</value>',
-              '    </nodal_load>',
-              '  </Loads>']
+        loads += ['    <nodal_load name="iface_f" type="nodal_force" '
+                  'node_set="iface_free">',
+                  '      <value lc="1" type="map">f_map</value>',
+                  '    </nodal_load>']
+    if f_bd is not None:
+        # A SECOND load, not a merged one. FEBio accumulates every model load
+        # into the same residual (FEMechModel::ExternalForces walks the list
+        # and each FENodalLoad adds its own values), so the two ADD on the
+        # interface nodes they share, and the entry above still carries the
+        # partner's numbers verbatim — which is what makes the deck auditable
+        # against the coupling contract.
+        loads += ['    <nodal_load name="body_f" type="nodal_force" '
+                  'node_set="all_nodes">',
+                  '      <value lc="1" type="map">b_map</value>',
+                  '    </nodal_load>']
+    if loads:
+        L += ['  <Loads>'] + loads + ['  </Loads>']
 
     L += ['  <LoadData><load_controller id="1" type="loadcurve">'
           '<interpolate>LINEAR</interpolate><extend>CONSTANT</extend>'
@@ -609,7 +775,13 @@ else:
     for n in mesh.iface_all:
         f_if[n] = (float(Fc[n, 0]), float(Fc[n, 1]))
 
-write_deck(mesh, u_if, f_if)
+# The body force, integrated once for the whole subdomain. None when B_SRC is
+# the shipped zero, so an unused feature costs the deck nothing.
+f_bd = mesh.body_load()
+if not np.any(f_bd):
+    f_bd = None
+
+write_deck(mesh, u_if, f_if, f_bd)
 for f in (LOG_U, LOG_R, LOG_E):
     Path(f).unlink(missing_ok=True)
 
@@ -639,6 +811,14 @@ if SIDE == "dirichlet":
     R = np.array([[rlog[nb][c] + rlog[nt][c] for c in (0, 1)]
                   for (nb, nt) in mesh.iface_pair], float)
     W = np.array([w[nb] + w[nt] for (nb, nt) in mesh.iface_pair], float)
+    # r = A u_h - b, and b INCLUDES THE BODY FORCE. FEBio's Rx/Ry give m_Fr,
+    # which a <nodal_load> never reaches at a prescribed dof (see the header),
+    # so what came out of the log is A u_h alone and the consistent body load
+    # has to come off here. It is the same array that went into the deck — an
+    # exact bookkeeping correction, not a model of one.
+    if f_bd is not None:
+        R -= np.array([[f_bd[nb][c] + f_bd[nt][c] for c in (0, 1)]
+                       for (nb, nt) in mesh.iface_pair], float)
     Q = np.zeros_like(R)
     ok = np.abs(W) > 1e-14
     Q[ok] = -R[ok] / W[ok, None]
