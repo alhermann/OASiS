@@ -624,7 +624,13 @@ def heat_edits(problem: Problem, position: str, role: str,
         x0, x1, k, t_outer = problem.xi, problem.xr, problem.kr, problem.tr
     return {"SIDE": json.dumps(role), "PARTNER": json.dumps(partner),
             "X0, X1": f"{x0}, {x1}", "Y0, Y1": f"{problem.y0}, {problem.y1}",
-            "IFACE_X": f"{problem.xi}", "K": f"{k}", "F_SRC": "0.0",
+            "IFACE_X": f"{problem.xi}", "K": f"{k}",
+            # F_SRC is NOT edited here. It used to be assigned "0.0", but the
+            # participants now carry it as `def F_SRC(x, y)` so a position
+            # dependent source can be written at all, and edit() only replaces
+            # top-level ASSIGNMENTS — it raises on a def, as it should. Zero is
+            # already the shipped default, so these fixtures get what they had.
+            # vector_edits() omits B_SRC for the same reason.
             "T_OUTER": f"{t_outer}",
             "NX, NY": f"{mesh[0]}, {mesh[1]}",
             "T_INIT": "310.0", "Q_INIT": "0.0"}

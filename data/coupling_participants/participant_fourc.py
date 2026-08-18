@@ -29,7 +29,39 @@ X0, X1    = 0.0, 0.6      # this subdomain's x-extent
 Y0, Y1    = 0.0, 0.4      # this subdomain's y-extent
 IFACE_X   = 0.6           # the shared interface; must equal X0 or X1
 K         = 0.8           # DIFFUSIVITY of MAT_scatra
-F_SRC     = 0.0           # volumetric source (0 = none)
+
+
+def F_SRC(x, y):
+    """Volumetric source, as a function of position.
+
+    Returns zero as shipped, which is a PLACEHOLDER like every number above
+    and is almost never what your problem wants. THIS KNOB USED TO BE A SCALAR
+    CONSTANT, AND A CONSTANT CANNOT REPRESENT A SOURCE THAT VARIES WITH
+    POSITION: the source of a manufactured solution is a POLYNOMIAL in x and y,
+    and no single number is that polynomial. Left at zero the temperature is
+    harmonic, the outer Dirichlet values are the only data left in the problem,
+    and the answer degenerates to the 1-D profile between them — the interface
+    flux is one constant along the whole interface, and it is identically zero
+    when the two subdomains carry the same outer value. The coupling will
+    converge beautifully to that, and it is not the problem you were given.
+
+    If your problem states a source, or gives you a manufactured solution whose
+    source term you derived, put it here. `x` and `y` are NumPy arrays, so
+    build the answer with NumPy and return ONE array of the same shape (write
+    `0.0 * x + c` for a genuine constant, never a bare `c`):
+
+        # -div(K grad T) for the manufactured T = x**3 * y**2
+        return -K * (6.0 * x * y**2 + 2.0 * x**3)
+
+    4C TAKES A SOURCE AS A SYMBOLIC EXPRESSION, NEVER A TABLE, so what you write
+    here is fitted by a polynomial in x and y on the way into the deck — see
+    src_expr() below. A polynomial source is hit exactly. The fit is CHECKED
+    against your samples and the run is ABORTED if it cannot reproduce them, so
+    a source beyond the reach of a polynomial of total degree SRC_DEG_MAX
+    (np.sin, say) stops this participant instead of quietly solving with an
+    approximation of it.
+    """
+    return np.zeros_like(x)
 T_OUTER   = 320.0         # Dirichlet value on the NON-interface x-boundary
 NX, NY    = 24, 16        # this subdomain's OWN QUAD4 mesh
 T_INIT    = 310.0         # iteration-1 fallback interface temperature
@@ -37,6 +69,7 @@ Q_INIT    = 0.0           # iteration-1 fallback interface flux
 FOURC_BIN = "4C"          # the 4C binary path `discover(query='list')` prints
 FOURC_LD  = ""            # 4C dependency lib dir, or "" to inherit the env
 FIT_DEG   = 3             # degree of the polynomial 4C FUNCT profile (see notes)
+SRC_DEG_MAX = 8           # highest total degree tried when fitting F_SRC
 # ─────────────────────────────────────────────────────────────────────────
 
 OUTER_X = X0 if IFACE_X == X1 else X1
@@ -75,11 +108,69 @@ def funct_expr(ys, vals, deg):
                       for i, v in enumerate(c))
 
 
+def src_expr(vals, gx, gy, rtol=1e-9):
+    """Turn samples of F_SRC into a 4C FUNCT expression, or None if it is zero.
+
+    THE REAL 4C MECHANISM. A volumetric source in a 2D Scalar_Transport problem
+    is a DESIGN SURF NEUMANN CONDITION on the whole domain: 4C's element routine
+    reads it as the body force, evaluates VAL x FUNCT(x,y,z,t) AT THE ELEMENT
+    NODES and integrates the shape-function interpolant of that — so with
+    VAL: [1.0] and a FUNCT of space, the source really does vary with position,
+    with the same Q1-interpolant semantics as the other participants. (In 3D the
+    same condition would be DESIGN VOL NEUMANN; 4C picks by element dimension.)
+
+    THE CATCH. 4C's FUNCT is a SYMBOLIC EXPRESSION, never a table, exactly as
+    for the boundary profile in funct_expr() above. So F_SRC is sampled on the
+    element-node grid and fitted by a least-squares polynomial in x and y, of
+    the lowest total degree that REPRODUCES the samples. A polynomial source —
+    which is what a manufactured solution gives you — is hit exactly. Anything
+    the fit cannot reproduce within rtol is a HARD ERROR: silently solving with
+    the best degree-SRC_DEG_MAX approximation of a source you did not ask for is
+    the same failure as the constant this function replaced, one step further
+    down the pipe.
+    """
+    scale = float(np.max(np.abs(vals)))
+    if scale == 0.0:
+        return None                       # no source: no condition is written
+    xs, ys_, vs = gx.ravel(), gy.ravel(), vals.ravel()
+    pw, c, err = [], np.zeros(0), float("inf")
+    for deg in range(max(SRC_DEG_MAX, 0) + 1):
+        pw = [(i, d - i) for d in range(deg + 1) for i in range(d + 1)]
+        A = np.column_stack([xs ** i * ys_ ** j for i, j in pw])
+        c = np.linalg.lstsq(A, vs, rcond=None)[0]
+        c = np.where(np.abs(c) > 1e-12 * np.max(np.abs(c)), c, 0.0)  # fit noise
+        err = float(np.max(np.abs(A @ c - vs)))   # of the coefficients EMITTED
+        if err <= rtol * scale:
+            break
+    else:
+        sys.exit(f"F_SRC cannot be written as a 4C FUNCT: no polynomial up to "
+                 f"total degree {SRC_DEG_MAX} reproduces it on the element-node "
+                 f"grid (best max error {err:.3e} against a source of size "
+                 f"{scale:.3e}). 4C takes a source as a symbolic expression, so "
+                 f"either give F_SRC a polynomial form, raise SRC_DEG_MAX, or "
+                 f"use a backend that takes the callable directly. Refusing to "
+                 f"solve with an approximation of a source you did not ask for.")
+    terms = []
+    for (i, j), v in zip(pw, c):
+        if v == 0.0:
+            continue
+        terms.append(f"({v:.12e})" + (f"*x^{i}" if i else "")
+                     + (f"*y^{j}" if j else ""))
+    return " + ".join(terms) if terms else None
+
+
 imp = read_imports()
 ys = np.linspace(Y0, Y1, NY + 1)
 iface_vals = sample(imp, "values" if SIDE == "dirichlet" else "normal_fluxes",
                     T_INIT if SIDE == "dirichlet" else Q_INIT, ys)
 expr = funct_expr(ys, iface_vals, FIT_DEG)
+
+# F_SRC on the element-node grid — the points at which 4C itself evaluates the
+# body-force FUNCT, so this is exactly what the fit has to reproduce.
+gx, gy = np.meshgrid(np.linspace(X0, X1, NX + 1), np.linspace(Y0, Y1, NY + 1),
+                     indexing="ij")
+fsrc = np.broadcast_to(np.asarray(F_SRC(gx, gy), float), gx.shape)
+src = src_expr(fsrc, gx, gy)
 
 # ── inline QUAD4 TRANSPORT mesh on [X0,X1] x [Y0,Y1] ─────────────────────
 nid, nodes, grid = 1, [], {}
@@ -137,15 +228,20 @@ MATERIALS:
 FUNCT1:
   - SYMBOLIC_FUNCTION_OF_SPACE_TIME: "{expr}"
 {dirich}{iface_block}"""
-if F_SRC:
+# The volumetric source: FUNCT2 carries the whole spatial dependence and VAL is
+# a plain multiplier of it, so this term varies with position. VAL: [F_SRC] with
+# FUNCT: [0] — what stood here while F_SRC was a number — can only ever be a
+# constant, whatever the problem asked for.
+if src is not None:
+    deck += f'FUNCT2:\n  - SYMBOLIC_FUNCTION_OF_SPACE_TIME: "{src}"\n'
     deck += ("DESIGN SURF NEUMANN CONDITIONS:\n  - E: 1\n    NUMDOF: 1\n"
-             f"    ONOFF: [1]\n    VAL: [{F_SRC}]\n    FUNCT: [0]\n")
+             "    ONOFF: [1]\n    VAL: [1.0]\n    FUNCT: [2]\n")
 deck += "NODE COORDS:\n" + "".join(f'  - "{n}"\n' for n in nodes)
 deck += "TRANSPORT ELEMENTS:\n" + "".join(f'  - "{e}"\n' for e in elems)
 deck += "DLINE-NODE TOPOLOGY:\n"
 deck += "".join(f'  - "NODE {grid[(i_out, j)]} DLINE 1"\n' for j in range(NY + 1))
 deck += "".join(f'  - "NODE {grid[(i_if, j)]} DLINE 2"\n' for j in range(NY + 1))
-if F_SRC:
+if src is not None:
     deck += "DSURF-NODE TOPOLOGY:\n" + "".join(
         f'  - "NODE {n} DSURFACE 1"\n' for n in range(1, len(nodes) + 1))
 Path("input.4C.yaml").write_text(deck)

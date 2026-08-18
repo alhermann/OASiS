@@ -1657,7 +1657,12 @@ X0, X1    = 0.6, 1.1      # the OTHER subdomain: starts where the first ends
 Y0, Y1    = 0.0, 0.4      # same y-extent as the partner
 IFACE_X   = 0.6           # SAME interface coordinate as the partner
 K         = 1.5           # this subdomain's own material
-F_SRC     = 0.0
+
+
+def F_SRC(x, y):          # this subdomain's own source; see the script's docstring
+    return np.zeros_like(x)
+
+
 T_OUTER   = 300.0         # Dirichlet on ITS outer boundary (here x = 1.1)
 NX, NY    = 18, 12        # its own mesh — deliberately NOT the partner's
 T_INIT    = 310.0

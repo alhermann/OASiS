@@ -10,8 +10,8 @@ from pathlib import Path
 
 import numpy as np
 from netgen.geom2d import SplineGeometry
-from ngsolve import (VERTEX, BilinearForm, CoefficientFunction, GridFunction,
-                     H1, LinearForm, Mesh, NodeId, TaskManager, ds, dx, grad)
+from ngsolve import (VERTEX, BilinearForm, GridFunction, H1, LinearForm, Mesh,
+                     NodeId, TaskManager, ds, dx, grad)
 
 # ── EDIT THIS BLOCK ─ every number below is an ARBITRARY PLACEHOLDER.
 #    Replace ALL of them with your problem's geometry, material and BCs.
@@ -23,7 +23,31 @@ X0, X1    = 0.0, 0.6      # this subdomain
 Y0, Y1    = 0.0, 0.4
 IFACE_X   = 0.6           # shared interface (must be X0 or X1)
 K         = 0.8           # conductivity
-F_SRC     = 0.0           # volumetric source
+
+
+def F_SRC(x, y):
+    """Volumetric source, as a function of position.
+
+    Returns zero as shipped, which is a PLACEHOLDER like every number above
+    and is almost never what your problem wants. THIS KNOB USED TO BE A SCALAR
+    CONSTANT, AND A CONSTANT CANNOT REPRESENT A SOURCE THAT VARIES WITH
+    POSITION: the source of a manufactured solution is a POLYNOMIAL in x and y,
+    and no single number is that polynomial. Left at zero the temperature is
+    harmonic, the outer Dirichlet values are the only data left in the problem,
+    and the answer degenerates to the 1-D profile between them — the interface
+    flux is one constant along the whole interface, and it is identically zero
+    when the two subdomains carry the same outer value. The coupling will
+    converge beautifully to that, and it is not the problem you were given.
+
+    If your problem states a source, or gives you a manufactured solution whose
+    source term you derived, put it here. `x` and `y` are NumPy arrays, so
+    build the answer with NumPy and return ONE array of the same shape (write
+    `0.0 * x + c` for a genuine constant, never a bare `c`):
+
+        # -div(K grad T) for the manufactured T = x**3 * y**2
+        return -K * (6.0 * x * y**2 + 2.0 * x**3)
+    """
+    return np.zeros_like(x)
 T_OUTER   = 320.0         # Dirichlet value on the NON-interface x-boundary
 NX, NY    = 24, 16        # this subdomain's own mesh (netgen maxh derived below)
 T_INIT    = 310.0          # iteration-1 fallback interface temperature
@@ -88,7 +112,20 @@ outer_dofs = vdof[np.where(np.abs(vxy[:, 0] - OUTER_X) < TOL)[0]]
 a = BilinearForm(fes)
 a += K * grad(u) * grad(v) * dx
 f = LinearForm(fes)
-f += CoefficientFunction(F_SRC) * v * dx
+# VOLUMETRIC SOURCE. F_SRC is sampled at the vertices and carried by a
+# GridFunction, which IS a CoefficientFunction, so the linear form's source
+# varies in space instead of being the constant it used to be. ORDER = 1, so
+# this is the P1 interpolant of the source; its quadrature error is O(h^2), the
+# same order as the P1 discretization error itself. Do NOT hand F_SRC ngsolve's
+# symbolic x, y instead: a CoefficientFunction carries NO NumPy ufuncs, so
+# np.sin(x) raises — and np.zeros_like(x) does NOT raise, it returns a 0-d
+# OBJECT array, so a polynomial source collapses to a constant and this
+# subdomain solves the wrong problem with no error raised anywhere.
+gff = GridFunction(fes)
+gff.vec[:] = 0.0
+gff.vec.FV().NumPy()[vdof] = np.broadcast_to(
+    np.asarray(F_SRC(vxy[:, 0], vxy[:, 1]), float), (mesh.nv,))
+f += gff * v * dx
 
 gfu = GridFunction(fes)                    # also carries the Dirichlet data
 gfu.vec[:] = 0.0

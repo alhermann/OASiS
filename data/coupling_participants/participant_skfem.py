@@ -23,7 +23,31 @@ X0, X1    = 0.0, 0.6      # this subdomain
 Y0, Y1    = 0.0, 0.4
 IFACE_X   = 0.6           # shared interface (must be X0 or X1)
 K         = 0.8           # conductivity
-F_SRC     = 0.0           # volumetric source
+
+
+def F_SRC(x, y):
+    """Volumetric source, as a function of position.
+
+    Returns zero as shipped, which is a PLACEHOLDER like every number above
+    and is almost never what your problem wants. THIS KNOB USED TO BE A SCALAR
+    CONSTANT, AND A CONSTANT CANNOT REPRESENT A SOURCE THAT VARIES WITH
+    POSITION: the source of a manufactured solution is a POLYNOMIAL in x and y,
+    and no single number is that polynomial. Left at zero the temperature is
+    harmonic, the outer Dirichlet values are the only data left in the problem,
+    and the answer degenerates to the 1-D profile between them — the interface
+    flux is one constant along the whole interface, and it is identically zero
+    when the two subdomains carry the same outer value. The coupling will
+    converge beautifully to that, and it is not the problem you were given.
+
+    If your problem states a source, or gives you a manufactured solution whose
+    source term you derived, put it here. `x` and `y` are NumPy arrays, so
+    build the answer with NumPy and return ONE array of the same shape (write
+    `0.0 * x + c` for a genuine constant, never a bare `c`):
+
+        # -div(K grad T) for the manufactured T = x**3 * y**2
+        return -K * (6.0 * x * y**2 + 2.0 * x**3)
+    """
+    return np.zeros_like(x)
 T_OUTER   = 320.0         # Dirichlet value on the NON-interface x-boundary
 NX, NY    = 24, 16        # this subdomain's own mesh
 T_INIT    = 310.0          # iteration-1 fallback interface temperature
@@ -82,7 +106,14 @@ def stiffness(u, v, w):
 
 @LinearForm
 def source(v, w):
-    return F_SRC * v
+    """The loading functional, int_Omega f v dx.
+
+    `w.x` is the (2, nelems, nqp) array of GLOBAL coordinates of the quadrature
+    points, so F_SRC is evaluated exactly where the integration rule needs it
+    and a polynomial source is integrated to quadrature accuracy — no detour
+    through a P1 interpolant of the source, and no constant standing in for a
+    field that varies over the element."""
+    return F_SRC(w.x[0], w.x[1]) * v
 
 
 @LinearForm

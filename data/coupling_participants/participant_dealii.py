@@ -9,12 +9,20 @@ Pure glue: the PDE solve is done by the compiled deal.II executable
 `heat_iface_dealii` (heat_iface_dealii.cc), which handles BOTH the Dirichlet
 and the Neumann side of the interface.  This wrapper converts the partner's
 InterfaceData into the solver's plain-text input file and its plain-text
-output back into exports.json.
+output back into exports.json.  deal.II has no Python API, so unlike every
+other backend there is a BUILD STEP before this can run at all:
+
+    cmake -S <this directory> -B <build> -DDEAL_II_DIR=<deal.II install>
+    make -C <build> heat_iface_dealii
+
+and DEALII_EXE below must point at the result.
 """
 import json
 import subprocess
 import sys
 from pathlib import Path
+
+import numpy as np
 
 # ── EDIT THIS BLOCK ─ every number below is an ARBITRARY PLACEHOLDER.
 #    Replace ALL of them with your problem's geometry, material and BCs.
@@ -26,12 +34,42 @@ X0, X1    = 0.0, 0.6
 Y0, Y1    = 0.0, 0.4
 IFACE_X   = 0.6
 K         = 0.8
-F_SRC     = 0.0           # volumetric source
+
+
+def F_SRC(x, y):
+    """Volumetric source, as a function of position.
+
+    Returns zero as shipped, which is a PLACEHOLDER like every number above
+    and is almost never what your problem wants. THIS KNOB USED TO BE A SCALAR
+    CONSTANT, AND A CONSTANT CANNOT REPRESENT A SOURCE THAT VARIES WITH
+    POSITION: the source of a manufactured solution is a POLYNOMIAL in x and y,
+    and no single number is that polynomial. Left at zero the temperature is
+    harmonic, the outer Dirichlet values are the only data left in the problem,
+    and the answer degenerates to the 1-D profile between them — the interface
+    flux is one constant along the whole interface, and it is identically zero
+    when the two subdomains carry the same outer value. The coupling will
+    converge beautifully to that, and it is not the problem you were given.
+
+    If your problem states a source, or gives you a manufactured solution whose
+    source term you derived, put it here. `x` and `y` are NumPy arrays, so
+    build the answer with NumPy and return ONE array of the same shape (write
+    `0.0 * x + c` for a genuine constant, never a bare `c`):
+
+        # -div(K grad T) for the manufactured T = x**3 * y**2
+        return -K * (6.0 * x * y**2 + 2.0 * x**3)
+
+    THIS PARTICIPANT DRIVES A COMPILED SOLVER. The samples of F_SRC travel to it
+    in the input file and it must be new enough to read them — see the
+    VOLUME_SOURCE check after the subprocess call, which refuses to return a
+    result rather than let a stale binary drop the source in silence.
+    """
+    return np.zeros_like(x)
 T_OUTER   = 320.0
 NX, NY    = 24, 16
 T_INIT    = 310.0
 Q_INIT    = 0.0           # iteration-1 fallback interface flux
-DEALII_EXE = "./heat_iface_dealii"   # the compiled solver; see the build note# ─────────────────────────────────────────────────────────────────────────
+DEALII_EXE = "./heat_iface_dealii"   # the compiled solver; see the build note
+# ─────────────────────────────────────────────────────────────────────────
 
 DEGREE = 1                # FE_Q degree used by the deal.II solver
 
@@ -67,10 +105,31 @@ if SIDE == "dirichlet":
 else:
     side_flag, pairs = 1, sample(imp, "normal_fluxes", Q_INIT)
 
+# The ninth header field is the solver's LEGACY CONSTANT source. It is kept in
+# the file format so a solver binary built before the sampled block below still
+# parses this header, and it is always written as 0.0: the real source is the
+# sampled grid appended at the end, which the solver ADDS to it.
 header = (f"{side_flag} {K!r} {X0!r} {X1!r} {Y0!r} {Y1!r} {IFACE_X!r} "
-          f"{T_OUTER!r} {F_SRC!r} {NX} {NY} {DEGREE}")
+          f"{T_OUTER!r} 0.0 {NX} {NY} {DEGREE}")
 lines = [header, str(len(pairs))]
 lines += [f"{y:.16g} {v:.16g}" for y, v in pairs]
+
+# VOLUMETRIC SOURCE. The compiled solver assembles + \int f v dx from samples of
+# F_SRC on a UNIFORM tensor grid and interpolates them bilinearly, so the grid is
+# put exactly on the FE nodes (NX*DEGREE+1 by NY*DEGREE+1): the interpolant the
+# solver integrates is then the Q1 interpolant of the source, the same semantics
+# as the Python participants. The block is appended LAST because the solver reads
+# it optionally -- but note that a solver binary built before this block existed
+# reads the file up to the samples and STOPS, so it would ignore the source
+# silently. Rebuild heat_iface_dealii after changing F_SRC for the first time.
+nfx, nfy = NX * DEGREE + 1, NY * DEGREE + 1
+gx, gy = np.meshgrid(np.linspace(X0, X1, nfx), np.linspace(Y0, Y1, nfy),
+                     indexing="ij")
+fsrc = np.broadcast_to(np.asarray(F_SRC(gx, gy), float), gx.shape)
+lines.append(f"{nfx} {nfy}")
+flat = fsrc.ravel(order="F")           # x index fastest, as the solver reads it
+lines += [" ".join(f"{val:.16g}" for val in flat[k:k + nfx])
+          for k in range(0, flat.size, nfx)]
 Path("dealii_input.txt").write_text("\n".join(lines) + "\n")
 
 out_txt = Path("dealii_output.txt")
@@ -82,6 +141,23 @@ if r.returncode != 0 or not out_txt.is_file():
     sys.stderr.write("deal.II solver failed (rc=%s)\n%s\n%s\n"
                      % (r.returncode, r.stdout[-2000:], r.stderr[-2000:]))
     sys.exit(1)
+
+# Unlike the pure-Python participants, this one talks to a COMPILED binary, so
+# the script and the solver can disagree about what the input file contains. A
+# binary built before the volume-source block existed stops reading at the
+# samples and drops the source without a word — and a dropped source returns the
+# boundary-data-only solution, which is the failure this block was added to
+# prevent, now wearing a participant that looks correct. The solver therefore
+# announces what it read, and a non-zero F_SRC that produced no announcement is
+# a hard error, never a quiet zero.
+if not any(ln.startswith("VOLUME_SOURCE on") for ln in r.stdout.splitlines()):
+    if float(np.abs(fsrc).max()) > 0.0:
+        sys.stderr.write(
+            "F_SRC is non-zero but the solver did not report reading a volume "
+            "source. The binary at %s is older than the input this script "
+            "writes: rebuild heat_iface_dealii.cc. Refusing to return a result "
+            "that silently ignores the source term.\n" % DEALII_EXE)
+        sys.exit(1)
 
 coords, temps, fluxes = [], [], []
 for line in out_txt.read_text().splitlines():

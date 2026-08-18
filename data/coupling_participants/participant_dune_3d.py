@@ -142,19 +142,43 @@ NX, NY, NZ = 8, 8, 8         # this subdomain's OWN mesh; need NOT match the par
 # The interface face itself must not appear.
 DIRICHLET_FACES = ("x1",)
 
-F_SRC      = 0.0             # uniform volumetric source (see source() below)
+
+
+def F_SRC(x, y, z):
+    """Volumetric source f in  -div(K grad T) = f, as a function of position.
+
+    Returns zero as shipped, which is a PLACEHOLDER like every number above.
+    A CONSTANT CANNOT REPRESENT A POLYNOMIAL SOURCE: if your problem states
+    one, or you derived it from a manufactured solution, a single number here
+    silently solves a different problem. With the whole outer boundary
+    prescribed and no source, the answer degenerates to the profile between
+    the outer values.
+
+    `x`, `y` and `z` are NumPy arrays of the node coordinates, so build the
+    answer with NumPy and return an array of the same shape:
+
+        return 3.0 * np.pi**2 * np.sin(np.pi * x) * np.sin(np.pi * y) \
+               * np.sin(np.pi * z)
+    """
+    return np.zeros_like(x)
+
 T_INIT     = 300.0           # iteration-1 fallback interface temperature
 Q_INIT     = 0.0             # iteration-1 fallback interface flux density
 
 
-def source(x):
-    """Volumetric source f in  -div(K grad T) = f, as a UFL expression.
+def source_function(space, xd):
+    """Carry F_SRC as a DISCRETE FUNCTION, the way the 2-D sibling does.
 
-    `x` is the SpatialCoordinate, so x[0], x[1], x[2] are symbolic.  A zero
-    source must stay SYMBOLIC — a bare `0*v*dx` folds to a domainless Zero and
-    the form will not assemble — hence the Constant.
+    Not a UFL expression: a zero source built symbolically folds to a bare 0,
+    and `0*v*dx` is a domainless UFL Zero that assemble() refuses. Dofs are
+    run-time data, so editing F_SRC never re-triggers the C++ JIT. Sampling at
+    the nodes is the P1 interpolant of the source, an O(h^2) load error — the
+    same order as the discretization error itself.
     """
-    return Constant(F_SRC, name="f_src")
+    ffun = space.interpolate(0, name="f_src")
+    ffun.as_numpy[:] = np.broadcast_to(
+        np.asarray(F_SRC(xd[0], xd[1], xd[2]), float), xd[0].shape)
+    return ffun
 
 
 def outer_value(x, y, z):
@@ -406,7 +430,8 @@ def main():
 
     u, v = TrialFunction(space), TestFunction(space)
     a_form = Constant(K, name="k_cond") * dot(grad(u), grad(v)) * dx
-    b_form = source(x) * v * dx
+    fsrc = source_function(space, xd)
+    b_form = fsrc * v * dx
 
     imp = read_imports()
 
@@ -552,7 +577,7 @@ def main():
     if SIDE == "dirichlet":
         fixed[iface_dofs] = True
     react = float(rv[fixed].sum())
-    load_vol = float(np.array(assemble(source(x) * v * dx).as_numpy).sum())
+    load_vol = float(np.array(assemble(fsrc * v * dx).as_numpy).sum())
     load_if = 0.0
     if SIDE != "dirichlet":
         load_if = float(np.array(assemble(

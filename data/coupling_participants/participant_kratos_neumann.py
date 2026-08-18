@@ -63,20 +63,39 @@ X0, X1    = 0.6, 1.0      # this subdomain's x-extent
 Y0, Y1    = 0.0, 0.4      # this subdomain's y-extent
 IFACE_X   = 0.6           # the shared interface; must equal X0 or X1
 K         = 1.6           # conductivity of THIS subdomain
-F_SRC     = 0.0           # uniform volumetric source (see source() below)
+
+
+def F_SRC(x, y):
+    """Volumetric source f in  -div(K grad T) = f, as a function of position.
+
+    Returns zero as shipped, which is a PLACEHOLDER like every number above.
+    A CONSTANT CANNOT REPRESENT A POLYNOMIAL SOURCE: if your problem states
+    one, or you derived it from a manufactured solution, a single number here
+    silently solves a different problem. With the whole outer boundary
+    prescribed and no source, the answer degenerates to the profile between
+    the outer values.
+
+    Unlike its FEniCSx and DUNE siblings, this one is called ONCE PER NODE
+    with SCALAR coordinates (see the SetSolutionStepValue loop below), so
+    write it with plain math or NumPy scalars — do not assume arrays:
+
+        return 2.0 * np.pi**2 * np.sin(np.pi * x) * np.sin(np.pi * y)
+    """
+    return 0.0 * x
+
 T_OUTER   = 300.0         # Dirichlet value on the NON-interface x-boundary
 NX, NY    = 20, 16        # this subdomain's OWN mesh; need not match the partner
 Q_INIT    = 0.0           # iteration-1 fallback interface flux density
 
 
 def source(x, y):
-    """Volumetric source f in  -div(K grad T) = f, sampled at the nodes.
+    """Volumetric source at the nodes — the interpolation point for F_SRC.
 
-    Return F_SRC for a uniform source. Return any expression in x, y for a
-    graded or manufactured one — it is interpolated into the P1 space, which
-    costs O(h^2) and so does not touch the second-order rate.
+    Sampling at the nodes is the P1 interpolant of the source, an O(h^2) load
+    error, the same order as the discretization error, so it does not touch
+    the second-order rate.
     """
-    return F_SRC
+    return F_SRC(x, y)
 # ─────────────────────────────────────────────────────────────────────────
 
 ON_MAX_X = abs(IFACE_X - X1) < abs(IFACE_X - X0)   # interface is this side's x-max?

@@ -14,6 +14,9 @@
  *   n_samples
  *   y_0 v_0
  *   ...
+ *   nfx nfy                        <- OPTIONAL, see the volume-source block
+ *   f_00 f_10 ... f_(nfx-1)0       <- nfx*nfy values, x index fastest
+ *   ...
  * Output file (argv[2]): one line "y T q" per interface node, sorted by y,
  *   q = -k * s * dT/dx at (iface_x, y)  with  s = +1 if iface_x > outer_x
  *   else -1, i.e. the outward normal flux density of THIS subdomain.
@@ -21,8 +24,10 @@
  * All problem numbers come from the input file — nothing is hardcoded.
  */
 #include <deal.II/base/function.h>
+#include <deal.II/base/function_lib.h>
 #include <deal.II/base/index_set.h>
 #include <deal.II/base/quadrature_lib.h>
+#include <deal.II/base/table.h>
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_tools.h>
 #include <deal.II/fe/fe_q.h>
@@ -45,6 +50,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <vector>
 
 using namespace dealii;
@@ -120,6 +126,59 @@ int main(int argc, char *argv[])
     }
   const Sampled1D samples(sy, sv);
 
+  /* OPTIONAL SPATIALLY VARYING VOLUME SOURCE, appended at the END of the input
+   * file so an input written by a wrapper that knows nothing about it still
+   * parses:
+   *     nfx nfy
+   *     f          (nfx*nfy values, x index fastest)
+   * sampled on a UNIFORM tensor grid spanning [x0,x1] x [y0,y1] -- the wrapper
+   * puts the samples on the FE node grid, so bilinear interpolation of them IS
+   * the Q1 interpolant of the source for degree 1.  Absent or malformed means
+   * ZERO.
+   *
+   * WHY THIS EXISTS AT ALL, when the header already carries f_src.  f_src is a
+   * single number, and a source that varies with position -- which is what
+   * every manufactured solution produces -- is not a number.  The header field
+   * is kept so an input file written by an older wrapper still parses, and it
+   * is simply ADDED to the sampled field; current wrappers write 0.0 there and
+   * put the whole source in this block.  This is the scalar counterpart of the
+   * body-force block in elast_iface_dealii.cc. */
+  unsigned int     nfx = 0, nfy = 0;
+  Table<2, double> ftab;
+  bool             have_src = false;
+  if ((in >> nfx >> nfy) && nfx >= 2 && nfy >= 2)
+    {
+      ftab.reinit(nfx, nfy);
+      for (unsigned int j = 0; j < nfy; ++j)
+        for (unsigned int i = 0; i < nfx; ++i)
+          in >> ftab(i, j);
+      have_src = static_cast<bool>(in);
+      if (!have_src)
+        {
+          std::cerr << "malformed volume-source block\n";
+          return 1;
+        }
+    }
+  /* Announce it unconditionally. A binary built BEFORE this block existed stops
+   * reading at the samples and ignores the source in silence, which returns the
+   * boundary-data-only solution -- the exact bug this block was added to fix,
+   * now hidden behind a participant that looks correct. The wrapper checks for
+   * this line and refuses to believe a source-free result without it. */
+  std::cout << "VOLUME_SOURCE " << (have_src ? "on " : "off ") << nfx << " "
+            << nfy << std::endl;
+
+  /* Bilinear interpolation of the sampled source.
+   * InterpolatedUniformGridData is deal.II's own device for exactly this and
+   * needs no extra dependency. */
+  std::unique_ptr<Functions::InterpolatedUniformGridData<2>> src_fun;
+  if (have_src)
+    {
+      const std::array<std::pair<double, double>, 2> ends{{{x0, x1}, {y0, y1}}};
+      const std::array<unsigned int, 2>              nsub{{nfx - 1, nfy - 1}};
+      src_fun = std::make_unique<Functions::InterpolatedUniformGridData<2>>(
+        ends, nsub, ftab);
+    }
+
   /* Which colorized boundary id is the interface?  colorize=true gives
    * 0: x = x0, 1: x = x1, 2: y = y0, 3: y = y1. */
   const bool         iface_at_x1 = std::abs(iface_x - x1) < std::abs(iface_x - x0);
@@ -168,7 +227,8 @@ int main(int argc, char *argv[])
 
   const QGauss<2> quadrature(degree + 1);
   FEValues<2>     fe_values(fe, quadrature,
-                            update_values | update_gradients | update_JxW_values);
+                            update_values | update_gradients |
+                              update_quadrature_points | update_JxW_values);
   const QGauss<1>  face_quadrature(degree + 2);
   FEFaceValues<2>  fe_face_rhs(fe, face_quadrature,
                                update_values | update_quadrature_points |
@@ -185,15 +245,25 @@ int main(int argc, char *argv[])
       cell_matrix = 0.;
       cell_rhs    = 0.;
       for (unsigned int q = 0; q < quadrature.size(); ++q)
-        for (unsigned int i = 0; i < dofs_per_cell; ++i)
-          {
-            for (unsigned int j = 0; j < dofs_per_cell; ++j)
-              cell_matrix(i, j) += k * fe_values.shape_grad(i, q) *
-                                   fe_values.shape_grad(j, q) *
-                                   fe_values.JxW(q);
-            cell_rhs(i) +=
-              f_src * fe_values.shape_value(i, q) * fe_values.JxW(q);
-          }
+        {
+          /* VOLUME SOURCE: + \int f v dx, the header constant plus the sampled
+           * field.  It goes into cell_rhs, which feeds BOTH the constrained
+           * system AND free_rhs, so the consistent reaction flux below is
+           * computed against the FULL right-hand side -- drop it there and the
+           * exported flux is wrong by the load the cell carries. */
+          const double f_q =
+            f_src + (have_src ? src_fun->value(fe_values.quadrature_point(q))
+                              : 0.0);
+          for (unsigned int i = 0; i < dofs_per_cell; ++i)
+            {
+              for (unsigned int j = 0; j < dofs_per_cell; ++j)
+                cell_matrix(i, j) += k * fe_values.shape_grad(i, q) *
+                                     fe_values.shape_grad(j, q) *
+                                     fe_values.JxW(q);
+              cell_rhs(i) +=
+                f_q * fe_values.shape_value(i, q) * fe_values.JxW(q);
+            }
+        }
 
       /* Neumann side: + \int g(y) v ds on the interface faces. */
       if (side == 1)

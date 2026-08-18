@@ -14,7 +14,7 @@ from dune.fem import assemble
 from dune.fem.space import lagrange
 from dune.fem.scheme import galerkin
 from dune.fem.operator import galerkin as operator_galerkin
-from dune.ufl import DirichletBC, Constant
+from dune.ufl import DirichletBC
 from ufl import (TrialFunction, TestFunction, SpatialCoordinate,
                  conditional, dot, ds, dx, grad, lt)
 
@@ -28,7 +28,31 @@ X0, X1    = 0.0, 0.6
 Y0, Y1    = 0.0, 0.4
 IFACE_X   = 0.6
 K         = 0.8
-F_SRC     = 0.0           # volumetric source
+
+
+def F_SRC(x, y):
+    """Volumetric source, as a function of position.
+
+    Returns zero as shipped, which is a PLACEHOLDER like every number above
+    and is almost never what your problem wants. THIS KNOB USED TO BE A SCALAR
+    CONSTANT, AND A CONSTANT CANNOT REPRESENT A SOURCE THAT VARIES WITH
+    POSITION: the source of a manufactured solution is a POLYNOMIAL in x and y,
+    and no single number is that polynomial. Left at zero the temperature is
+    harmonic, the outer Dirichlet values are the only data left in the problem,
+    and the answer degenerates to the 1-D profile between them — the interface
+    flux is one constant along the whole interface, and it is identically zero
+    when the two subdomains carry the same outer value. The coupling will
+    converge beautifully to that, and it is not the problem you were given.
+
+    If your problem states a source, or gives you a manufactured solution whose
+    source term you derived, put it here. `x` and `y` are NumPy arrays, so
+    build the answer with NumPy and return ONE array of the same shape (write
+    `0.0 * x + c` for a genuine constant, never a bare `c`):
+
+        # -div(K grad T) for the manufactured T = x**3 * y**2
+        return -K * (6.0 * x * y**2 + 2.0 * x**3)
+    """
+    return np.zeros_like(x)
 T_OUTER   = 320.0
 NX, NY    = 24, 16
 T_INIT    = 310.0
@@ -79,8 +103,26 @@ outer_dofs = np.where(np.abs(xd - OUTER_X) < 1e-10)[0]
 
 u, v = TrialFunction(space), TestFunction(space)
 a = K * dot(grad(u), grad(v)) * dx
-# zero source must stay symbolic: a bare `0*v*dx` folds to a domainless Zero
-b = Constant(F_SRC, name="f_src") * v * dx
+
+# SOURCE. F_SRC is sampled at the nodes and carried by a DISCRETE FUNCTION,
+# the same device this file uses for the interface data, for two DUNE-specific
+# reasons. A UFL expression built straight out of F_SRC folds to a bare 0 when
+# F_SRC returns zero, and `0*v*dx` is a domainless UFL Zero that assemble()
+# cannot integrate; a discrete function always carries its grid, so the shipped
+# zero assembles like any other value. And its dofs are run-time data, so
+# editing F_SRC never re-triggers the C++ JIT. `Constant(F_SRC, ...)`, which
+# used to stand here, kept the form safe but held ONE NUMBER for the whole
+# subdomain: a source that varies with position could not be written at all.
+# order=1, so this is the P1 interpolant of the source; its quadrature error is
+# O(h^2), the same order as the discretization error itself. Do NOT hand F_SRC
+# the symbolic SpatialCoordinate `x` instead: a UFL expression carries no NumPy
+# ufuncs, so np.sin(x) raises and np.zeros_like(x) returns a 0-d OBJECT array —
+# the source collapses to a constant and this subdomain solves the wrong
+# problem with no error raised.
+ffun = space.interpolate(0, name="f_src")
+fdofs = ffun.as_numpy
+fdofs[:] = np.broadcast_to(np.asarray(F_SRC(xd, yd), float), xd.shape)
+b = ffun * v * dx
 
 bcs = [DirichletBC(space, T_OUTER, conditional(lt(abs(x[0] - OUTER_X), EPS), 1, 0))]
 

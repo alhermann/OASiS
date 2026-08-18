@@ -30,7 +30,31 @@ X0, X1    = 0.0, 0.6      # this subdomain's x-extent
 Y0, Y1    = 0.0, 0.4      # this subdomain's y-extent
 IFACE_X   = 0.6           # the shared interface; must equal X0 or X1
 K         = 0.8           # conductivity
-F_SRC     = 0.0           # volumetric source
+
+
+def F_SRC(x, y):
+    """Volumetric source, as a function of position.
+
+    Returns zero as shipped, which is a PLACEHOLDER like every number above
+    and is almost never what your problem wants. THIS KNOB USED TO BE A SCALAR
+    CONSTANT, AND A CONSTANT CANNOT REPRESENT A SOURCE THAT VARIES WITH
+    POSITION: the source of a manufactured solution is a POLYNOMIAL in x and y,
+    and no single number is that polynomial. Left at zero the temperature is
+    harmonic, the outer Dirichlet values are the only data left in the problem,
+    and the answer degenerates to the 1-D profile between them — the interface
+    flux is one constant along the whole interface, and it is identically zero
+    when the two subdomains carry the same outer value. The coupling will
+    converge beautifully to that, and it is not the problem you were given.
+
+    If your problem states a source, or gives you a manufactured solution whose
+    source term you derived, put it here. `x` and `y` are NumPy arrays, so
+    build the answer with NumPy and return ONE array of the same shape (write
+    `0.0 * x + c` for a genuine constant, never a bare `c`):
+
+        # -div(K grad T) for the manufactured T = x**3 * y**2
+        return -K * (6.0 * x * y**2 + 2.0 * x**3)
+    """
+    return np.zeros_like(x)
 T_OUTER   = 320.0         # Dirichlet value on the NON-interface x-boundary
 NX, NY    = 24, 16        # this subdomain's OWN mesh; need not match the partner
 T_INIT    = 310.0         # iteration-1 fallback interface temperature
@@ -85,7 +109,20 @@ if len(iface_dofs) == 0:
 u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
 a = fem.Constant(domain, default_scalar_type(K)) * \
     ufl.dot(ufl.grad(u), ufl.grad(v)) * ufl.dx
-L = fem.Constant(domain, default_scalar_type(F_SRC)) * v * ufl.dx
+
+# SOURCE. F_SRC is INTERPOLATED into a Function, not wrapped in a
+# fem.Constant. A Constant is one number for the whole subdomain, so the
+# moment F_SRC varies with position — which is the normal case, a manufactured
+# solution's source is a polynomial — `Constant(domain, F_SRC(x, y))` cannot
+# even be built (F_SRC returns an array), and the constant that used to sit
+# here silently solved a different problem. The interpolant is P1 like the
+# solution space, so the source's quadrature error is O(h^2), the same order as
+# the discretization error itself. Do NOT hand F_SRC a ufl.SpatialCoordinate
+# instead: a UFL expression carries no NumPy ufuncs, so np.zeros_like(x)
+# returns a 0-d OBJECT array and np.sin(x) raises.
+f_src = fem.Function(V)
+f_src.interpolate(lambda X: np.zeros(X.shape[1]) + F_SRC(X[0], X[1]))
+L = f_src * v * ufl.dx
 
 outer = dmesh.locate_entities_boundary(domain, fdim,
                                        lambda x: np.isclose(x[0], OUTER_X))
