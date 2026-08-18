@@ -104,12 +104,24 @@ NU        = 0.3           # Poisson ratio (PLANE STRAIN)
 # problem is not the un-split one.
 UDX = (0.0, 0.0, 0.0, 0.0)
 UDY = (0.0, 0.0, 0.0, 0.0)
-# Volumetric body force, SAME polynomial convention (zero = the shipped
-# elastic participants' -div(sigma) = 0). It is here because a coupling you
-# cannot verify against a manufactured solution is a coupling you are trusting,
-# and every manufactured elasticity solution that is not affine needs one.
-BFX = (0.0, 0.0, 0.0, 0.0)
-BFY = (0.0, 0.0, 0.0, 0.0)
+
+
+def B_SRC(x, y):
+    """Body force per unit volume, (b_x, b_y), as a function of position.
+
+    Returns zero as shipped, which is a PLACEHOLDER like every number above
+    and is almost never what your problem wants: with displacement prescribed
+    on the whole outer boundary and no body force, the only solution is
+    u = 0 everywhere, and the coupling will converge beautifully to it.
+
+    If your problem states a body force, or gives you a manufactured solution
+    whose source term you derived, put it here. `x` and `y` are NumPy arrays,
+    so build the answer with NumPy and return two arrays of the same shape:
+
+        return (2.0 * MU * np.pi**2 * np.sin(np.pi * x) * np.cos(np.pi * y),
+                np.zeros_like(x))
+    """
+    return np.zeros_like(x), np.zeros_like(y)
 NX, NY    = 24, 16        # this subdomain's OWN mesh; need not match the partner
 UI_X, UI_Y = 0.0, 0.0     # iteration-1 fallback interface displacement
 TI_X, TI_Y = 0.0, 0.0     # iteration-1 fallback interface traction export
@@ -214,21 +226,28 @@ def sigma(w):
     return 2.0 * MU * eps_(w) + LAM * tr(eps_(w)) * Identity(2)
 
 
-def poly(c, tag):
-    """c[0] + c[1]*x + c[2]*y + c[3]*y^2, kept SYMBOLIC.
-
-    Every coefficient is a dune.ufl Constant even when it is zero: an all-zero
-    python expression folds to a bare 0 and `0*v*dx` is a domainless UFL Zero
-    that assemble() cannot integrate (the same trap the scalar DUNE participant
-    documents for its source term). Constants also make the coefficients
-    run-time data, so re-using this form never re-triggers the JIT."""
-    return (Constant(c[0], name=tag + "0") + Constant(c[1], name=tag + "1") * x[0]
-            + Constant(c[2], name=tag + "2") * x[1]
-            + Constant(c[3], name=tag + "3") * x[1] * x[1])
-
-
 a = inner(sigma(u), eps_(v)) * dx
-b = dot(as_vector([poly(BFX, "bfx"), poly(BFY, "bfy")]), v) * dx
+
+# BODY FORCE. B_SRC is sampled at the nodes and carried by a DISCRETE FUNCTION,
+# the same device this file uses for the Dirichlet and the interface data, for
+# two DUNE-specific reasons. A UFL expression built straight out of B_SRC folds
+# to a bare 0 when B_SRC returns zero, and `0*v*dx` is a domainless UFL Zero
+# that assemble() cannot integrate (the trap the scalar DUNE participant
+# documents for its source term); a discrete function always carries its grid,
+# so the shipped zero assembles like any other value. And its dofs are run-time
+# data, so editing B_SRC never re-triggers the C++ JIT. order=1, so this is the
+# P1 interpolant of the source; its quadrature error is O(h^2), the same order
+# as the discretization error itself. Do NOT hand B_SRC the symbolic
+# SpatialCoordinate `x` instead: a UFL expression carries no NumPy ufuncs, so
+# np.sin(x) raises and np.zeros_like(x) returns a 0-d OBJECT array — the source
+# collapses to a constant and this subdomain solves the wrong problem with no
+# error raised.
+bfun = space.interpolate(as_vector([0.0, 0.0]), name="body_force")
+bdofs = bfun.as_numpy
+bx, by = B_SRC(xd, yd)                     # xd, yd are the per-NODE coordinates
+bdofs[0::2] = np.broadcast_to(np.asarray(bx, float), xd.shape)
+bdofs[1::2] = np.broadcast_to(np.asarray(by, float), yd.shape)
+b = dot(bfun, v) * dx
 
 # ── boundary indicators ───────────────────────────────────────────────────
 on_outer = conditional(lt(abs(x[0] - OUTER_X), EPS), 1,
