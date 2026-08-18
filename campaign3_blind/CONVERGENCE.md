@@ -458,3 +458,35 @@ pointed at the wrong tree reports a confident, wrong negative.
     approval". That was a regex searching for "approved" when the field is
     "accepted", and it described my own pattern rather than the tool's
     behaviour. The numbers above come from the actual JSON.
+
+## The pooling must be declared with every rate, or the numbers are not comparable
+
+Recomputing round 3's single-code rate produced 28.1% vs 37.5% on one pass and
+22.9% vs 33.3% on another. Both are correct. They differ only in what was
+pooled, and the spread across defensible choices is larger than the effect:
+
+    16 FEM cells, seeds 2+3        bare 28.1%  OASiS 37.5%  +9.4   p=0.55
+    18 cells (incl. SPARTA), 2+3   bare 30.6%  OASiS 33.3%  +2.8   p=1.00
+    18 cells, seeds 1+2+3          bare 27.8%  OASiS 29.6%  +1.9   p=1.00
+    16 FEM cells, seeds 1+2+3      bare 22.9%  OASiS 33.3%  +10.4  p=0.33
+
+The uplift moves from +1.9 to +10.4 depending on whether SPARTA is inside the
+single-code pool and whether seed 1 counts as a replicate. Neither choice is
+dishonest and both have a rationale — but quoting one without saying which is
+how a paper acquires a number it cannot defend, and a reviewer who recomputes
+gets a different answer and stops believing the rest.
+
+STANDING RULE for every rate in the paper and in these reports:
+  * name the cells (which pool, how many) and the seeds pooled;
+  * keep the three evidence grades separate, which means SPARTA is NOT in the
+    single-code pool — it is graded band-only, a different grade from the
+    order-based FEM cells, and pooling it silently mixes grades 1 and 3;
+  * state whether seed 1 (round 2) is included. It measured the same knowledge
+    as seeds 2 and 3, so it IS a legitimate third replicate, and the honest
+    default is to include it and say so.
+
+Under that rule the round-3 headline single-code figure is 16 FEM cells x 3
+seeds: bare 22.9%, OASiS 33.3%, +10.4 points, McNemar p = 0.33 — not
+significant at n=48 pairs, which is stated rather than buried. SPARTA is
+reported separately as 2/4 vs 0/4 band-only, and coupled separately as 0/28
+in both arms.
