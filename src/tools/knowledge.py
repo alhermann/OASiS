@@ -262,6 +262,42 @@ def _find_reference_test_files(solver: str, physics: str) -> str:
     return "\n".join(parts)
 
 
+# Behaviour that is true of EVERY backend, appended at the single point where
+# every physics payload leaves the server. Filed here rather than per backend
+# because I have now made the same filing error three times: a rule written
+# into one backend's table is invisible to the other eight, and each time it
+# took a lost run to notice. There is exactly one consumer of
+# backend.get_knowledge(), so this is the one place a cross-backend rule
+# cannot be missed.
+_UNIVERSAL = """
+## BEFORE YOU REFINE ANYTHING: WRITE THE ANSWER FILE
+
+Measured over 256 runs of this campaign, agents stop VOLUNTARILY at a median of
+46% of their wall budget, and roughly one in six is stopped by the clock
+mid-thought. Both leave the same wreckage: a solver that ran correctly, a
+result understood, and nothing written where a grader can read it. One run
+solved its first mesh level cleanly and ended without writing a single
+deliverable — that scores exactly what doing nothing scores.
+
+So invert the order of work:
+
+  1. The moment your FIRST level or configuration produces numbers, write the
+     complete deliverable to disk in its final requested format, with the
+     levels you have and an honest marker for the ones you do not.
+  2. Then compute the next level, and REWRITE the whole file.
+  3. Repeat. Rewriting a small text file costs nothing next to a solver run.
+
+The same rule applies when a run looks like it is going badly: write what you
+have BEFORE you investigate why, because the investigation is what runs out of
+clock. A partial result on disk is a partial result and is scored as one; a
+finished result that exists only in your reasoning is not a result at all.
+
+NOT VERIFIED and NOT A RESULT are different outcomes. If a check you ran
+complains about an answer you computed, report the answer AND the complaint —
+do not withhold the answer.
+"""
+
+
 def register_knowledge_tools(mcp: FastMCP):
 
     @mcp.tool()
@@ -282,7 +318,7 @@ def register_knowledge_tools(mcp: FastMCP):
         if not knowledge:
             return f"No knowledge available for '{physics}' in {backend.display_name()}"
 
-        result = json.dumps(knowledge, indent=2, default=str)
+        result = json.dumps(knowledge, indent=2, default=str) + _UNIVERSAL
 
         # Automatically append real test file examples for ALL solvers
         ref = _find_reference_test_files(solver, physics)
