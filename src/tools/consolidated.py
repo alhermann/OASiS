@@ -2874,6 +2874,14 @@ def register_consolidated_tools(mcp: FastMCP):
         """Put an independent critic's review of a setup ON RECORD, so a run of
         that setup can be verified.
 
+        REQUIRED, and the most common mistake: pass EXACTLY ONE of `setup` or
+        `coupling_args`. `setup` is the deck text for run_simulation /
+        run_with_generator / verify_mesh_independence; `coupling_args` is a
+        JSON object for `couple` / `couple_precice` / `coupled_solve`. Passing
+        neither — or both — is refused, and the refusal comes AFTER you have
+        written the review, so the review is wasted. Measured over one
+        development round, half of all submissions were rejected this way.
+
         OASiS's critic requirement is enforced, not requested. The run and
         coupling tools do not take your word for it: they look up whether THIS
         server holds a review of the EXACT setup being executed. Passing
@@ -2925,11 +2933,31 @@ def register_consolidated_tools(mcp: FastMCP):
             job; omitting it still works, since the deck is matched by digest.
         """
         if bool(setup) == bool(coupling_args):
+            # Say which mistake was made and what to send instead. The old
+            # message stated the rule without saying which side was wrong, so
+            # an agent that had passed NEITHER read it as a complaint about
+            # passing both, and retried the same way. Your findings text is
+            # preserved above — resubmit it unchanged with the argument added.
+            both = bool(setup) and bool(coupling_args)
             return json.dumps({
                 "accepted": False,
-                "error": "pass exactly one of `setup` (a deck) or "
-                         "`coupling_args` (a JSON object of coupling "
-                         "arguments), so the review binds to one setup."},
+                "error": ("you passed BOTH `setup` and `coupling_args`; send "
+                          "only the one that matches the tool you will call"
+                          if both else
+                          "you passed NEITHER `setup` nor `coupling_args`, so "
+                          "there is nothing for the review to bind to"),
+                "what_to_do": (
+                    "resubmit the SAME findings text with exactly one of: "
+                    "setup=<the exact deck/script text you will run> for "
+                    "run_simulation, run_with_generator or "
+                    "verify_mesh_independence; or coupling_args=<a JSON "
+                    "object of the arguments you will pass> for couple, "
+                    "couple_precice or coupled_solve."),
+                "coupling_args_example": (
+                    '{"participants": [...], "max_iter": 50, "tol": 1e-8, '
+                    '"accelerator": "aitken", "theta": 0.5, '
+                    '"monolithic": false, "probe": null}'),
+                "findings_were_not_lost": True},
                 indent=2)
         if coupling_args:
             try:
