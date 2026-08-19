@@ -692,3 +692,33 @@ main-agent calls and 18 including its critic. Both files are correct for
 different questions; a mixed comparison is not. Earlier critic-usage counts in
 this file come from the live log and therefore include subagent submissions,
 which is what "did this run use a critic" should mean.
+
+## Retraction: the critic-rejection explanation for abandonment is refuted
+
+The entry above proposed that a REJECTED critic review is being read as a stop
+signal, and named it as one of two interventions for round 6. That came from a
+single run (NG1 seed 6, which stopped right after its critic returned REJECTED).
+Tested across all 170 OASiS runs in rounds 3-5, grouped by the last critic
+signal each run saw:
+
+    last signal      n     median wall        median calls   deliverable
+    REJECTED       114   1273 s (47% clock)        48            75%
+    accepted        44   1124 s (42% clock)        44            77%
+    no critic       12   1132 s (42% clock)        48            50%
+
+Runs that ended on a rejection ran LONGER and produced deliverables at the same
+rate. The hypothesis is refuted; NG1 was one run and generalising from it was
+wrong. That intervention is withdrawn from the round-6 plan.
+
+What survives: the TIMEOUT tail is real and measured (3 of 5 no-deliverable FEM
+OASiS runs in seed 6, 85-107 calls each), and the write-the-answer-file rule is
+not landing for it. The ABANDONMENT tail is real but unexplained — n=2 in that
+slice, which is not enough to diagnose, and inventing a mechanism for it is how
+the last hypothesis got made.
+
+One number worth keeping: runs with NO critic at all produced deliverables 50%
+of the time against 75-77% for runs with one. Confounded — a run that gets far
+enough to need a critic is already doing better — so it is not evidence that
+the critic causes finishing, but it is evidence against the critic being a net
+drag, which was a live worry when half of its submissions were being rejected
+on call shape.
