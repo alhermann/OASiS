@@ -606,3 +606,45 @@ round must test payload size directly — the same knowledge served narrower —
 rather than adding more text to a payload that may already be too large to
 finish reading. Adding knowledge is not free, and we have no measurement of
 its cost.
+
+## Round 5, first half: the structural primitive landed, and it exposed the real blocker
+
+Coupled cells C1-C8, OASiS arm, like-for-like across rounds (round 5 is seed 6
+only, n=8, so every round-5 figure below is provisional):
+
+    metric                        round 3      round 4      round 5*
+    per-level directories          7/16 44%    11/16 69%     7/8  88%
+    reached `couple`               3/16 19%     6/16 38%     3/8  38%
+    achieved convergence           3/16 19%     6/16 38%     1/8  13%
+    wrote numeric field files      4/16 25%     8/16 50%     1/8  13%
+    timeouts                       0            0            0
+    median wall of 2700 s         809 s        933 s        639 s
+    median tool calls              34           36           25
+
+Adoption of the per-level directory pattern — the first of the four steps
+section 3b describes, with its own level.json — climbs 44 -> 69 -> 88%. The
+knowledge IS landing, and prominence plausibly helped.
+
+But the numeric output went the other way, and the reason is not what we
+assumed. ZERO coupled runs timed out in any round. Round 5's coupled runs stop
+at a median of 639 s out of 2700 — 24% of the clock — after 25 calls, FEWER
+than round 4's 36. They are not running out of budget. They are stopping early,
+having built the scaffolding and produced no numbers.
+
+THAT DISTINCTION MATTERS AND WE HAD IT WRONG. Every fix aimed at this so far —
+"write the answer file at level 1", the universal rule appended to every
+payload — is a fix for BUDGET EXHAUSTION: it assumes the agent is interrupted
+before it can write. The measurement says the agent is not interrupted. It
+decides it is finished, or decides it cannot continue, with three quarters of
+its clock unspent. A rule about WHEN to write cannot fix an agent that stops
+before there is anything to write.
+
+So the next intervention is not more instruction about ordering. It is whatever
+makes an agent with 2000 seconds left keep going: an explicit statement of how
+much budget remains and that stopping early scores the same as failing, or a
+required self-check before it is allowed to conclude. Round 6 tests that, and
+the number to watch is median wall time as a fraction of the clock, not the
+solve rate.
+
+Provisional on n=8. The second seed doubles it and the direction is what
+decides whether round 6 pivots.
