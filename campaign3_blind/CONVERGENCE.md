@@ -545,3 +545,32 @@ in both arms.
          The grader keeps the grades apart and refuses mixed aggregation; the
          ad-hoc stats script bypassed that guard by reading the JSON directly.
          It now raises instead.
+
+## What a user of the PUBLIC repo gets today, measured 2026-08-19
+
+The task list recorded "public main emits 24 fabricated 4C keys into decks".
+Re-measured by running the current auditor against main's own content in a
+throwaway worktree, the number is larger and spread wider:
+
+    backend   unresolved keys on main   in this tree
+    fourc                          54              0
+    fenics                          3              0
+    kratos                          2              0
+    dune                            3              0
+    febio                           4              0
+    TOTAL                          66              0
+
+An unresolved key is one the auditor cannot find anywhere in the installed
+code's own grammar or source — so it is a key we tell a user about that the
+solver does not have. On main these reach generated decks. Coverage is also
+thinner: main's 4C corpus is 432 keys across 241 entries against 733 across
+313 here, and main has NO SPARTA entries at all against 103 here.
+
+main is 879 commits behind consolidation/v2 and carries nothing consolidation
+does not; it does not even contain the auditor that finds this. So the fix is
+the merge, not a patch.
+
+NOT MERGED. Publishing 879 commits to a public repository is an outward-facing
+action on a product Alexander has said is for the community, and it is his
+call, not something to slip in during a campaign round. Recorded here so the
+number is measured rather than remembered when that decision is taken.
