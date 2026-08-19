@@ -574,3 +574,35 @@ NOT MERGED. Publishing 879 commits to a public repository is an outward-facing
 action on a product Alexander has said is for the community, and it is his
 call, not something to slip in during a campaign round. Recorded here so the
 number is measured rather than remembered when that decision is taken.
+
+## A number moving the WRONG way, and why it is not yet a finding
+
+Watched during round 5 because it points at our own work rather than the
+model's. Share of FEM single-code runs that left a deliverable on disk — the
+exact behaviour the write-the-answer-file rule targets:
+
+    round 3 (seeds 1,2,3)   bare 27/32 = 84%   OASiS 28/32 = 88%
+    round 4 (seeds 4,5)     bare 25/32 = 78%   OASiS 22/32 = 69%
+    round 5 (seed 6 only)   bare 14/16 = 88%   OASiS 10/15 = 67%
+
+The OASiS arm was ABOVE bare in round 3 and has been below it since, and the
+universal rule added after round 4 has not moved it (69% -> 67%). If that is
+real it is a cost of our own knowledge growth, and the obvious mechanism is
+payload size: the OASiS arm makes about half the tool calls bare does in every
+round (52-56 against 104-114) while carrying ~71-76k tokens of context per
+call against bare's ~52k since round 4. Fewer turns, each more expensive.
+
+IT IS NOT YET A FINDING. Fisher exact, two-sided:
+    round 3 vs round 4 OASiS deliverable rate   p = 0.129
+    OASiS vs bare within round 5 so far         p = 0.220
+Detecting an 88% -> 67% drop at 80% power needs about 61 runs per group; we
+have 32 and 15. So the honest statement is that the OASiS arm's deliverable
+rate has drifted down across three rounds without reaching significance in any
+single comparison, and the direction is consistent enough to keep measuring.
+
+Round 5's remaining seed will take the OASiS n to 32, which still does not
+reach 61. The decision this forces: if the drift persists at n=32, the next
+round must test payload size directly — the same knowledge served narrower —
+rather than adding more text to a payload that may already be too large to
+finish reading. Adding knowledge is not free, and we have no measurement of
+its cost.
