@@ -722,3 +722,33 @@ enough to need a critic is already doing better — so it is not evidence that
 the critic causes finishing, but it is evidence against the critic being a net
 drag, which was a live worry when half of its submissions were being rejected
 on call shape.
+
+## The context-window worry was backwards: both events are in the BARE arm
+
+run_blind.py's own comment on CONTEXT_EXHAUSTED says the arms "are not equally
+exposed: the OASiS arm receives much larger tool responses (a single knowledge
+call can return ~23k tokens)", and flags it as something to watch per arm.
+Measured over all 361 runs to date, it has not materialised:
+
+    context-exhaustion events   2 of 361 runs (0.6%)
+    both in the BARE arm, both on cell FC2 (4C thermal)
+      FC2 BARE seed3   56-58 calls, 11.7M input tokens
+      FC2 BARE seed7   56 calls,      8.5M input tokens
+
+Zero in the OASiS arm. The mechanism is the opposite of the one feared: the bare
+arm has no knowledge tool, so on a 4C cell it explores by reading the source
+tree, and grep output over a large C++ codebase accumulates faster than any
+knowledge payload. 8.5M input tokens over 56 calls is ~152k of context per call
+against the OASiS arm's ~71-76k.
+
+One event predates the max_output_tokens fix (seed 3, round 3) and one follows
+it (seed 7, round 5), so returning 49k tokens of input budget reduced the
+pressure without eliminating it for this cell. Both are correctly booked as
+MODEL results rather than infrastructure — the harness never trims history, so
+filling the window is the agent's own accumulation.
+
+Two consequences. The payload-size concern recorded earlier stands on the
+deliverable-rate drift, NOT on context exhaustion, which is a separate mechanism
+that is not biting the OASiS arm at all. And FC2 in the bare arm is a cell where
+the bare arm is structurally disadvantaged by having to read source — worth
+stating in the paper rather than leaving as an unexplained bare failure.
