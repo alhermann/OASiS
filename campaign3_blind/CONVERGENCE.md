@@ -648,3 +648,47 @@ solve rate.
 
 Provisional on n=8. The second seed doubles it and the direction is what
 decides whether round 6 pivots.
+
+## Correction: there are TWO failure modes, and the previous entry named only one
+
+The entry above concluded from coupled cells at n=8 that the blocker is
+premature stopping rather than budget exhaustion. The complete seed-6 slice
+shows that was half the picture, and the half that does not apply to
+single-code cells.
+
+FEM single-code, OASiS arm, median share of the 2700 s clock actually used:
+    round 3  45%      round 4  53%      round 5 (seed 6)  81%
+
+Round 5's OASiS runs use MORE of the clock than any arm in any round, and still
+write a deliverable only 69% of the time against bare's 88%. So on single-code
+cells they are not stopping early at all.
+
+The five seed-6 FEM OASiS runs with no deliverable split in two:
+    DU2 111% of clock, 88 calls, TIMEOUT      budget exhaustion
+    NG2 100%           85 calls, TIMEOUT      budget exhaustion
+    KR2 100%          107 calls, TIMEOUT      budget exhaustion
+    KR1  21%           11 calls, no error     abandoned
+    NG1   4%            5 calls, no error     abandoned
+Every run that DID write a deliverable used between 32% and 88% of the clock —
+the successful band is the middle, and both tails fail for opposite reasons.
+
+Three of five are genuine timeouts, and that is where the write-the-answer-file
+rule should have worked and did not: DU2, NG2 and KR2 made 85-107 calls and
+wrote nothing. Two are abandonment — NG1 stopped after 5 main-agent calls with
+its critic having just returned a REJECTED verdict.
+
+So round 6 needs BOTH interventions, and they are different:
+  * for the timeout tail, the write-first rule is right and is not landing;
+    the next lever is a hard checkpoint rather than advice — the agent should
+    be unable to reach call 40 without a deliverable on disk;
+  * for the abandonment tail, a rejected critic review currently reads as a
+    stop signal. It is not one: the review is advice to revise, and a rejection
+    with 96% of the clock left is a reason to iterate, not to conclude.
+
+MEASUREMENT NOTE, because it nearly misled me: ledger `tool_calls` counts the
+MAIN agent (from trajectory.txt) while trajectory_live.txt also captures
+subagent activity, so the live log runs 1.4-3.4x higher. NG1's "5 calls" is 5
+main-agent calls and 18 including its critic. Both files are correct for
+different questions; a mixed comparison is not. Earlier critic-usage counts in
+this file come from the live log and therefore include subagent submissions,
+which is what "did this run use a critic" should mean.
