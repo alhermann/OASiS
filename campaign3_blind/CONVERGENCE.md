@@ -490,3 +490,58 @@ seeds: bare 22.9%, OASiS 33.3%, +10.4 points, McNemar p = 0.33 — not
 significant at n=48 pairs, which is stated rather than buried. SPARTA is
 reported separately as 2/4 vs 0/4 band-only, and coupled separately as 0/28
 in both arms.
+
+  Round 4 — 27B, seeds 4 and 5, 2026-08-18. CLEAN: 128 runs, ZERO
+    infrastructure faults (the one 504 casualty was re-run), 23 runs out of
+    clock, no truncated replies. All fixes it was meant to test landed
+    04:34-05:33; the round launched 06:08.
+
+    Graded, with the pooling declared and evidence grades kept apart:
+
+      16 FEM single-code (grade 1)   bare 25.0%  OASiS 37.5%  +12.5  p=0.34
+      12 POOLED coupled (grade 1)    bare  0/24  OASiS  0/24
+      C13 off-pool (grade 3)         bare  1/2   OASiS  0/2
+      C14 off-pool (grade 2)         bare  0/2   OASiS  0/2
+      SPARTA (grade 3)               bare  1/4   OASiS  3/4   +50
+
+    Round 3 for comparison: FEM +10.4 (bare 22.9, OASiS 33.3); coupled 0/36
+    both; SPARTA bare 4/6, OASiS 0/6.
+
+    WHAT MOVED, and it is behaviour rather than score:
+      * coupled OASiS runs reaching `couple`      8/28 -> 13/27
+      * coupled OASiS runs achieving convergence     6 -> 10
+      * bare runs achieving convergence         0/27 -> 0/28  (0 in 55 tries)
+      * SPARTA 3-level sequences completed        1/6 -> 3/4
+      * SPARTA score reversed, -66.7 -> +50 points
+      * FABRICATION, coupled cells: bare 10 of 28, OASiS 2 of 28
+
+    THE COUPLED ZERO SURVIVED THE FIX, and that is the finding. All 27
+    coupled OASiS runs received the core payload, so all 27 were served
+    section 3b. Ten drove a coupling to convergence. The dominant grader
+    reason is still NO_SOLUTION_FILES: converged, then wrote no field files —
+    the exact failure 3b was written to prevent. Being served is not being
+    read: 3b sits inside a 53 KB core payload, and a rule buried in a large
+    document is a rule the agent may never reach. The universal rule added
+    after this round is appended to EVERY knowledge payload instead, which is
+    the prominence test round 5 will settle.
+
+  Primitives from round 4 — FIVE, so the rate is NOT falling and we do not
+  freeze:
+      1  the write-the-answer-file rule reached 1 of 9 backends; a rule true
+         of every backend must not live in one backend's table (third
+         occurrence of this filing error; now fixed at the single point every
+         payload passes through)
+      2  DSMC level-to-level change is not automatically a mesh effect —
+         statistical scatter does not shrink with refinement, and two runs
+         called their own converged sequence NOT_CONVERGED because of it
+      3  the critic refusal named the rule but not which half was broken, so
+         an agent that passed neither argument read it as "you passed both"
+      4  prominence is a property of served knowledge, not just presence:
+         section 3b was served to 27 of 27 runs and did not change the
+         behaviour it describes
+      5  MEASUREMENT, not knowledge: pooling the 14 coupled cells as one rate
+         mixed evidence grades 1, 2 and 3, and booked a band-only WITHIN_BAND
+         as a coupled "success" for a bare run that never coupled anything.
+         The grader keeps the grades apart and refuses mixed aggregation; the
+         ad-hoc stats script bypassed that guard by reading the JSON directly.
+         It now raises instead.
