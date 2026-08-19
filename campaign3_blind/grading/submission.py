@@ -158,6 +158,17 @@ def could_not_complete(text: str) -> bool:
 
 
 # ── claim semantics ───────────────────────────────────────────────────────
+# A negation only counts when it negates CONVERGENCE. The first version
+# prefix-matched, so "UNKNOWN" (starts with UN) and "NOT ASSESSED" (starts with
+# NOT) were booked as the agent DENYING convergence when it had expressed no
+# view at all. That changed no verdict — outcomes.py reads `claim is True`, so
+# False and None both give COMPLETED_UNPHYSICAL — but it misreported the
+# agent's own words in the grades file, and honest-uncertainty versus denial is
+# exactly the distinction the reliability mix is about.
+_NEG_EXACT = ("NO", "FALSE")                 # standalone denials
+_NEG_STEM = ("FAIL", "DIVERG")               # FAILED, FAILURE, DIVERGED
+_NEG_PREFIX = ("NOT", "NON", "UN", "NO")     # only with a convergence word
+_CONV_STEM = ("CONVERG", "INDEPENDEN", "STABLE")
 _NEGATIVE_PREFIXES = ("NOT", "NO", "NON", "UN", "DIVERG", "FAIL", "FALSE")
 _AFFIRMATIVE = ("CONVERGED", "CONVERGENCE", "YES", "TRUE", "PASS", "PASSED",
                 "OK", "Y", "ACHIEVED", "MESH_INDEPENDENT", "INDEPENDENT",
@@ -179,10 +190,28 @@ def claims_convergence(result_txt: str):
     tokens = re.sub(r"[^A-Z0-9]+", "_", val.upper()).strip("_")
     if not tokens:
         return None
-    first = tokens.split("_")[0]
-    if any(first.startswith(p) for p in _NEGATIVE_PREFIXES):
+    parts = tokens.split("_")
+    first = parts[0]
+    if first in _NEG_EXACT:
         return False
-    if any(t in _AFFIRMATIVE for t in tokens.split("_")):
+    if any(first.startswith(s) for s in _NEG_STEM):
+        return False
+    for i, tok in enumerate(parts):
+        if not any(tok.startswith(p) for p in _NEG_PREFIX):
+            continue
+        # "UNCONVERGED", "NONCONVERGENT" — the negation is inside the word
+        if any(s in tok for s in _CONV_STEM):
+            return False
+        # "NOT CONVERGED", but also "NOT MESH INDEPENDENT" where a word sits
+        # between the negation and the thing negated. The lookahead is
+        # therefore unbounded rather than one token, and that is deliberately
+        # the SAFE direction: outcomes.py only acts on `claim is True`, so
+        # False and None are equally harmless and only a spurious True can
+        # inflate the CONFIDENTLY_WRONG count. Ambiguity resolves away from
+        # True.
+        if any(s in later for later in parts[i + 1:] for s in _CONV_STEM):
+            return False
+    if any(t in _AFFIRMATIVE for t in parts):
         return True
     if "CONVERGED" in tokens:
         return True
