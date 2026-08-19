@@ -295,9 +295,48 @@ before you investigate why, because the investigation is what runs out of
 clock."""
 
 
+_DSMC_CONVERGENCE = """\
+A LEVEL-TO-LEVEL DIFFERENCE IN DSMC IS NOT AUTOMATICALLY A MESH EFFECT.
+
+DSMC is a stochastic method. Every tallied quantity carries statistical
+scatter, and that scatter does not shrink when you refine the grid — it shrinks
+when you average over more samples, or more particles. So a refinement study
+that compares one number per level is comparing mesh error PLUS noise, and if
+the noise is the larger of the two the study answers nothing. Measured in this
+campaign: two runs completed a clean three-level sequence and then reported
+their own result as NOT CONVERGED at 7.4% and 24% level-to-level change, while
+another run of the SAME problem reached 0.2%. That spread is sampling, not
+physics.
+
+Before you call a sequence converged or not converged, you must know your own
+noise floor. Two ways, both cheap:
+
+  * Run ONE configuration twice with different `seed` values and compare the
+    tallied QoI. The difference between those two runs is your statistical
+    error. Any level-to-level change smaller than it means nothing.
+  * Or use the sample count you already have: `fix ave/time` with N samples
+    reduces the standard error roughly as 1/sqrt(N). If you doubled the
+    averaging window and the QoI moved by much less than your level-to-level
+    difference, sampling is not your limit; if it moved by a comparable
+    amount, it is.
+
+REPORT BOTH NUMBERS. State the level-to-level change AND the statistical error,
+and say which is larger. "Not converged" with no noise estimate is not a
+finding, because it cannot be distinguished from an under-sampled run — and it
+throws away a sequence that may well be converged.
+
+Practical floors for a steady QoI: let the flow reach steady state BEFORE the
+averaging window opens (a tally started at step 0 averages the transient into
+your answer), then average over enough steps that doubling the window does not
+move the answer. Particles per cell matters as much as cell size: refining the
+grid at fixed total particles makes every cell noisier, so a refinement study
+that does not raise the particle count is refining its way INTO noise."""
+
+
 _CROSS_CUTTING = {
     "tally_sampling": _TALLY_SAMPLING,
     "sequence_first": _SEQUENCE_FIRST,
+    "dsmc_convergence": _DSMC_CONVERGENCE,
     "hard_ordering_errors": HARD_ORDERING_ERRORS,
     "more": "build facts (compiled styles, accelerator status), the full "
             "output-reading reference and the list of things SPARTA accepts "
