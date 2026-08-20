@@ -818,3 +818,50 @@ Round 6 then measures the notice on a full, uncontaminated matrix: seeds 8 and
 the round is FOR is not the solve rate but the share of runs that end with
 solver output and no written summary — the failure that three rounds have
 measured and two static interventions have failed to move.
+
+## Correction, and it moves the whole target: completion is not the gap. Correctness is.
+
+I have spent three rounds treating "solves correctly, writes nothing" as the
+blocker. Measured across all 54 OASiS runs of round 5 rather than off the five
+failures in one 16-run slice:
+
+    output + summary        37   69%     submitted properly
+    no output + summary      8   15%     honest incomplete, nothing to submit
+    no output + NO summary   7   13%     failed before producing anything
+    output + NO summary      2    4%     <- the failure I have been fixing
+
+The just-in-time notice targets 4% of runs. The population I described as the
+main blocker is two runs. My earlier statement — "three of the five failing
+single-code OASiS runs solved and wrote nothing" — was true of five failures in
+one slice and I let it stand in for the round, which is the same error as
+reading a trend off eight coupled runs.
+
+THE REAL GAP: 69% of OASiS runs submit output AND a summary, and the graded
+solve rate is 31%. So roughly 38 points of the distance to the 70% target sits
+in runs that submit properly and are WRONG. Completion is not what separates us
+from the target; correctness is.
+
+Second defect, found one hour into round 6 rather than at its end: the notice
+lives in run_simulation, and OASiS runs do not use it. Round 5, 53 OASiS runs:
+
+    run_bash 51,  couple 10,  run_simulation 8,  run_with_generator 5
+
+Agents shell out. The intervention can reach at most 15% of runs even where it
+applies, and 4% x 15% is nothing. It is not wrong, it is irrelevant at this
+scale, and it was designed without first measuring which tool executes solvers.
+
+ROUND 6 IS NOT STOPPED, but what it measures is renamed. It cannot test the
+notice. It is still 128 runs against unchanged knowledge, which triples the
+power behind the uplift estimate (+12.5 at n=32 per round; rounds 4+5+6 give
+n=96) and re-measures the deliverable-rate drift at the n=61 that comparison
+needs. That is worth the ~60 credits it will cost. Pretending it tests the
+notice would not be.
+
+WHAT ROUND 7 MUST TARGET, from this measurement rather than from a story: the
+37 runs per round that submit a complete answer and score wrong. Their grader
+reasons are the next thing to read, cell by cell, before any further knowledge
+is written. If those failures are dominated by one recoverable cause — a wrong
+recovery, a misread convention, an off-by-one in a probe grid — that is where
+the 38 points are. If they are spread thin across unrelated physics errors,
+then 27B has a capability ceiling here and the honest move is to say so and
+report the tier for what it is.
