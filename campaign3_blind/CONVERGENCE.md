@@ -791,3 +791,30 @@ stating in the paper rather than leaving as an unexplained bare failure.
     is what the freeze criterion asks about — but it cannot be read as
     convergence while a quarter of the coupled cells are missing for want of
     credit. Round 6 needs the 18 lost cells re-run first.
+
+## Decision: the 18 lost cells are NOT re-run into round 5
+
+I said in an earlier report that the 18 credit-casualty cells would be re-run
+first. That was wrong and is withdrawn.
+
+The just-in-time unsaved-work notice landed AFTER round 5 finished. Re-running
+those 18 cells now would run them against knowledge round 5's other 110 runs
+never saw, and pooling the two would be exactly the before-and-after mixing this
+file forbids elsewhere — the same reason no served text was edited while rounds
+4 and 5 were in flight.
+
+So round 5 is reported as it stands, with its n stated:
+
+    12 pooled coupled (grade 1)   bare 0/18   OASiS 0/16
+    complete would have been      bare  /24   OASiS  /24
+
+The missing cells cannot rescue the coupled result on any plausible reading —
+76 pooled coupled runs across rounds 3, 4 and 5 have produced zero successes in
+both arms — but the honest statement is 0 of 16 and 0 of 18, not 0 of 24, and
+the gap is named rather than quietly averaged away.
+
+Round 6 then measures the notice on a full, uncontaminated matrix: seeds 8 and
+9, all 32 cells, both arms, with the 18 cells present from the start. The metric
+the round is FOR is not the solve rate but the share of runs that end with
+solver output and no written summary — the failure that three rounds have
+measured and two static interventions have failed to move.
