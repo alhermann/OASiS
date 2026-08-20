@@ -441,8 +441,16 @@ class TestBackendImportSnapshot(unittest.TestCase):
     def setUp(self):
         """Run the audit afresh each test invocation (cheap)."""
         import subprocess
+        import tempfile
+        # Write to a TEMP file, never the tracked snapshot: this setUp used to
+        # overwrite scripts/scan_results/backend_imports.json on every test
+        # run, mutating a committed measurement as a side effect of pytest.
+        self._tmp = tempfile.NamedTemporaryFile(
+            suffix=".json", delete=False)
+        self._tmp.close()
         result = subprocess.run(
-            [sys.executable, "scripts/audit_backend_imports.py"],
+            [sys.executable, "scripts/audit_backend_imports.py",
+             self._tmp.name],
             cwd=str(REPO_ROOT), capture_output=True, text=True,
             timeout=120,
         )
@@ -450,9 +458,16 @@ class TestBackendImportSnapshot(unittest.TestCase):
             self.skipTest(
                 f"audit script failed (rc={result.returncode}); "
                 f"stderr={result.stderr[:200]}")
-        path = REPO_ROOT / "scripts" / "scan_results" / "backend_imports.json"
+        path = Path(self._tmp.name)
         import json
         self.snapshot = json.loads(path.read_text())
+
+    def tearDown(self):
+        import os
+        try:
+            os.unlink(self._tmp.name)
+        except OSError:
+            pass
 
     def _skip_if_no_kratos(self):
         from core.registry import get_backend, load_all_backends

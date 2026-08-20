@@ -34,6 +34,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import pathlib
 import os
 import subprocess
 import sys
@@ -314,7 +315,14 @@ def main():
         summary[f"{be}_available"] = bool(report[be].get("available"))
     report["summary"] = summary
 
-    out = REPO_ROOT / "scripts" / "scan_results" / "backend_imports.json"
+    # An optional argv path lets callers (the test suite) write elsewhere.
+    # Without it, the tracked snapshot under scan_results/ was overwritten on
+    # EVERY test run: a committed measurement silently replaced by whatever
+    # this machine says today, so the file drifted with each `pytest` and a
+    # stale environment could clobber a good record.
+    import sys as _sys
+    out = (pathlib.Path(_sys.argv[1]) if len(_sys.argv) > 1
+           else REPO_ROOT / "scripts" / "scan_results" / "backend_imports.json")
     out.write_text(json.dumps(report, indent=2))
     print(f"audit written: {out}")
     print(json.dumps(summary, indent=2))
