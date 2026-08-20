@@ -752,3 +752,42 @@ deliverable-rate drift, NOT on context exhaustion, which is a separate mechanism
 that is not biting the OASiS arm at all. And FC2 in the bare arm is a cell where
 the bare arm is structurally disadvantaged by having to read source — worth
 stating in the paper rather than leaving as an unexplained bare failure.
+
+  Round 5 — 27B, seeds 6 and 7, 2026-08-19/20. Seed 6 complete; seed 7 lost 18
+    runs to an EXHAUSTED ACCOUNT (HTTP 402, "Insufficient credits"), all in
+    coupled cells C5-C14, 10 OASiS and 8 bare, every one with zero tool calls
+    and zero wall time — they never reached the model. Quarantined, not graded.
+    Model-attributable errors: 18 clock, 1 context.
+
+      16 FEM single-code (grade 1)   bare 18.8%  OASiS 31.2%  +12.5  p=0.42
+      12 pooled coupled (grade 1)    bare  0/18  OASiS  0/16
+      SPARTA (grade 3)               bare  1/4   OASiS  2/4   +25
+
+    Rounds 3, 4, 5 side by side (FEM uplift): +10.4, +12.5, +12.5.
+    Coupled: 0/36, 0/24, 0/16 — three rounds, both arms, no exceptions.
+
+    THE PROMINENCE HYPOTHESIS IS REFUTED. Round 5 existed to test whether the
+    coupled zero was caused by section 3b being buried in a 53 KB payload. The
+    write-the-deliverable rule was moved to the single point every payload
+    passes through, verified served on 9 of 9 backends before launch. The
+    structural half was adopted more than ever — per-level directories 50% ->
+    61% -> 79% — and the coupled score did not move at all. Placement was not
+    the blocker. Round 6 must look elsewhere, and the measured candidate is the
+    timeout tail: the FEM runs that fail do so at 85-107 calls having written
+    nothing, which advice has now twice failed to fix.
+
+  Primitives from round 5 — TWO, both about the instrument rather than the
+  knowledge, and the rate is therefore FALLING but not for a reassuring reason:
+      1  HTTP 402 was not in the infrastructure list, so 18 runs that never
+         reached the model were booked as model results — 10 of them against
+         the OASiS arm. An unpaid invoice would have been published as a
+         capability gap. Now classified, with a firing test that also confirms
+         429 is still caught and a genuine timeout is still NOT infrastructure.
+      2  the prominence hypothesis is refuted, which retires a whole class of
+         intervention (move the text somewhere more visible) rather than adding
+         one.
+
+    No new KNOWLEDGE gap was found this round. That is the first time, and it
+    is what the freeze criterion asks about — but it cannot be read as
+    convergence while a quarter of the coupled cells are missing for want of
+    credit. Round 6 needs the 18 lost cells re-run first.

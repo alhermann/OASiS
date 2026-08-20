@@ -233,7 +233,13 @@ _INFRA_ERRS = ("APIConnectionError", "Connection error", "UnicodeDecodeError",
                "RateLimit", "rate limit", "ReadTimeout", "ServiceUnavailable",
                "BadGateway", "Timeout error", "overloaded",
                # our own output cap, not the model's doing — see TruncationWatch
-               "OutputTruncated")
+               "OutputTruncated",
+               # 402 Insufficient credits. The account ran dry partway through
+               # round 5 seed 7 and 18 runs died with ZERO tool calls and zero
+               # wall time — they never reached the model. Unlisted, they were
+               # booked as model results, 10 of them against the OASiS arm, so
+               # an unpaid invoice would have read as a capability gap.
+               "error code: 402", "Insufficient credits")
 
 
 # The provider refuses a request whose input exceeds its window. That is the
