@@ -3421,6 +3421,49 @@ def register_consolidated_tools(mcp: FastMCP):
                             job_id=str(result.get("job_id", job_name or "")))
         return json.dumps(result, indent=2)
 
+
+    @mcp.tool()
+    async def audit_results(work_dir: str, claimed_order: float = 0.0,
+                            ctx: Context = None) -> str:
+        """Check your OWN result files for the failures that most often sink a
+        submission — BEFORE you submit. Uses only files you produced; no
+        reference solution is involved, so a clean audit means self-consistent,
+        not correct.
+
+        What it catches, measured over 40 graded runs of a blind campaign
+        (0 false alarms on correct work, 15 of 18 known-wrong caught):
+
+          * NEAR-ZERO FIELD - your finest solution peaks below 1e-8. On a
+            driven problem that almost always means the source/load was never
+            wired in (a defined function no condition references, a load curve
+            never activated), not that the answer is small.
+          * FLOOR - successive refinement levels within 5% of each other:
+            whatever limits your number, it is not the mesh. Usual cause is a
+            solver tolerance (nonlinear/iterative defaults stop near 1e-6).
+          * ORDER MISMATCH - your levels improve at a measurably lower rate
+            than the order you are about to claim. Usual causes: element
+            degree below what the task states, volumetric locking, a
+            first-order integrator behind a spatial study.
+          * NON-MONOTONE - a refinement made the answer worse.
+
+        Call it on the directory holding your per-level outputs (it reads
+        RESULT.txt-style summaries and solution_level*.csv files), pass the
+        convergence order you intend to claim, and treat any finding as a
+        reason to look BEFORE submitting - each one names where to look.
+
+        Args:
+            work_dir: directory containing your results (searched recursively)
+            claimed_order: the convergence order your submission will claim
+                (0 = no order claim, order checks are skipped)
+        """
+        from . import result_audit
+        try:
+            r = result_audit.audit(work_dir,
+                                   claimed_order=claimed_order or None)
+        except Exception as e:                                # noqa: BLE001
+            return json.dumps({"error": f"{type(e).__name__}: {e}"[:200]})
+        return json.dumps(r, indent=2)
+
     @mcp.tool()
     async def verify_mesh_independence(
             solver: str, input_template: str, resolution: float,

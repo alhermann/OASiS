@@ -295,6 +295,23 @@ finished result that exists only in your reasoning is not a result at all.
 NOT VERIFIED and NOT A RESULT are different outcomes. If a check you ran
 complains about an answer you computed, report the answer AND the complaint —
 do not withhold the answer.
+
+## BEFORE YOU SUBMIT: RUN `audit_results` ON YOUR OWN OUTPUT
+
+One tool call: `audit_results(work_dir=<your results directory>,
+claimed_order=<the order you are about to claim>)`. It reads only files YOU
+produced and catches, in seconds, the failures that most often sink an
+otherwise complete submission — a field that is numerically zero because the
+source was defined but never referenced by any condition; error levels sitting
+at a solver-tolerance floor so refinement changes nothing; a convergence rate
+your own numbers contradict. Across 40 graded runs it raised no false alarm on
+correct work and caught 15 of 18 known-wrong submissions.
+
+A finding is not a verdict — it is a pointer at the exact place to look while
+you still have budget to fix it. The single most common root cause it finds:
+an ingredient you correctly BUILT (a source function, a mixed formulation, a
+tightened tolerance) that the solve never actually USED. Check the wiring, not
+the ingredient.
 """
 
 
