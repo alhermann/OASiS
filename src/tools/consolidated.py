@@ -1918,6 +1918,54 @@ def _make_input_snapshot(input_content: str, solver: str = "",
     return snap
 
 
+def _unsaved_work_notice(work_dir, out_files) -> str | None:
+    """Warn, at the moment a solve SUCCEEDS, that nothing is written down yet.
+
+    Measured over five development rounds: the runs that fail most often are
+    not the ones that fail to solve. They solve, keep working, and end with
+    nothing a reader can find — three of the five failing single-code runs in
+    round 5 seed 6 made 85-107 tool calls, produced solver output, and wrote no
+    summary at all.
+
+    Two static-text attempts did not change that: the rule filed in one
+    backend's table, then the same rule appended to every knowledge payload.
+    Both are read once, at the start, before there is anything to write. This
+    notice is different in kind rather than in wording — it is stateful and
+    just-in-time, raised at the one moment when numbers demonstrably exist and
+    are demonstrably not saved.
+
+    Deliberately GENERAL: it names no filename and assumes no benchmark. It
+    reports what the run produced and that no human-readable summary sits
+    beside it, which is true for any user of this server.
+    """
+    from pathlib import Path
+    if not out_files:
+        return None
+    try:
+        d = Path(work_dir)
+        if not d.is_dir():
+            return None
+        summaries = [q for q in d.rglob("*")
+                     if q.is_file()
+                     and q.suffix.lower() in (".txt", ".md", ".csv", ".json")
+                     and q.name not in ("imports.json", "exports.json")
+                     and not q.name.startswith("trajectory")]
+    except OSError:
+        return None
+    if summaries:
+        return None
+    return ("This run produced solver output and there is no written summary "
+            "beside it yet. Whatever your task asks you to report, write it "
+            "now, from the numbers you have, before doing anything else — "
+            "including before investigating anything that looks wrong. A "
+            "result that exists only in this conversation is not a result: if "
+            "the session ends here, the run counts for nothing. If you have "
+            "more levels or cases to run, write the summary now with what you "
+            "have and an honest marker for what is missing, then rewrite it "
+            "after each later run. Rewriting a small text file costs nothing "
+            "next to a solve.")
+
+
 def register_consolidated_tools(mcp: FastMCP):
     """Register all consolidated tools — ~12 tools instead of 48."""
 
@@ -3201,6 +3249,10 @@ def register_consolidated_tools(mcp: FastMCP):
                             solver=solver, setup_text=generator_script,
                             critic_token=critic_token,
                             job_id=str(result.get("job_id", job_name or "")))
+        notice = _unsaved_work_notice(getattr(job, "work_dir", "") or "",
+                                      out_files)
+        if notice:
+            result["nothing_written_down_yet"] = notice
         return json.dumps(result, indent=2)
 
     @mcp.tool()
