@@ -31,6 +31,7 @@ text, the spec or the grader, never in the physics.
 from __future__ import annotations
 
 import argparse
+import pathlib
 import json
 import os
 import re
@@ -44,7 +45,21 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "src"))
 
-import grade_blind as G                                          # noqa: E402
+# THE GRADER THIS VALIDATES MUST BE THE GRADER THAT RUNS. This imported
+# grade_blind (v1) while every round since the coupled redesign has been graded
+# by grade_blind_v2 through grading.loading — so the one instrument whose job is
+# to answer "would a correct submission be graded CORRECT?" was answering it
+# about code no longer in use, and had not run at all since the vault was
+# encrypted (v1 reads plaintext key.json only). Both faults pointed the same
+# way: 0/N "would accept a correct submission", indistinguishable from a grader
+# that rejects everything.
+import grade_blind_v2 as G                                       # noqa: E402
+from grading import loading as _loading                          # noqa: E402
+
+# v1 exposed these as module constants; v2 resolves them through loading, which
+# honours OASIS_BLIND_KEYS and is encryption-aware.
+G.KEYS = _loading.keys_dir()
+G.PROBLEMS = _loading.problems_dir()
 
 TMP = Path(os.environ.get("OASIS_CHECK_TMP",
                           "/tmp/claude-1001/-home-alexander-4C/balancedtmp/grade"))
@@ -263,7 +278,13 @@ def build_submission(pid: str, key: dict, spec: dict, work: Path,
 
 
 def check(pid: str) -> dict:
-    key = json.loads((G.KEYS / pid / "key.json").read_text())
+    # Keys on disk are ENCRYPTED (key.json.enc). This read used to be a plain
+    # read_text() of key.json, so the checker has been unable to run at all
+    # since the vault was encrypted — it died with FileNotFoundError on every
+    # instance and reported "0/N would accept a correct submission", which
+    # reads exactly like a grader that rejects everything. An instrument that
+    # cannot look reports a negative indistinguishable from a real finding.
+    key = _loading.load_key(pid, G.KEYS, _passphrase())
     spec = json.loads((G.PROBLEMS / pid / "spec_public.json").read_text())
     text = (G.PROBLEMS / pid / "task.txt").read_text()
     dim = key["dim"]
@@ -295,7 +316,7 @@ def check(pid: str) -> dict:
     work = run / "work"
     work.mkdir(parents=True)
     info = build_submission(pid, key, spec, work)
-    verdict = G.grade_run(run, pid)
+    verdict = G.grade_run(run, pid, passphrase=_passphrase())
     out["verdict"] = verdict.get("outcome")
     out["observed_order"] = verdict.get("observed_order")
     out["note"] = verdict.get("note")
@@ -305,6 +326,23 @@ def check(pid: str) -> dict:
             f"{verdict.get('note')}")
     out["ok"] = not out["problems"]
     return out
+
+
+def _passphrase():
+    """The phrase, read once, from a terminal or one line of stdin.
+
+    Never argv (ps would show it), never a file, never the environment — that
+    is the vault's whole claim.
+    """
+    import getpass
+    global _PW
+    if _PW is None:
+        _PW = (getpass.getpass("key passphrase: ") if sys.stdin.isatty()
+               else sys.stdin.readline().rstrip("\n"))
+    return _PW or None
+
+
+_PW = None
 
 
 def main():
