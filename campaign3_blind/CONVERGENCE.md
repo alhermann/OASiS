@@ -865,3 +865,36 @@ recovery, a misread convention, an off-by-one in a probe grid — that is where
 the 38 points are. If they are spread thin across unrelated physics errors,
 then 27B has a capability ceiling here and the honest move is to say so and
 report the tier for what it is.
+
+  Round 6 — 27B, seeds 8 and 9, 2026-08-20/21. CLEAN after repair: 128 runs,
+    one infrastructure casualty (DU1 BARE seed8, the first-ever TruncationWatch
+    firing) quarantined and re-run under round-6 knowledge before grading; a
+    DU2 orphan pair caught mid-round by the sweep at 0.25 and 3.2 CPU-h.
+    23 timeouts (18%), 2 context fills (both BARE, both 4C cells — third and
+    fourth occurrences of the bare-reads-source pattern, still 0 in MCP).
+
+      16 FEM single-code (grade 1)   bare 25.0%  OASiS 31.2%  +6.2   p=0.77
+      12 pooled coupled (grade 1)    bare  0/24  OASiS  0/24
+      SPARTA (grade 3)               bare  1/4   OASiS  2/4   +25
+
+    The FEM uplift per round now reads +10.4, +12.5, +12.5, +6.2. The +6.2 is
+    within one round's noise of the others (n=32, McNemar p=0.77) and the
+    honest summary is the pooled one: rounds 4-6, n=96 pairs, bare 22.9%,
+    OASiS 33.3%, +10.4 points, p=0.13 — a stable, not-yet-significant ~10-point
+    uplift, one third of the target. Pooling caveat stated: the three rounds
+    differ slightly in knowledge (r5 added the universal rule, r6 the unsaved-
+    work notice that reaches almost no runs), pooled for power only.
+
+    Coupled is now 0 for FOUR consecutive rounds, both arms, 100 pooled runs.
+
+    Primitives from round 6 — ZERO new knowledge gaps. The round was run for
+    power and to test prominence-by-notice (renamed mid-round when measurement
+    showed the notice's host tool is used by 15% of runs). What it contributes
+    is the baseline for round 7: the submitted-and-wrong population and the
+    audit_results adoption rate are the two numbers round 7 is FOR.
+
+  LANDED AFTER ROUND 6 CLOSED (commits 5a9c62dc, 5a7a711a): audit_results
+  (calibrated 0/22 false alarms, 15/18 catches), the run-it-before-submitting
+  instruction in the universal block, the FEBio separable-load door, and the
+  process-group kill on timeout in all nine backends (test proven to fail on
+  the unfixed tree). Round 7 (seeds 10+11) measures them.
