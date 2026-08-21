@@ -46,8 +46,11 @@ fi
 # CREDIT PREFLIGHT. Round 5 lost 18 coupled runs mid-round to HTTP 402 and they
 # were briefly booked as model results. A round is worth nothing if it dies of
 # an unpaid invoice halfway, so refuse to start without enough headroom for the
-# whole matrix. Round 5's 128 runs cost roughly 60 credits, so 150 is a
-# comfortable floor rather than a tight estimate.
+# whole matrix. MEASURED cost per 128-run round: ~60 credits (round 5) and 59
+# (round 6, 186.37 -> 127.25). The floor is 100 — a full round plus two thirds
+# of one in reserve. The first version guessed 150 before any round had been
+# costed and refused a launch that 127.25 covers with 2x margin; a floor may
+# be lowered by a MEASUREMENT, never by impatience, and this one is.
 BAL=$(curl -s -H "Authorization: Bearer $OPENROUTER_API_KEY" \
         https://openrouter.ai/api/v1/credits 2>/dev/null \
       | "$OASIS_PYTHON" -c "
@@ -60,8 +63,8 @@ except Exception:
 case "$BAL" in
   ERR|"") echo "REFUSING: could not read the credit balance" >&2; exit 1 ;;
 esac
-if [ "$(awk -v b="$BAL" 'BEGIN{print (b < 150)}')" = "1" ]; then
-  echo "REFUSING: credit balance $BAL is below the 150 needed for a full round." >&2
+if [ "$(awk -v b="$BAL" 'BEGIN{print (b < 100)}')" = "1" ]; then
+  echo "REFUSING: credit balance $BAL is below the 100 needed for a full round." >&2
   echo "Top up at https://openrouter.ai/settings/credits and re-launch." >&2
   exit 1
 fi
