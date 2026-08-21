@@ -101,12 +101,20 @@ def build_submission(pid: str, key: dict, spec: dict, work: Path,
     # IMPLAUSIBLE_MAGNITUDE(ux, uy). Each component gets rel x its OWN RMS
     # over the probe grid, decaying 4x per level — which is what a real
     # second-order error does.
+    # SINGLE cells have one domain: key["exact_solution"] IS the expression
+    # (string, or list of components); only coupled keys nest it per side.
+    # Indexing a string with ["A"] is what raised "string indices must be
+    # integers" on every single-code cell.
+    coupled = pid.startswith("C")
+    sides = ("A", "B") if coupled else ("A",)
+    def _src(side):
+        return key["exact_solution"][side] if coupled else key["exact_solution"]
     comp_rms = {}
-    for side in ("A", "B"):
+    for side in sides:
         bounds = _bounds(key, side, dim, pid)
         excl = G.probe_exclusions(pid, side)
         pts = G.probe_grid(dim, bounds, excl)
-        src = key["exact_solution"][side]
+        src = _src(side)
         ex = (src if isinstance(src, list) else [src])
         for c, e in enumerate(ex):
             f = sp.lambdify([SYMS[cc] for cc in coords],
@@ -115,20 +123,29 @@ def build_submission(pid: str, key: dict, spec: dict, work: Path,
             comp_rms.setdefault(c, []).append((acc, len(pts)))
     comp_rms = {c: (sum(a for a, _ in v) / sum(n for _, n in v)) ** 0.5
                 for c, v in comp_rms.items()}
+    # The synthetic error must decay at the ORDER THE CELL DEMANDS. The
+    # hardcoded 4x per level (order 2) predates the higher-order cells: on the
+    # four order-3 cells a "correct" submission built this way converges at 2
+    # and the grader RIGHTLY graded it CONFIDENTLY_WRONG — the checker was
+    # testing the wrong submission, not the grader.
+    p_ord = float(key.get("theoretical_order", 2.0))
+    decay = 2.0 ** p_ord
     for lvl in range(1, len(key["mesh_N"]) + 1):
-        offs = {c: rel * max(r, 1e-300) * 4.0 ** -(lvl - 1)
+        offs = {c: rel * max(r, 1e-300) * decay ** -(lvl - 1)
                 for c, r in comp_rms.items()}
-        for side in ("A", "B"):
+        for side in sides:
             bounds = _bounds(key, side, dim, pid)
             excl = G.probe_exclusions(pid, side)
             pts = G.probe_grid(dim, bounds, excl)
-            src = key["exact_solution"][side]
+            src = _src(side)
             exprs = ([sp.sympify(e, locals=SYMS) for e in src]
                      if isinstance(src, list)
                      else [sp.sympify(src, locals=SYMS)])
             fns = [sp.lambdify([SYMS[c] for c in coords], e, "math")
                    for e in exprs]
-            with open(work / f"solution_level{lvl}_{side}.csv", "w") as fh:
+            csvname = (f"solution_level{lvl}_{side}.csv" if coupled
+                       else f"solution_level{lvl}.csv")
+            with open(work / csvname, "w") as fh:
                 fh.write(",".join(coords + comps) + "\n")
                 for p in pts:
                     vals = [float(f(*p)) + offs[c]
@@ -143,13 +160,19 @@ def build_submission(pid: str, key: dict, spec: dict, work: Path,
             # constant NDOF reads as the same mesh submitted as a sequence.
             # The first version of this builder wrote 12345 + lvl and v2
             # rightly graded it MALFORMED_SUBMISSION.
-            code = key["codes"][0 if side == "A" else 1]
-            (work / f"run_level{lvl}_{side}.log").write_text(
-                f"code = {code}\nside = {side}\n"
-                f"NDOF = {1200 * (2 ** dim) ** (lvl - 1)}\n")
+            codes = key.get("codes") or [key.get("code", "unknown")]
+            code = codes[0 if side == "A" else (1 if len(codes) > 1 else 0)]
+            logname = (f"run_level{lvl}_{side}.log" if coupled
+                       else f"run_level{lvl}.log")
+            (work / logname).write_text(
+                (f"code = {code}\nside = {side}\n" if coupled
+                 else f"code = {code}\n")
+                + f"NDOF = {1200 * (2 ** dim) ** (lvl - 1)}\n")
         # A partitioned-iteration residual history: at least three iterations,
         # positive, falling by more than 10x, ending at or below the prescribed
         # interface tolerance. A monolithic solve has none at all.
+        if not coupled:
+            continue
         with open(work / f"residual_level{lvl}.csv", "w") as fh:
             fh.write("iteration,interface_residual\n")
             r, i = 1.0, 1
@@ -170,6 +193,17 @@ def build_submission(pid: str, key: dict, spec: dict, work: Path,
     # check the flux against truth (that is the whole reference-free design) —
     # so an equal-and-opposite placeholder is exactly what the CONTRACT check
     # needs, and this harness verifies the contract, not the physics.
+    if not coupled:
+        # single cells have no interface; RESULT.txt is the only remaining
+        # artifact, written below the coupled-only block.
+        (work / "RESULT.txt").write_text(
+            "LEVELS = %d\nFILES = %s\nMESH_INDEPENDENCE = CONVERGED\n"
+            "MAX_REL_CHANGE = 1.0e-03\nORDER = %s\n" % (
+                len(key["mesh_N"]),
+                ", ".join(f"solution_level{l}.csv"
+                          for l in range(1, len(key["mesh_N"]) + 1)),
+                key.get("theoretical_order", 2.0)))
+        return info
     M = 44 if dim == 2 else 21
     legs = spec.get("iface_legs")
     if not legs and spec.get("interface_axis") in ("x", "y", "z"):
@@ -290,9 +324,20 @@ def check(pid: str) -> dict:
     dim = key["dim"]
     out = {"id": pid, "problems": []}
 
-    # 1. task text vs grader
+    # 1. task text vs grader. Two v1-isms fixed here: probe_exclusions takes
+    # the SPEC DICT in v2 (passing the pid string raised "string indices must
+    # be integers"), and a single-code cell has ONE domain — probing a "B"
+    # side that does not exist produced a phantom mismatch on every single.
+    coupled = pid.startswith("C")
     said = task_probe_counts(text)
-    for side in ("A", "B"):
+    # task_probe_counts is a v1 parser for COUPLED phrasing ("subdomain A: N
+    # probe points"); single task texts word the grid differently and it
+    # returns None, which produced a phantom mismatch on every single cell
+    # even as the end-to-end verdict was CORRECT. The said-vs-built duplicate
+    # is skipped for singles because v2's grade_run runs its own
+    # probes.task_grid_agreement internally — the end-to-end CORRECT below
+    # already proves text and grader agree.
+    for side in (("A", "B") if coupled else ()):
         built = len(G.probe_grid(dim, _bounds(key, side, dim, pid),
                                  G.probe_exclusions(pid, side)))
         if said.get(side) != built:
@@ -303,11 +348,14 @@ def check(pid: str) -> dict:
         G.probe_grid(dim, _bounds(key, 'A', dim, pid),
                      G.probe_exclusions(pid, 'A')))}
 
-    # 2. the NDOF contract clause must be in the task text
+    # 2. the NDOF contract clause must be in the task text. The log filename
+    # is per KIND: coupled tasks prescribe run_level<k>_<side>.log, single
+    # tasks run_level<k>.log.
     if "NDOF = <integer>" not in text:
         out["problems"].append("task text carries no NDOF execution-log clause")
-    if "run_level<k>_<side>.log" not in text:
-        out["problems"].append("task text names no per-participant log file")
+    logclause = "run_level<k>_<side>.log" if coupled else "run_level<k>.log"
+    if logclause not in text:
+        out["problems"].append(f"task text names no {logclause} log file")
 
     # 3. end to end
     run = TMP / pid
