@@ -103,7 +103,7 @@ def build_submission(pid: str, key: dict, spec: dict, work: Path,
     # second-order error does.
     comp_rms = {}
     for side in ("A", "B"):
-        bounds = G.subdomain_bounds(key, side, dim)
+        bounds = _bounds(key, side, dim, pid)
         excl = G.probe_exclusions(pid, side)
         pts = G.probe_grid(dim, bounds, excl)
         src = key["exact_solution"][side]
@@ -119,7 +119,7 @@ def build_submission(pid: str, key: dict, spec: dict, work: Path,
         offs = {c: rel * max(r, 1e-300) * 4.0 ** -(lvl - 1)
                 for c, r in comp_rms.items()}
         for side in ("A", "B"):
-            bounds = G.subdomain_bounds(key, side, dim)
+            bounds = _bounds(key, side, dim, pid)
             excl = G.probe_exclusions(pid, side)
             pts = G.probe_grid(dim, bounds, excl)
             src = key["exact_solution"][side]
@@ -293,14 +293,14 @@ def check(pid: str) -> dict:
     # 1. task text vs grader
     said = task_probe_counts(text)
     for side in ("A", "B"):
-        built = len(G.probe_grid(dim, G.subdomain_bounds(key, side, dim),
+        built = len(G.probe_grid(dim, _bounds(key, side, dim, pid),
                                  G.probe_exclusions(pid, side)))
         if said.get(side) != built:
             out["problems"].append(
                 f"subdomain {side}: task text prescribes {said.get(side)} probe "
                 f"points, grade_blind.probe_grid builds {built}")
     out["probe_counts"] = {**said, "grader_A": len(
-        G.probe_grid(dim, G.subdomain_bounds(key, 'A', dim),
+        G.probe_grid(dim, _bounds(key, 'A', dim, pid),
                      G.probe_exclusions(pid, 'A')))}
 
     # 2. the NDOF contract clause must be in the task text
@@ -326,6 +326,20 @@ def check(pid: str) -> dict:
             f"{verdict.get('note')}")
     out["ok"] = not out["problems"]
     return out
+
+
+def _bounds(key, side, dim, pid):
+    """v2 splits the probe-bounds builders: subdomain_bounds reads the coupled
+    key fields (extent_a/extent_b) and single_bounds the single-code ones. The
+    checker fed every cell down the coupled path, so all 16 single-code cells
+    "failed" with a missing-extent_a config error — an instrument fault that
+    read exactly like 16 broken cells, while the real grader (grade_run, which
+    picks the right builder per kind) had been accepting genuine CORRECT runs
+    on the same keys all campaign."""
+    from grading import probes as _probes
+    if pid.startswith("C"):
+        return _probes.subdomain_bounds(key, side, dim)
+    return _probes.single_bounds(key, dim)
 
 
 def _passphrase():
