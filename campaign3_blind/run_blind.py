@@ -234,6 +234,13 @@ _INFRA_ERRS = ("APIConnectionError", "Connection error", "UnicodeDecodeError",
                "BadGateway", "Timeout error", "overloaded",
                # our own output cap, not the model's doing — see TruncationWatch
                "OutputTruncated",
+               # The MCP transport dying is OUR infrastructure, not a model
+               # result. Seen 2026-08-21: a discovery probe let 4C print its
+               # ASCII banner into the server's stdout — the JSON-RPC channel —
+               # and the stream corruption surfaced as an ExceptionGroup from
+               # the client's TaskGroup. Unlisted, that MCP-arm run was booked
+               # as a model failure.
+               "ExceptionGroup", "JSONRPCMessage", "json_invalid",
                # 402 Insufficient credits. The account ran dry partway through
                # round 5 seed 7 and 18 runs died with ZERO tool calls and zero
                # wall time — they never reached the model. Unlisted, they were
