@@ -88,7 +88,10 @@ def task_probe_counts(text: str) -> dict:
 
 def build_submission(pid: str, key: dict, spec: dict, work: Path,
                      rel: float = 0.5) -> dict:
-    dim, coords = key["dim"], key["coords"]
+    # band-only keys carry no dim/coords/exact_solution — their branch below
+    # must run before anything reads those fields.
+    dim = key.get("dim", 2)
+    coords = key.get("coords", ["x", "y"])
     comps = key.get("components", ["u"])
     ncomp = len(comps)
     tol = float(spec.get("interface_tol", "1e-6").split()[0])
@@ -101,6 +104,41 @@ def build_submission(pid: str, key: dict, spec: dict, work: Path,
     # IMPLAUSIBLE_MAGNITUDE(ux, uy). Each component gets rel x its OWN RMS
     # over the probe grid, decaying 4x per level — which is what a real
     # second-order error does.
+    # BAND-ONLY cells (SPARTA) have no exact solution and no probe grid: the
+    # key pre-registers a QoI band and a conservation identity, the evidence
+    # gate wants lines the DSMC binary itself prints, and the verdict for a
+    # correct submission is WITHIN_BAND (grade-3 vocabulary), not CORRECT.
+    if key.get("grading") == "band-only" or key.get("kind") == "sparta_band":
+        qoi = key.get("qoi_band") or key["qoi"]
+        lo, hi = qoi["band"]
+        mid = 0.5 * (lo + hi)
+        ident = key.get("identity") or {}
+        levels = 3
+        for lvl in range(1, levels + 1):
+            (work / f"qoi_level{lvl}.csv").write_text(
+                "level,qoi\n%d,%.9g\n" % (lvl, mid * (1 + 1e-3 * (levels - lvl))))
+            # A real accepted SPARTA log leads with the canonical NDOF line
+            # (grader v2 additionally requires the per-level sequence to GROW
+            # like 2**dim under halving); the DSMC-signature lines below are
+            # what the per-code evidence gate matches.
+            (work / f"run_level{lvl}.log").write_text(
+                f"NDOF = {3200 * 4 ** (lvl - 1)}\n"
+                "Created 100000 particles\n"
+                "grid cells = 40000\n"
+                "Step 5000  CPU = 12.1 (98 secs)\n"
+                "Loop time of 98.2 on 4 procs\n")
+        lines = ["LEVELS = %d" % levels,
+                 "FILES = " + ", ".join(f"qoi_level{l}.csv"
+                                        for l in range(1, levels + 1)),
+                 "MESH_INDEPENDENCE = CONVERGED",
+                 "MAX_REL_CHANGE = 1.0e-03"]
+        if ident:
+            lines += [f"{ident['lhs_line']} = {mid:.9g}",
+                      f"{ident['rhs_line']} = {mid * (1 + ident.get('rtol', 0.05) * 0.2):.9g}"]
+        lines.append(f"{qoi['result_line']} = {mid:.9g}")
+        (work / "RESULT.txt").write_text("\n".join(lines) + "\n")
+        return {"band": (lo, hi), "mid": mid}
+
     # SINGLE cells have one domain: key["exact_solution"] IS the expression
     # (string, or list of components); only coupled keys nest it per side.
     # Indexing a string with ["A"] is what raised "string indices must be
@@ -321,15 +359,16 @@ def check(pid: str) -> dict:
     key = _loading.load_key(pid, G.KEYS, _passphrase())
     spec = json.loads((G.PROBLEMS / pid / "spec_public.json").read_text())
     text = (G.PROBLEMS / pid / "task.txt").read_text()
-    dim = key["dim"]
+    dim = key.get("dim", 2)   # band-only (SPARTA) keys carry no dim
     out = {"id": pid, "problems": []}
 
     # 1. task text vs grader. Two v1-isms fixed here: probe_exclusions takes
     # the SPEC DICT in v2 (passing the pid string raised "string indices must
     # be integers"), and a single-code cell has ONE domain — probing a "B"
     # side that does not exist produced a phantom mismatch on every single.
+    band = key.get("grading") == "band-only" or key.get("kind") == "sparta_band"
     coupled = pid.startswith("C")
-    said = task_probe_counts(text)
+    said = task_probe_counts(text) if not band else {}
     # task_probe_counts is a v1 parser for COUPLED phrasing ("subdomain A: N
     # probe points"); single task texts word the grid differently and it
     # returns None, which produced a phantom mismatch on every single cell
@@ -344,17 +383,17 @@ def check(pid: str) -> dict:
             out["problems"].append(
                 f"subdomain {side}: task text prescribes {said.get(side)} probe "
                 f"points, grade_blind.probe_grid builds {built}")
-    out["probe_counts"] = {**said, "grader_A": len(
+    out["probe_counts"] = ({**said, "grader_A": len(
         G.probe_grid(dim, _bounds(key, 'A', dim, pid),
-                     G.probe_exclusions(pid, 'A')))}
+                     G.probe_exclusions(pid, 'A')))} if not band else {})
 
     # 2. the NDOF contract clause must be in the task text. The log filename
     # is per KIND: coupled tasks prescribe run_level<k>_<side>.log, single
     # tasks run_level<k>.log.
-    if "NDOF = <integer>" not in text:
+    if not band and "NDOF = <integer>" not in text:
         out["problems"].append("task text carries no NDOF execution-log clause")
     logclause = "run_level<k>_<side>.log" if coupled else "run_level<k>.log"
-    if logclause not in text:
+    if not band and logclause not in text:
         out["problems"].append(f"task text names no {logclause} log file")
 
     # 3. end to end
@@ -368,9 +407,12 @@ def check(pid: str) -> dict:
     out["verdict"] = verdict.get("outcome")
     out["observed_order"] = verdict.get("observed_order")
     out["note"] = verdict.get("note")
-    if verdict.get("outcome") != "CORRECT":
+    want = "WITHIN_BAND" if band else "CORRECT"
+    got = verdict.get("outcome") or verdict.get("verdict")
+    out["verdict"] = got
+    if got != want:
         out["problems"].append(
-            f"a correct submission graded {verdict.get('outcome')}: "
+            f"a correct submission graded {got} (wanted {want}): "
             f"{verdict.get('note')}")
     out["ok"] = not out["problems"]
     return out
