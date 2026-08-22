@@ -108,6 +108,48 @@ def build_submission(pid: str, key: dict, spec: dict, work: Path,
     # key pre-registers a QoI band and a conservation identity, the evidence
     # gate wants lines the DSMC binary itself prints, and the verdict for a
     # correct submission is WITHIN_BAND (grade-3 vocabulary), not CORRECT.
+    # GRADE-2 (reference) and coupled band-only cells: the last two shapes.
+    # Both are coupled, so the evidence gate additionally wants per-code logs
+    # for BOTH codes (the canonical NDOF line is accepted for every code) and
+    # a converging partitioned-residual history per level.
+    if key.get("grading") == "reference" or (
+            key.get("grading") == "band-only" and key.get("kind") == "coupled"):
+        levels = 3
+        tol_i = float(spec.get("interface_tol", "1e-6").split()[0])             if isinstance(spec.get("interface_tol"), str) else             float(spec.get("interface_tol", 1e-6))
+        for lvl in range(1, levels + 1):
+            for s, code in zip(("A", "B"), key["codes"]):
+                (work / f"run_level{lvl}_{s}.log").write_text(
+                    f"code = {code}\nside = {s}\n"
+                    f"NDOF = {2400 * 4 ** (lvl - 1)}\n")
+            with open(work / f"residual_level{lvl}.csv", "w") as fh:
+                fh.write("iteration,interface_residual\n")
+                r, i = 1.0, 1
+                while r > tol_i * 0.5:
+                    fh.write(f"{i},{r:.6e}\n")
+                    r *= 0.25
+                    i += 1
+                fh.write(f"{i},{r:.6e}\n")
+        lines = ["LEVELS = %d" % levels,
+                 "FILES = " + ", ".join(f"residual_level{l}.csv"
+                                        for l in range(1, levels + 1)),
+                 "MESH_INDEPENDENCE = CONVERGED",
+                 "MAX_REL_CHANGE = 1.0e-03",
+                 f"COUPLING_ITERATIONS = {i}"]
+        if key.get("grading") == "reference":
+            ref = key["reference"]
+            lines.append(f"{ref['result_line']} = {float(ref['value']):.12g}")
+        else:
+            qoi = key.get("qoi_band") or key["qoi"]
+            lo, hi = qoi["band"]; mid = 0.5 * (lo + hi)
+            ident = key.get("identity") or {}
+            if ident:
+                lines += [f"{ident['lhs_line']} = {mid:.9g}",
+                          f"{ident['rhs_line']} = "
+                          f"{mid * (1 + ident.get('rtol', 0.05) * 0.2):.9g}"]
+            lines.append(f"{qoi['result_line']} = {mid:.9g}")
+        (work / "RESULT.txt").write_text("\n".join(lines) + "\n")
+        return {"kind": key.get("grading")}
+
     if key.get("grading") == "band-only" or key.get("kind") == "sparta_band":
         qoi = key.get("qoi_band") or key["qoi"]
         lo, hi = qoi["band"]
@@ -366,7 +408,7 @@ def check(pid: str) -> dict:
     # the SPEC DICT in v2 (passing the pid string raised "string indices must
     # be integers"), and a single-code cell has ONE domain — probing a "B"
     # side that does not exist produced a phantom mismatch on every single.
-    band = key.get("grading") == "band-only" or key.get("kind") == "sparta_band"
+    band = key.get("grading") in ("band-only", "reference")         or key.get("kind") == "sparta_band"
     coupled = pid.startswith("C")
     said = task_probe_counts(text) if not band else {}
     # task_probe_counts is a v1 parser for COUPLED phrasing ("subdomain A: N
@@ -376,7 +418,7 @@ def check(pid: str) -> dict:
     # is skipped for singles because v2's grade_run runs its own
     # probes.task_grid_agreement internally — the end-to-end CORRECT below
     # already proves text and grader agree.
-    for side in (("A", "B") if coupled else ()):
+    for side in (("A", "B") if (coupled and not band) else ()):
         built = len(G.probe_grid(dim, _bounds(key, side, dim, pid),
                                  G.probe_exclusions(pid, side)))
         if said.get(side) != built:
@@ -407,7 +449,10 @@ def check(pid: str) -> dict:
     out["verdict"] = verdict.get("outcome")
     out["observed_order"] = verdict.get("observed_order")
     out["note"] = verdict.get("note")
-    want = "WITHIN_BAND" if band else "CORRECT"
+    mode = key.get("grading")
+    want = ("MATCHES_REFERENCE" if mode == "reference"
+            else "WITHIN_BAND" if (band or mode == "band-only")
+            else "CORRECT")
     got = verdict.get("outcome") or verdict.get("verdict")
     out["verdict"] = got
     if got != want:
