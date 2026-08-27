@@ -134,6 +134,11 @@ match term for term with no time interpolation anywhere. Reading r_i as "the
 flux at t^(n+1)" instead and handing that over is a first-order error in dt
 injected straight into an otherwise second-order coupling — it does not look
 like a bug, it looks like a scheme that stalled at order 1.
+  The same expression run against the load WITHOUT the interface term returns
+  that same average on the Neumann side's FREE rows, where it reads back the
+  average the partner applied. So neither side blends anything by hand and
+  neither carries a flux at t^0 around — see ONE FORMULA, BOTH SIDES, in the
+  march.
 
 FIELD DUMP. The contract carries interface data only, so a transient run that
 returns nothing but the interface is useless: this script writes
@@ -170,7 +175,11 @@ exact Dirichlet data on the outer x-faces, natural y-faces, THETA = 0.5, tol
     L2 interface flux, INTERIOR nodes   5.30e-03  8.72e-05  1.97 1.98 1.98
     L2 interface flux, WHOLE interface  1.22e-02  5.00e-04  1.55 1.54 1.52
     max interface flux, WHOLE interface 5.21e-02  6.34e-03  1.04 1.01 0.99
-    interface flux balance, relative    6.35e-02  8.45e-03  ~1
+
+(The interface flux BALANCE was measured separately and is below. Everything
+in this table is a Dirichlet-side quantity or a field quantity, so none of it
+moved when the Neumann side's flux export changed: the Dirichlet side consumes
+the partner's `values`, never its `normal_fluxes`.)
 
 THE TWO INTERFACE END NODES ARE FIRST ORDER HERE, and they set every whole-
 interface norm. Measured with the exact interface data fed in, so the coupling
@@ -193,13 +202,30 @@ not fix it either; that value is O(h) at the end too.
   interface's flux at all. With OUTER_FACES = "x" it never fires, and the end
   nodes above are ordinary interface nodes that are simply less accurate.)
 
-THE FLUX BALANCE IS ONLY FIRST ORDER, and that is the Neumann side's gradient
-recovery, not a leak. The two exports cancel to 6.4e-2 relative at lvl0 and
-8.5e-3 at lvl3 — order 1, the order of the projected gradient the Neumann side
-exports. OASiS's conservation check reads the trace as one component per time
-level and balances each on its own, so a coarse run produces one finding per
-time step; they all go away at lvl1 and finer. Conservation of what is APPLIED
-is exact by construction: the Neumann side integrates the Dirichlet side's
+THE FLUX BALANCE IS AT THE FIXED-POINT TOLERANCE, not at some discretisation
+order. It used to be order 1, and that was the Neumann side's projected
+gradient rather than a leak; both sides now recover the reaction, and the
+Neumann side's reaction IS the functional the Dirichlet side sent, so the two
+exports cancel to whatever the driver's own iteration has converged to.
+Measured through OASiS's `run_coupling` on a pair like the one above (k = 0.35
+/ rho_c = 0.8 on the Dirichlet side against k = 1.7 / rho_c = 2.1 on the
+Neumann side, an outer temperature varying in y so the interface flux varies
+along the interface, THETA = 0.5, tol 1e-9, 43-44 iterations), h and dt halved
+together, worst relative imbalance over the time levels:
+
+    interface meshes         this file                the retired projection
+    matching, lvl0/1/2   1.2e-07 5.5e-08 6.0e-08   6.1e-01 3.0e-01 1.5e-01
+    non-matching, 17/13  5.4e-04                   5.3e-01
+
+The right-hand column is order 1.00, 1.00 — the order of the projected
+gradient. OASiS's conservation check reads the trace as one component per time
+level and balances each on its own, so it returned ONE finding per time level
+for that column at every level tried (8, 16 and 32 findings) and NONE for this
+file's. The left column does not converge with h and must not be read as if it
+did: 1e-7 is the driver's fixed-point residual, not a discretisation error. On
+non-matching meshes what is left is the trace interpolation in `sample_trace`,
+paid twice per iteration. Conservation of what is APPLIED was exact by
+construction all along: the Neumann side integrates the Dirichlet side's
 density unchanged.
 
 CROSS-CODE. The same protocol against the deal.II transient participant
@@ -381,9 +407,18 @@ g_out = fem.Function(V)      # outer Dirichlet datum at t^(n+1)
 g_if = fem.Function(V)       # interface datum for the CURRENT step
 
 a = (rc / dtc) * u * v * ufl.dx + th * kc * ufl.dot(ufl.grad(u), ufl.grad(v)) * ufl.dx
-L = ((rc / dtc) * u_n * v * ufl.dx
-     - omth * kc * ufl.dot(ufl.grad(u_n), ufl.grad(v)) * ufl.dx
-     + th * f_new * v * ufl.dx + omth * f_old * v * ufl.dx)
+# THE WHOLE THETA-SCHEME LOAD EXCEPT THE INTERFACE TERM, kept in its own form.
+# It carries the OLD-STEP terms as well as the source — (M/dt) u^n, the
+# explicit stiffness -(1-THETA) A u^n, and THETA F^(n+1) + (1-THETA) F^n —
+# because the residual the flux recovery below takes is the residual of the
+# time-discrete equation, not of a steady one. Subtracting the volume source
+# alone would leave (M/dt) u^n and the explicit stiffness in the reaction and
+# the exported flux would be nonsense of size 1/dt. The ONLY thing missing from
+# L_vol is the interface term, and that omission is the whole point.
+L_vol = ((rc / dtc) * u_n * v * ufl.dx
+         - omth * kc * ufl.dot(ufl.grad(u_n), ufl.grad(v)) * ufl.dx
+         + th * f_new * v * ufl.dx + omth * f_old * v * ufl.dx)
+L = L_vol
 
 bcs = [fem.dirichletbc(g_out, outer_dofs)]
 
@@ -405,9 +440,9 @@ else:
     # The trace this side APPLIES: partner's THETA-AVERAGED flux per step,
     # UNCHANGED (see THE FLUX in the module docstring).
     imp_trace = sample_trace(imp, "normal_fluxes", Q_GUESS, y_if)
-    L += g_if * v * ds_if
+    L = L_vol + g_if * v * ds_if
 
-af, Lf = fem.form(a), fem.form(L)
+af, Lf, Lvolf = fem.form(a), fem.form(L), fem.form(L_vol)
 
 # THE THETA-SCHEME MATRIX DOES NOT DEPEND ON t. Assemble and factorize it ONCE:
 # with a fixed dt and a fixed set of constrained dofs, re-assembling per step
@@ -419,51 +454,31 @@ ksp.setOperators(A)
 ksp.setType("preonly")
 ksp.getPC().setType("lu")
 
-# Dirichlet side: the SAME form assembled with NO boundary condition, kept for
-# the reaction below. Neumann side: an L2 mass matrix for the flux projection.
-if SIDE == "dirichlet":
-    A_free = _fp.assemble_matrix(af)          # no bcs= on purpose
-    A_free.assemble()
-    wvec = _fp.assemble_vector(fem.form(v * ds_if))   # w_i = int_Gamma phi_i ds
-    wvec.ghostUpdate()
-    wi = wvec.array[iface_dofs]
-    ok = np.abs(wi) > 1e-14
-    # An interface node that ALSO lies on the outer Dirichlet boundary carries
-    # the OUTER reaction as well, so its residual is not this interface's flux.
-    # Take the nearest interior interface node rather than exporting a corner
-    # value that is physically a different quantity.
-    suspect = np.isin(iface_dofs, outer_dofs) | ~ok
-    good = np.where(~suspect)[0]
-    fixup = [(i, good[np.argmin(np.abs(good - i))])
-             for i in np.where(suspect)[0]] if len(good) else []
-else:
-    p_, w_ = ufl.TrialFunction(V), ufl.TestFunction(V)
-    Mf = fem.form(p_ * w_ * ufl.dx)
-    qLf = fem.form(-kc * default_scalar_type(S) * uh.dx(0) * w_ * ufl.dx)
-    qL0f = fem.form(-kc * default_scalar_type(S) * u_n.dx(0) * w_ * ufl.dx)
-    Mmat = _fp.assemble_matrix(Mf)
-    Mmat.assemble()
-    ksp_m = PETSc.KSP().create(domain.comm)
-    ksp_m.setOperators(Mmat)
-    ksp_m.setType("preonly")
-    ksp_m.getPC().setType("lu")
-    qh = fem.Function(V)
-
-    def _project_flux(form_):
-        rhs = _fp.assemble_vector(form_)
-        rhs.ghostUpdate()
-        ksp_m.solve(rhs, qh.x.petsc_vec)
-        qh.x.scatter_forward()
-        rhs.destroy()
-        return qh.x.array[iface_dofs].copy()
+# THE SAME OPERATOR ASSEMBLED WITH NO BOUNDARY CONDITION, plus the nodal
+# interface weight, kept for the reaction recovery in the march. BOTH sides need
+# them now: the recovery is one formula (see THE CONSISTENT FLUX below), so
+# there is nothing left that is Dirichlet-only here.
+A_free = _fp.assemble_matrix(af)          # no bcs= on purpose
+A_free.assemble()
+wvec = _fp.assemble_vector(fem.form(v * ds_if))   # w_i = int_Gamma phi_i ds
+wvec.ghostUpdate()
+wi = wvec.array[iface_dofs]
+ok = np.abs(wi) > 1e-14
+# An interface node that ALSO lies on the outer Dirichlet boundary carries the
+# OUTER reaction as well, so its residual is not this interface's flux. Take the
+# nearest interior interface node rather than exporting a corner value that is
+# physically a different quantity. This applies on BOTH sides; with
+# OUTER_FACES = "x" it never fires, because then no interface node is outer.
+suspect = np.isin(iface_dofs, outer_dofs) | ~ok
+good = np.where(~suspect)[0]
+fixup = [(i, good[np.argmin(np.abs(good - i))])
+         for i in np.where(suspect)[0]] if len(good) else []
 
 # ── initial condition ─────────────────────────────────────────────────────
 u_n.interpolate(lambda X: T_INITIAL(X[0], X[1]))
 f_old.interpolate(lambda X: F_SRC(X[0], X[1], TIMES[0]))
 T_out = np.zeros((len(iface_dofs), N_STEPS))
 Q_out = np.zeros((len(iface_dofs), N_STEPS))
-if SIDE == "neumann":
-    q_prev = _project_flux(qL0f)          # flux at t^0, for the first average
 
 # ── the march. ONE run = the WHOLE window (waveform) ──────────────────────
 for n in range(N_STEPS):
@@ -477,7 +492,13 @@ for n in range(N_STEPS):
 
     b = _fp.assemble_vector(Lf)
     b.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
-    b_free = b.copy() if SIDE == "dirichlet" else None   # no lifting, no set_bc
+    # THE SAME LOAD WITHOUT THE INTERFACE TERM, for the recovery below: no
+    # lifting and no set_bc, so the constrained rows keep their reaction. On the
+    # Dirichlet side Lvolf IS Lf and this assembly is redundant; it is done
+    # unconditionally so that the march has one code path and the recovery
+    # cannot be handed the wrong vector on one side.
+    b_vol = _fp.assemble_vector(Lvolf)
+    b_vol.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
     _fp.apply_lifting(b, [af], [bcs])
     b.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
     _fp.set_bc(b, bcs)
@@ -513,29 +534,58 @@ for n in range(N_STEPS):
     # side those rows ARE the reaction and zeroing them destroys the very
     # quantity being recovered. Dividing by w_i = int_Gamma phi_i ds turns the
     # functional into a density the partner can interpolate pointwise.
-    if SIDE == "dirichlet":
-        r = A_free.createVecLeft()
-        A_free.mult(uh.x.petsc_vec, r)
-        r.axpy(-1.0, b_free)
-        q = np.zeros(len(iface_dofs))
-        q[ok] = -r.array[iface_dofs][ok] / wi[ok]
-        for i, j in fixup:
-            q[i] = q[j]
-        r.destroy()
-        b_free.destroy()
-    else:
-        # NEUMANN SIDE: the reaction formula MUST NOT be used here. These
-        # interface DOFs are free, the discrete equations hold on them, so r is
-        # ~0 and the expression would silently export ZERO flux with no error
-        # raised. Measured on this side of the manufactured problem, every step:
-        # max|r| on the interface rows is 1.6e-16, which divided by w_i is a
-        # flux density of 1e-14 where the true flux is 1.0. This side's export
-        # is not what the partner consumes in any case — the Dirichlet partner
-        # reads its `values` — but it IS what the conservation check balances,
-        # so it must still be the THETA-average, on the same step grid.
-        q_new = _project_flux(qLf)
-        q = THETA * q_new + (1.0 - THETA) * q_prev
-        q_prev = q_new
+    #
+    # WHICH TERMS ARE IN b_vol, AND WHY EVERY ONE OF THEM IS THERE. Written out,
+    #     A_free  = M/dt + THETA*A
+    #     b_vol   = (M/dt) u^n - (1-THETA)*A u^n
+    #               + THETA F^(n+1) + (1-THETA) F^n
+    # so r = A_free u^(n+1) - b_vol is EXACTLY the r above. b_vol is the
+    # complete theta-scheme right-hand side with ONE term removed: the interface
+    # term. The old-step mass and stiffness contributions stay IN, because they
+    # are part of the equation whose residual this is; drop (M/dt) u^n and the
+    # reaction picks up a spurious (M/dt)(u^(n+1) - u^n), which is O(1/dt) and
+    # grows as the step is refined — a recovery that looks worse the finer you
+    # go. Nothing here assumes THETA = 1; for backward Euler the (1-THETA) terms
+    # vanish on their own and this reduces to (M/dt + A) u^(n+1) - (M/dt) u^n
+    # - F^(n+1).
+    #
+    # ONE FORMULA, BOTH SIDES. An earlier version of this file used the reaction
+    # only on the Dirichlet side and an L2-projected gradient on the Neumann
+    # side, on the reasoning that the Neumann interface dofs are free, so the
+    # discrete equations hold on them and r comes out ~0 (measured then: max|r|
+    # on those rows 1.6e-16). That is true only when the residual is taken
+    # against a load that ALREADY CONTAINS the interface term. Against b_vol
+    # those same rows carry exactly the interface functional the partner
+    # applied,
+    #     (A_free u^(n+1) - b_vol)_i = int_Gamma g phi_i ds,
+    # and g is the partner's THETA-AVERAGE for this step, applied unchanged — so
+    # the recovery returns the theta-average on this side too, with no explicit
+    # blend and no flux at t^0 to carry along. On the Dirichlet side there is no
+    # interface term at all, so b == b_vol and the two cases are one expression.
+    #
+    # MEASURED ON THIS FILE, on the Neumann side, by handing it a flux that
+    # VARIES along the interface — q = 2 + 3 sin(4y), held constant in time so
+    # that the step's theta-average IS q — and asking for it back. Interior
+    # interface nodes, n = 8/16/32, N_STEPS = 8, non-zero source, max error over
+    # every time level, against a true flux whose size is 2 to 5:
+    #     projected gradient   2.78, 1.42, 7.06e-01   orders 0.97, 1.01
+    #     reaction vs b_vol    1.96e-02, 4.98e-03, 1.25e-03   orders 1.98, 2.00
+    # IDENTICAL for THETA = 0.5 and THETA = 1.0, and identical to three digits
+    # with what the steady conduction participants get on the same meshes.
+    # Refining dt alone at n = 16, N_STEPS = 4/8/16/32, the recovered flux does
+    # not move at all (4.9833e-03 at every dt) — that is the check that b_vol
+    # carries the old-step terms: drop them and this column blows up as 1/dt.
+    # The Dirichlet side is untouched by the change (b == b_vol there): its
+    # export is bit-identical to the previous version's, checked.
+    r = A_free.createVecLeft()
+    A_free.mult(uh.x.petsc_vec, r)
+    r.axpy(-1.0, b_vol)
+    q = np.zeros(len(iface_dofs))
+    q[ok] = -r.array[iface_dofs][ok] / wi[ok]
+    for i, j in fixup:
+        q[i] = q[j]
+    r.destroy()
+    b_vol.destroy()
 
     T_out[:, n] = uh.x.array[iface_dofs]
     Q_out[:, n] = q

@@ -242,3 +242,30 @@ def test_no_participant_projects_the_boundary_gradient(backend):
         f"used here' branch. It is true only when the residual is taken "
         f"against a load that already contains the interface term; against "
         f"the volume load alone those rows ARE the interface functional.")
+
+
+def test_served_guidance_does_not_recommend_the_retired_recovery():
+    """What we TELL agents must match what we SHIP them.
+
+    The participants were fixed while the served FEniCSx guidance still read
+    "The exported flux is an L2 projection of -K*S*grad(T)[0] onto the same CG1
+    space" — a recommendation to do the thing every shipped participant had
+    just stopped doing. Served text that contradicts the shipped code is the
+    same defect class as a path we promise and do not have: the agent reads it
+    as an instruction and spends its budget on it.
+    """
+    import sys as _sys
+    _sys.path.insert(0, str(REPO / "src"))
+    from tools.coupling_knowledge import coupling_knowledge
+
+    for solver in ("", "fenics", "skfem", "ngsolve", "dune", "kratos", "febio"):
+        text = coupling_knowledge(solver)
+        low = text.lower()
+        # The phrasing that told agents to EXPORT a projection.
+        for bad in ("exported flux is an l2 projection",
+                    "export the l2 projection",
+                    "exported traction is an l2 projection"):
+            assert bad not in low, (
+                f"solver={solver!r}: served guidance still recommends the "
+                f"retired recovery ({bad!r}). Measured, it does not converge "
+                f"in the max norm over interior interface nodes.")

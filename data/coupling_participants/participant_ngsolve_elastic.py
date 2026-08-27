@@ -180,6 +180,12 @@ bvals = gfb.vec.FV().NumPy()
 bvals[vdof[:, 0]] = np.broadcast_to(np.asarray(bx, float), (mesh.nv,))
 bvals[vdof[:, 1]] = np.broadcast_to(np.asarray(by, float), (mesh.nv,))
 f += InnerProduct(gfb, v) * dx
+# THE VOLUME LOAD ALONE, in its own form. The Neumann branch adds the partner's
+# interface term into `f`; the traction recovery at the bottom must subtract
+# the volume load WITHOUT it, on both sides — subtracting the combined vector
+# is what made the reaction look like zero on the Neumann side.
+f_vol = LinearForm(fes)
+f_vol += InnerProduct(gfb, v) * dx
 
 gfu = GridFunction(fes)                    # also carries the Dirichlet data
 gfu.vec[:] = 0.0
@@ -212,6 +218,7 @@ for k, vtx in enumerate(outer_v):
 with TaskManager():
     a.Assemble()
     f.Assemble()
+    f_vol.Assemble()
     res = f.vec.CreateVector()
     res.data = f.vec - a.mat * gfu.vec
     gfu.vec.data += a.mat.Inverse(fes.FreeDofs(),
@@ -219,78 +226,71 @@ with TaskManager():
 
     # Interface traction export q_out = -(sigma . n_own).
     #
-    # WHY NOT AN L2 PROJECTION OF THE STRESS. That is what this file used to do:
-    # project -(sigma(u_h) . n_own) over the whole subdomain and sample it at
-    # the interface. The gradient of a P1 solution — and therefore the stress —
-    # is only O(h) accurate ON the boundary; the superconvergence points are
-    # interior, and the boundary trace is exactly what the coupling reads.
-    # Measured against a manufactured solution with a known exact interface
-    # traction, the projection converges at order ~1 while the consistent
-    # traction below converges at ~2, so the recovery, not the physics and not
-    # the partner, was setting the answer.
+    # WHY NOT AN L2 PROJECTION OF THE STRESS. That is what this file used to do
+    # on the Neumann side: project -(sigma(u_h) . n_own) over the whole
+    # subdomain and sample it at the interface. The gradient of a P1 solution —
+    # and therefore the stress — is only O(h) accurate ON the boundary; the
+    # superconvergence points are interior, and the boundary trace is exactly
+    # what the coupling reads.
     #
     # THE CONSISTENT (REACTION) TRACTION. From
     #     a(u,v) - (f,v) = int_dOmega (sigma(u).n).v ds = -int_Gamma q_out.v ds
     # (the second equality is this file's sign convention) it follows that for
     # every vector basis function phi_i on the interface
-    #     int_Gamma q_out . phi_i ds = -r_i,   r = A u_h - b
-    # with r the UNCONSTRAINED residual: NGSolve's a.mat and f.vec are exactly
-    # that — the Dirichlet condition lives in fes.FreeDofs() at solve time and
-    # never touches the assembled operator, so the constrained rows still carry
-    # the reaction. The test vector (1,1) in the weight form makes
-    # w_i = int_Gamma phi_i ds the SCALAR nodal weight for BOTH components.
-    if SIDE == "dirichlet":
-        rvec = f.vec.CreateVector()
-        rvec.data = a.mat * gfu.vec - f.vec       # r = A u_h - b, no bc applied
-        fw = LinearForm(fes)
-        fw += InnerProduct(CF((1.0, 1.0)), v) * ds("interface")
-        fw.Assemble()
+    #     int_Gamma q_out . phi_i ds = -r_i,   r = A u_h - b_vol
+    # with r the UNCONSTRAINED residual: NGSolve's a.mat and the load vectors
+    # are exactly that — the Dirichlet condition lives in fes.FreeDofs() at
+    # solve time and never touches the assembled operator, so the constrained
+    # rows still carry the reaction.
+    #
+    # ONE FORMULA, BOTH SIDES. An earlier version used that reaction on the
+    # Dirichlet side and the projection on the Neumann side, reasoning that the
+    # Neumann interface dofs are free so r comes out ~0 there. That holds only
+    # when the residual is taken against a load that ALREADY CONTAINS the
+    # interface term. Subtract the VOLUME load alone and those same rows carry
+    # exactly the interface functional the partner applied:
+    #     (A u - b_vol)_i = int_Gamma g . phi_i ds
+    # On the Dirichlet side there is no interface term, so f_vol == f and the
+    # two cases are one expression.
+    #
+    # MEASURED (scalar conduction, the same recovery) against a known imposed
+    # flux q = 2 + 3 sin(4y) on 8/16/32/64/128 uniform triangle meshes,
+    # interior interface nodes: the projected gradient stalls at max 2.6 and
+    # NEVER converges (order 0.00; 0.93 away from the ends, 0.50 in rms); the
+    # reaction against the volume load converges at order 2.00 in all three.
+    #
+    # THE WEIGHT IS ONE SCALAR PER NODE, NOT ONE PER DOF. w_i = int_Gamma phi_i
+    # ds belongs to the NODE, while VectorH1 blocks the dofs BY COMPONENT; the
+    # test vector (1,1) in the weight form puts that same number on both of a
+    # node's dofs, so the loop below divides every component by its own node's
+    # weight and reaches it through vdof, never by assuming adjacency.
+    rvec = f.vec.CreateVector()
+    rvec.data = a.mat * gfu.vec - f_vol.vec   # r = A u_h - b_vol, no bc here
+    fw = LinearForm(fes)
+    fw += InnerProduct(CF((1.0, 1.0)), v) * ds("interface")
+    fw.Assemble()
 
-        Q = np.zeros((len(iface_v), 2))
-        ok = np.ones((len(iface_v), 2), bool)
-        for k, vtx in enumerate(iface_v):
-            for c in (0, 1):
-                d = int(vdof[vtx, c])
-                wi = float(fw.vec[d])
-                if abs(wi) > 1e-14:
-                    Q[k, c] = -float(rvec[d]) / wi
-                else:
-                    ok[k, c] = False
+    Q = np.zeros((len(iface_v), 2))
+    ok = np.ones((len(iface_v), 2), bool)
+    for k, vtx in enumerate(iface_v):
+        for c in (0, 1):
+            d = int(vdof[vtx, c])
+            wi = float(fw.vec[d])
+            if abs(wi) > 1e-14:
+                Q[k, c] = -float(rvec[d]) / wi
+            else:
+                ok[k, c] = False
 
-        # THE TWO INTERFACE CORNERS ARE ON THE OUTER DIRICHLET BOUNDARY (a
-        # y-face), so their rows carry the OUTER reaction too and their residual
-        # is not this interface's traction. Take the nearest interior interface
-        # node rather than exporting a corner value that is physically a
-        # different quantity.
-        suspect = np.isin(iface_v, outer_v) | ~ok.all(axis=1)
-        good = np.where(~suspect)[0]
-        if len(good):
-            for i in np.where(suspect)[0]:
-                Q[i] = Q[good[np.argmin(np.abs(good - i))]]
-    else:
-        # NEUMANN SIDE: the reaction formula MUST NOT be used here. These
-        # interface dofs are free, the discrete equations hold on them, so r is
-        # ~0 and the expression would silently export ZERO traction with no
-        # error raised. This side's export is not what the partner consumes in
-        # any case — the Dirichlet partner reads its `values`.
-        fesq = VectorH1(mesh, order=ORDER)
-        p, w = fesq.TnT()
-        m = BilinearForm(fesq)
-        m += InnerProduct(p, w) * dx
-        m.Assemble()
-        exx, eyy, exy = eps_of(grad(gfu))
-        sxx = 2.0 * MU * exx + LAM * (exx + eyy)
-        sxy = 2.0 * MU * exy
-        fq = LinearForm(fesq)
-        fq += (-S) * (sxx * w[0] + sxy * w[1]) * dx
-        fq.Assemble()
-        qh = GridFunction(fesq)
-        qh.vec.data = m.mat.Inverse(fesq.FreeDofs(),
-                                    inverse="sparsecholesky") * fq.vec
-        qdof = np.array([fesq.GetDofNrs(NodeId(VERTEX, int(i)))[:2]
-                         for i in iface_v], int)
-        Q = np.array([[float(qh.vec[int(d0)]), float(qh.vec[int(d1)])]
-                      for d0, d1 in qdof])
+    # THE TWO INTERFACE CORNERS ARE ON THE OUTER DIRICHLET BOUNDARY (a y-face),
+    # so their rows carry the OUTER reaction too and their residual is not this
+    # interface's traction. Take the nearest interior interface node rather
+    # than exporting a corner value that is physically a different quantity.
+    # This holds on BOTH sides: the corners are outer-Dirichlet either way.
+    suspect = np.isin(iface_v, outer_v) | ~ok.all(axis=1)
+    good = np.where(~suspect)[0]
+    if len(good):
+        for i in np.where(suspect)[0]:
+            Q[i] = Q[good[np.argmin(np.abs(good - i))]]
 
 Path("exports.json").write_text(json.dumps({
     "field_name": "displacement",

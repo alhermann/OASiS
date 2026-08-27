@@ -431,7 +431,12 @@ def main():
     u, v = TrialFunction(space), TestFunction(space)
     a_form = Constant(K, name="k_cond") * dot(grad(u), grad(v)) * dx
     fsrc = source_function(space, xd)
-    b_form = fsrc * v * dx
+    # THE VOLUME LOAD ALONE, kept under its own name.  The Neumann branch below
+    # adds the partner's interface term into `b_form`; the flux recovery
+    # subtracts THIS, on both sides — subtracting the combined form is what made
+    # the reaction look like zero on the Neumann side.
+    b_vol = fsrc * v * dx
+    b_form = b_vol
 
     imp = read_imports()
 
@@ -462,7 +467,9 @@ def main():
     else:
         # APPLY the partner's number UNCHANGED: + int_Gamma g v ds  (see the
         # sign block in the header).  The carrier is a discrete function so the
-        # form is fixed; only its dof values move between iterations.
+        # form is fixed; only its dof values move between iterations.  `b_vol`
+        # above still holds the VOLUME load alone — the flux recovery subtracts
+        # that, not this, and the distinction is the whole point.
         gflx = space.interpolate(0, name="iface_flux")
         gf = gflx.as_numpy
         gf[:] = 0.0
@@ -487,102 +494,113 @@ def main():
     wfun = assemble(conditional(lt(abs(x[AX] - float(IFACE_POS)), EPS), v, 0.0) * ds)
     w = np.array(wfun.as_numpy)[iface_dofs]
 
-    # THE UNCONSTRAINED RESIDUAL r = A u_h - b, assembled ONCE: the Dirichlet
-    # side's interface flux and BOTH sides' conservation check are the same
-    # vector read two ways.  `scheme` cannot supply it — it carries the
-    # DirichletBCs and so overwrites exactly the constrained rows that ARE the
-    # reaction.  A second operator built from the SAME form MINUS the bcs gives
-    # it in one application.
-    op_free = operator_galerkin([a_form == b_form])       # same form, no bcs
+    # THE UNCONSTRAINED RESIDUAL r = A u_h - b_vol, assembled ONCE: BOTH sides'
+    # interface flux and BOTH sides' conservation check are the same vector read
+    # two ways.  `scheme` cannot supply it — it carries the DirichletBCs and so
+    # overwrites exactly the constrained rows that ARE the reaction.  A second
+    # operator built from the SAME form MINUS the bcs gives it in one
+    # application.  The load it is taken against is the VOLUME one, b_vol, NOT
+    # the b_form the scheme solved: see the recovery immediately below.
+    op_free = operator_galerkin([a_form == b_vol])        # volume load, no bcs
     rfun = space.interpolate(0, name="residual")
     op_free(uh, rfun)
     rv = np.array(rfun.as_numpy)
 
-    if SIDE == "dirichlet":
-        # ── THE CONSISTENT (REACTION) FLUX ──────────────────────────────────
-        # WHY NOT AN L2 PROJECTION OF THE GRADIENT.  The gradient of a Q1/P1
-        # solution is only O(h) accurate ON the boundary — the superconvergence
-        # points are interior — and the boundary trace is exactly what the
-        # coupling reads.  Measured against the manufactured solution, a
-        # projection converges at ~1 while this recovery converges at ~2.
-        #
-        # From  a(u,v) - (f,v) = int_dOmega (K grad u . n) v ds
-        #                      = -int_Gamma qn v ds
-        # it follows that for every basis function phi_i on the interface
-        #     int_Gamma qn phi_i ds = -r_i,   r = A u_h - b
-        # with r the UNCONSTRAINED residual assembled just above.  Dividing by
-        # the FACE-AREA weight w_i turns the functional into a density the
-        # partner can interpolate pointwise.
-        r = rv[iface_dofs]
+    # ── THE CONSISTENT (REACTION) FLUX — ONE FORMULA, BOTH SIDES ────────────
+    # WHY NOT AN L2 PROJECTION OF THE GRADIENT.  The gradient of a Q1/P1
+    # solution is only O(h) accurate ON the boundary — the superconvergence
+    # points are interior — and the boundary trace is exactly what the coupling
+    # reads.  Measured against the manufactured solution, a projection converges
+    # at ~1 while this recovery converges at ~2.
+    #
+    # From  a(u,v) - (f,v) = int_dOmega (K grad u . n) v ds
+    #                      = -int_Gamma qn v ds
+    # it follows that for every basis function phi_i on the interface
+    #     int_Gamma qn phi_i ds = -r_i,   r = A u_h - b_vol
+    # with r the UNCONSTRAINED residual assembled just above.  Dividing by the
+    # FACE-AREA weight w_i turns the functional into a density the partner can
+    # interpolate pointwise.
+    #
+    # THE LOAD IS THE VOLUME ONE, AND THAT IS THE WHOLE DIFFERENCE.  An earlier
+    # version used this reaction on the Dirichlet side only and an L2-projected
+    # gradient on the Neumann side, reasoning that the Neumann interface dofs
+    # are free, so r comes out ~0 there.  That holds only when the residual is
+    # taken against a load that ALREADY CONTAINS the interface term.  Against
+    # b_vol those same free rows carry exactly the interface functional the
+    # partner applied,  (A u - b_vol)_i = int_Gamma g phi_i ds,  and the export
+    # comes back as -g — this file's sign convention, the two sides' fluxes
+    # cancelling.  On the Dirichlet side there is no interface term, so
+    # b_form == b_vol and the two cases are one expression.
+    #
+    # MEASURED (FEniCSx, the 2-D version of this same formulation) against a
+    # known imposed flux q = 2 + 3 sin(4y) on 8/16/32/64/128 uniform meshes,
+    # interior interface nodes: the projected gradient stalls at max 2.6 and
+    # does NOT converge (order 0.00; 0.93 away from the ends, 0.50 in rms),
+    # while the reaction against b_vol converges at order 2.00 in all three
+    # norms.
+    r = rv[iface_dofs]
 
-        Q = np.zeros(len(iface_dofs))
-        ok = np.abs(w) > 1e-14 * max(1.0, float(np.max(np.abs(w))))
-        Q[ok] = -r[ok] / w[ok]
-        Q_raw = Q.copy()
+    Q = np.zeros(len(iface_dofs))
+    ok = np.abs(w) > 1e-14 * max(1.0, float(np.max(np.abs(w))))
+    Q[ok] = -r[ok] / w[ok]
+    Q_raw = Q.copy()
 
-        # ── THE EDGE GUARD — in 3-D the "corner" is a whole EDGE ─────────────
-        # An interface dof that ALSO lies on an outer Dirichlet face carries
-        # the OUTER reaction as well, so its residual is not this interface's
-        # flux.  In 2-D that is TWO nodes.  In 3-D the interface is a plane and
-        # the affected set is its entire RIM: 4n of (n+1)^2 dofs — 96 of 625
-        # (15%) at n=24, against 2 of 25 (8%) in 2-D at the same n.  MEASURED
-        # on the manufactured problem, leaving them raw costs the
-        # whole-interface flux its order outright (0.50 instead of 1.8) and
-        # inflates its L2 error by 83x at n=24 (15.6 against 0.188).  They are
-        # replaced by the nearest interior interface dof — nearest in the
-        # PLANE, over both coordinates, not along one of them.
-        suspect = edge | ~ok
-        good = np.where(~suspect)[0]
-        if len(good):
-            gp = pts[good]
-            for i in np.where(suspect)[0]:
-                d = ((gp - pts[i]) ** 2).sum(1)
-                Q[i] = Q[good[int(d.argmin())]]
-        elif suspect.any():
-            print(f"[dune3d {SIDE}] WARNING: every interface dof is also on an "
-                  f"outer Dirichlet face; no clean reaction exists anywhere on "
-                  f"this interface and the exported flux is the raw one.")
-    else:
-        # ── NEUMANN SIDE: the reaction formula MUST NOT be used here ────────
-        # These interface dofs are FREE: the discrete equations hold on them,
-        # so r = A u - b is ~0 there (round-off) and -r/w would export a flux
-        # of ZERO with no error raised anywhere.  What this side knows exactly
-        # is the flux it was HANDED; what it computes is the trace of its own
-        # gradient.  So the export is an L2 projection of that gradient — an
-        # O(h) recovery on the boundary, acceptable HERE AND ONLY HERE, because
-        # a Dirichlet partner reads this participant's `values`, never its
-        # `normal_fluxes`.
-        p_, w_ = TrialFunction(space), TestFunction(space)
-        proj = galerkin([p_ * w_ * dx == -Constant(K * S, name="mks")
-                         * grad(uh)[AX] * w_ * dx], solver="cg")
-        qh = space.interpolate(0, name="normal_flux")
-        proj.solve(target=qh)
-        Q = np.array(qh.as_numpy)[iface_dofs]
-        Q_raw = Q.copy()
+    # ── THE EDGE GUARD — in 3-D the "corner" is a whole EDGE ────────────────
+    # An interface dof that ALSO lies on an outer Dirichlet face carries the
+    # OUTER reaction as well, so its residual is not this interface's flux.
+    # That is true on BOTH sides: the rim is Dirichlet-constrained whichever
+    # role this subdomain plays, because the outer condition wins there.  In
+    # 2-D the affected set is TWO nodes.  In 3-D the interface is a plane and
+    # it is the entire RIM: 4n of (n+1)^2 dofs — 96 of 625 (15%) at n=24,
+    # against 2 of 25 (8%) in 2-D at the same n.  MEASURED on the manufactured
+    # problem, leaving them raw costs the whole-interface flux its order
+    # outright (0.50 instead of 1.8) and inflates its L2 error by 83x at n=24
+    # (15.6 against 0.188).  They are replaced by the nearest interior
+    # interface dof — nearest in the PLANE, over both coordinates, not along
+    # one of them.
+    suspect = edge | ~ok
+    good = np.where(~suspect)[0]
+    if len(good):
+        gp = pts[good]
+        for i in np.where(suspect)[0]:
+            d = ((gp - pts[i]) ** 2).sum(1)
+            Q[i] = Q[good[int(d.argmin())]]
+    elif suspect.any():
+        print(f"[dune3d {SIDE}] WARNING: every interface dof is also on an "
+              f"outer Dirichlet face; no clean reaction exists anywhere on "
+              f"this interface and the exported flux is the raw one.")
 
     T = np.array(uh.as_numpy)[iface_dofs]
 
     # ── CONSERVATION SELF-CHECK: the discrete divergence theorem ─────────────
-    # Summing the unconstrained residual r = A u - b over ALL dofs gives
-    # sum_i r_i = -sum_i b_i, because sum_i A_ij = int K grad(sum_i phi_i) .
-    # grad phi_j = 0 (the phi_i are a partition of unity).  r vanishes on free
-    # rows, so over the CONSTRAINED rows alone
+    # Summing the unconstrained residual of the FULL system, A u - b_form, over
+    # ALL dofs gives -sum_i (b_form)_i, because sum_i A_ij = int K grad(sum_i
+    # phi_i) . grad phi_j = 0 (the phi_i are a partition of unity).  That
+    # residual vanishes on free rows, so over the CONSTRAINED rows alone
     #     sum_{fixed} r_i + int_Omega f dOmega + int_Gamma q_applied ds = 0
     # exactly, at round-off, for ANY mesh — the interface term being present
     # only on the Neumann side (on the Dirichlet side those rows are themselves
     # fixed and already counted).  It is not a discretisation check: it fails
     # only if the flux was applied with the wrong sign or magnitude, if the
     # area weights are wrong, or if the load was never assembled.
+    #
+    # `rv` above is taken against the VOLUME load, which is what makes the flux
+    # recovery work on both sides, so the applied interface load has to be put
+    # back HERE as a VECTOR — not just as its sum — before the constrained rows
+    # can be read as reactions: an interface dof on the rim is a constrained row
+    # that also carries part of that load.  On the Dirichlet side there is no
+    # interface term and `gvec` is zero, so this is the same statement as ever.
+    gvec = np.zeros_like(rv)
+    if SIDE != "dirichlet":
+        gvec = np.array(assemble(
+            conditional(lt(abs(x[AX] - float(IFACE_POS)), EPS), gflx * v, 0.0)
+            * ds).as_numpy)
     fixed = outer_mask.copy()
     if SIDE == "dirichlet":
         fixed[iface_dofs] = True
-    react = float(rv[fixed].sum())
-    load_vol = float(np.array(assemble(fsrc * v * dx).as_numpy).sum())
-    load_if = 0.0
-    if SIDE != "dirichlet":
-        load_if = float(np.array(assemble(
-            conditional(lt(abs(x[AX] - float(IFACE_POS)), EPS), gflx * v, 0.0)
-            * ds).as_numpy).sum())
+    react = float((rv - gvec)[fixed].sum())
+    load_vol = float(np.array(assemble(b_vol).as_numpy).sum())
+    load_if = float(gvec.sum())
     imb = abs(react + load_vol + load_if)
     scale = max(abs(react), abs(load_vol), abs(load_if))
     # With no volumetric source and no applied interface flux every term in the

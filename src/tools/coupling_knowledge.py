@@ -1891,10 +1891,21 @@ def _fenics() -> str:
 * `V.tabulate_dof_coordinates()` gives the DOF coordinates that
   `x.array` is indexed by — use those, not the mesh geometry nodes, or the
   interface values land on the wrong entries for anything above P1.
-* The exported flux is an L2 projection of `-K*S*grad(T)[0]` onto the same CG1
-  space, so it is defined at exactly the interface DOFs. Do not finite-difference
-  towards an "adjacent" node: on an unstructured triangle mesh the nearest
-  interior node is not normal to the interface.
+* The exported flux is the CONSISTENT (reaction) flux, not a projected
+  gradient: assemble the residual against the VOLUME load alone,
+  `r = A u_h - b_vol` with no boundary condition applied and the constrained
+  rows NOT zeroed, and divide by `w_i = int_Gamma phi_i ds` to get a density,
+  `q_i = -r_i / w_i`. This is ONE expression for both sides — on the Dirichlet
+  side there is no interface term so `b == b_vol`, and on the Neumann side the
+  same rows carry exactly the interface functional the partner applied.
+  Measured against a known imposed flux on 8/16/32/64/128 meshes: this
+  converges at order 2.00, while an L2 projection of `-K*S*grad(T)[0]` — which
+  this guidance used to recommend — does not converge at all in the max norm
+  over interior interface nodes (order 0.00; 0.93 away from the ends, 0.50 in
+  rms). The recovery, not the physics and not the partner, sets the graded
+  order on a coupled task. And do not finite-difference towards an "adjacent"
+  node either: on an unstructured triangle mesh the nearest interior node is
+  not normal to the interface.
 * Run FEniCSx participants serially (one MPI rank). Under `mpirun` each rank
   would write its own `exports.json` over the others.''')
 

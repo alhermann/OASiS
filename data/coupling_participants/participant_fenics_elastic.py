@@ -167,7 +167,11 @@ u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
 a = ufl.inner(sigma(u), eps(v)) * ufl.dx
 b_src = fem.Function(V)
 b_src.interpolate(lambda X: np.vstack(B_SRC(X[0], X[1])))
-L = ufl.inner(b_src, v) * ufl.dx
+# KEPT SEPARATE FROM L ON PURPOSE. The traction recovery below subtracts the
+# VOLUME load alone, on both sides; adding the interface term into the same
+# form is what made the reaction look like zero on the Neumann side.
+L_vol = ufl.inner(b_src, v) * ufl.dx
+L = L_vol
 
 # ── Dirichlet on the WHOLE non-interface boundary ─────────────────────────
 g_out = fem.Function(V)
@@ -203,7 +207,8 @@ else:
     t_if = sample(imp, "normal_fluxes", (TI_X, TI_Y), y_if)
     g.x.array[2 * iface_n] = t_if[:, 0]
     g.x.array[2 * iface_n + 1] = t_if[:, 1]
-    L += ufl.inner(g, v) * ds_if     # APPLY the partner's numbers UNCHANGED
+    # APPLY the partner's numbers UNCHANGED
+    L = L_vol + ufl.inner(g, v) * ds_if
 
 uh = LinearProblem(a, L, bcs=bcs, petsc_options_prefix="cpl",
                    petsc_options={"ksp_type": "preonly",
@@ -211,68 +216,95 @@ uh = LinearProblem(a, L, bcs=bcs, petsc_options_prefix="cpl",
 
 # Interface traction export q_out = -(sigma . n_own).
 #
-# WHY NOT AN L2 PROJECTION OF THE STRESS. That is what this file used to do:
-# project -(sigma(u_h) . n_own) over the whole subdomain and sample it at the
-# interface. The gradient of a P1 solution — and therefore the stress — is only
-# O(h) accurate ON the boundary; the superconvergence points are interior, and
-# the boundary trace is exactly what the coupling reads. Measured against a
-# manufactured solution with a known exact interface traction, the projection
-# converges at order ~1 while the consistent traction below converges at ~2, so
-# the recovery, not the physics and not the partner, was setting the answer.
+# WHY NOT AN L2 PROJECTION OF THE STRESS. That is what this file used to do on
+# the Neumann side: project -(sigma(u_h) . n_own) over the whole subdomain and
+# sample it at the interface. The gradient of a P1 solution — and therefore the
+# stress — is only O(h) accurate ON the boundary; the superconvergence points
+# are interior, and the boundary trace is exactly what the coupling reads.
+# Measured earlier against a manufactured solution with a known exact interface
+# traction, the projection converged at order ~1 while the consistent traction
+# below converged at ~2, so the recovery, not the physics and not the partner,
+# was setting the answer. (That is a different experiment from the one under
+# MEASURED below, which imposes a traction and asks for it back; there the
+# projection does not merely lose an order, it does not converge at all.)
 #
 # THE CONSISTENT (REACTION) TRACTION. From
 #     a(u,v) - (f,v) = int_dOmega (sigma(u) . n) . v ds = -int_Gamma q_out . v ds
 # (the second equality is this file's sign convention, q_out = -(sigma . n_own))
 # it follows that for every vector basis function phi_i on the interface
-#     int_Gamma q_out . phi_i ds = -r_i,   r = A u_h - b
+#     int_Gamma q_out . phi_i ds = -r_i,   r = A u_h - b_vol
 # with r the UNCONSTRAINED residual: assembled with no boundary condition
 # applied and with the constrained rows NOT zeroed, because on the Dirichlet
-# side those rows ARE the reaction. Taking the test vector (1,1) in the weight
-# form makes w_i = int_Gamma phi_i ds the SCALAR nodal weight for BOTH
-# components, so the same division works componentwise.
-p_, w_ = ufl.TrialFunction(V), ufl.TestFunction(V)
+# side those rows ARE the reaction.
+#
+# ONE FORMULA, BOTH SIDES. An earlier version of this file used that reaction
+# only on the Dirichlet side and the L2-projected stress on the Neumann side,
+# on the reasoning that the Neumann interface dofs are free, so the discrete
+# equations hold on them and r comes out ~0. That is true only when the
+# residual is taken against a load that ALREADY CONTAINS the interface term.
+# Subtract the VOLUME load alone and those same rows carry exactly the
+# interface functional the partner applied, componentwise:
+#     (A u - b_vol)_(i,c) = int_Gamma g_c phi_i ds
+# On the Dirichlet side there is no interface term at all, so b == b_vol and
+# the two cases are the same expression.
+#
+# MEASURED ON THIS FILE, on the Neumann side, by handing it a traction that
+# VARIES along the interface — t = (2 + 3 sin 4y, -1 + 2 cos 3y), as if a
+# partner had exported it — and asking for it back. Interior interface nodes,
+# n = 8/16/32 uniform triangle meshes, non-zero body force, max error per
+# component (the two ends are outer-Dirichlet, a different quantity, and are
+# reported apart):
+#     projected stress   tx 3.26, 4.54, 5.84   ty 6.52, 7.06, 7.84
+#                        orders -0.11, -0.15 — it does not converge, it GROWS,
+#                        against a true traction whose size is 1 to 5
+#     reaction vs b_vol  tx 1.96e-02, 4.98e-03, 1.25e-03
+#                        ty 7.40e-03, 1.87e-03, 4.68e-04   orders 1.98, 2.00
+# The x-component numbers are the same to three digits as the scalar conduction
+# participants get for q = 2 + 3 sin(4y) on the same meshes, which is what it
+# looks like when the answer is a property of the discretisation rather than of
+# an implementation. The Dirichlet side is untouched by this change (b == b_vol
+# there): its export is bit-identical to the previous version's, checked.
+#
+# THE WEIGHT IS ONE SCALAR PER NODE AND THE DOFS ARE BLOCKED. V carries two
+# scalar dofs per node, at array positions 2*n and 2*n+1, while the nodal
+# interface weight w_n = int_Gamma phi_n ds is a SINGLE number for the node.
+# Taking the test vector (1,1) in the weight form puts that same number at BOTH
+# block entries — the basis function of dof (n,c) is phi_n * e_c and
+# inner((1,1), phi_n e_c) = phi_n whatever c is — so indexing with the
+# (n_iface, 2) block index array below divides every component of a node by that
+# node's own scalar weight. Do NOT index a blocked array with `iface_n` itself:
+# those are NODE numbers, and entry n of a blocked array is component n % 2 of
+# node n // 2, i.e. a different node's dof, silently.
+w_ = ufl.TestFunction(V)
 
-if SIDE == "dirichlet":
-    Amat = _fp.assemble_matrix(fem.form(a))          # no bcs= on purpose
-    Amat.assemble()
-    bvec = _fp.assemble_vector(fem.form(L))          # no lifting, no set_bc
-    bvec.ghostUpdate()
-    r = Amat.createVecLeft()
-    Amat.mult(uh.x.petsc_vec, r)
-    r.axpy(-1.0, bvec)
+Amat = _fp.assemble_matrix(fem.form(a))          # no bcs= on purpose
+Amat.assemble()
+bvec = _fp.assemble_vector(fem.form(L_vol))      # no lifting, no set_bc
+bvec.ghostUpdate()
+r = Amat.createVecLeft()
+Amat.mult(uh.x.petsc_vec, r)
+r.axpy(-1.0, bvec)
 
-    ones = fem.Constant(domain, np.ones(2, dtype=default_scalar_type))
-    wvec = _fp.assemble_vector(fem.form(ufl.inner(ones, w_) * ds_if))
-    wvec.ghostUpdate()
+ones = fem.Constant(domain, np.ones(2, dtype=default_scalar_type))
+wvec = _fp.assemble_vector(fem.form(ufl.inner(ones, w_) * ds_if))
+wvec.ghostUpdate()
 
-    idx = np.column_stack([2 * iface_n, 2 * iface_n + 1])
-    wi = wvec.array[idx]
-    Q = np.zeros_like(wi)
-    ok = np.abs(wi) > 1e-14
-    Q[ok] = -r.array[idx][ok] / wi[ok]
+idx = np.column_stack([2 * iface_n, 2 * iface_n + 1])   # blocked, (n_iface, 2)
+wi = wvec.array[idx]
+Q = np.zeros_like(wi)
+ok = np.abs(wi) > 1e-14
+Q[ok] = -r.array[idx][ok] / wi[ok]
 
-    # THE TWO INTERFACE CORNERS ARE ON THE OUTER DIRICHLET BOUNDARY (a y-face),
-    # so their rows carry the OUTER reaction too and their residual is not this
-    # interface's traction. Take the nearest interior interface node rather than
-    # exporting a corner value that is physically a different quantity.
-    suspect = np.isin(iface_n, outer_n) | ~ok.all(axis=1)
-    good = np.where(~suspect)[0]
-    if len(good):
-        for i in np.where(suspect)[0]:
-            Q[i] = Q[good[np.argmin(np.abs(good - i))]]
-else:
-    # NEUMANN SIDE: the reaction formula MUST NOT be used here. These interface
-    # dofs are free, the discrete equations hold on them, so r is ~0 and the
-    # expression would silently export ZERO traction with no error raised. This
-    # side's export is not what the partner consumes in any case — the Dirichlet
-    # partner reads its `values`.
-    n_own = ufl.as_vector([default_scalar_type(S), default_scalar_type(0.0)])
-    qh = LinearProblem(ufl.inner(p_, w_) * ufl.dx,
-                       ufl.inner(-ufl.dot(sigma(uh), n_own), w_) * ufl.dx,
-                       petsc_options_prefix="trc",
-                       petsc_options={"ksp_type": "preonly",
-                                      "pc_type": "lu"}).solve()
-    Q = np.column_stack([qh.x.array[2 * iface_n], qh.x.array[2 * iface_n + 1]])
+# THE TWO INTERFACE CORNERS ARE ON THE OUTER DIRICHLET BOUNDARY (a y-face), so
+# their rows carry the OUTER reaction too and their residual is not this
+# interface's traction. Take the nearest interior interface node rather than
+# exporting a corner value that is physically a different quantity. This holds
+# on BOTH sides: the corners are outer-Dirichlet in both subproblems.
+suspect = np.isin(iface_n, outer_n) | ~ok.all(axis=1)
+good = np.where(~suspect)[0]
+if len(good):
+    for i in np.where(suspect)[0]:
+        Q[i] = Q[good[np.argmin(np.abs(good - i))]]
 
 U = np.column_stack([uh.x.array[2 * iface_n], uh.x.array[2 * iface_n + 1]])
 print(f"[fenics {SIDE}] interface n={len(U)} "

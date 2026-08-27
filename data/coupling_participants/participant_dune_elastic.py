@@ -82,7 +82,7 @@ from dune.fem.operator import galerkin as operator_galerkin
 from dune.fem.scheme import galerkin
 from dune.fem.space import lagrange
 from dune.grid import structuredGrid
-from dune.ufl import Constant, DirichletBC
+from dune.ufl import DirichletBC
 from ufl import (Identity, SpatialCoordinate, TestFunction, TrialFunction,
                  as_vector, conditional, dot, ds, dx, grad, inner, lt, sym, tr)
 
@@ -247,7 +247,12 @@ bdofs = bfun.as_numpy
 bx, by = B_SRC(xd, yd)                     # xd, yd are the per-NODE coordinates
 bdofs[0::2] = np.broadcast_to(np.asarray(bx, float), xd.shape)
 bdofs[1::2] = np.broadcast_to(np.asarray(by, float), yd.shape)
-b = dot(bfun, v) * dx
+# THE VOLUME LOAD ALONE, kept under its own name. The Neumann branch below adds
+# the partner's interface term into `b`; the traction recovery at the bottom
+# subtracts THIS, on both sides — subtracting the combined form is what made the
+# reaction look like zero on the Neumann side.
+b_vol = dot(bfun, v) * dx
+b = b_vol
 
 # ── boundary indicators ───────────────────────────────────────────────────
 on_outer = conditional(lt(abs(x[0] - OUTER_X), EPS), 1,
@@ -280,7 +285,9 @@ else:
     tdofs[:] = 0.0
     tdofs[2 * iface_n] = t_if[:, 0]
     tdofs[2 * iface_n + 1] = t_if[:, 1]
-    # APPLY the partner's numbers UNCHANGED (+ integral(g . v) ds_interface)
+    # APPLY the partner's numbers UNCHANGED (+ integral(g . v) ds_interface).
+    # `b_vol` above still holds the VOLUME load alone — the traction recovery
+    # subtracts that, not this, and the distinction is the whole point.
     b = b + conditional(lt(abs(x[0] - IFACE_X), EPS), dot(tfun, v), 0.0) * ds
     bc_where = on_outer
 
@@ -290,69 +297,74 @@ scheme.solve(target=uh)
 
 # Interface traction export q_out = -(sigma . n_own).
 #
-# WHY NOT AN L2 PROJECTION OF THE STRESS. That is what the sibling participants
-# used to do: project -(sigma(u_h) . n_own) over the whole subdomain and sample
-# it at the interface. The gradient of a P1/Q1 solution — and therefore the
-# stress — is only O(h) accurate ON the boundary; the superconvergence points
-# are interior, and the boundary trace is exactly what the coupling reads.
-# Measured against a manufactured solution with a known exact interface
-# traction, the projection converges at order ~1 while the consistent traction
-# below converges at ~2, so the recovery, not the physics and not the partner,
-# was setting the answer.
+# WHY NOT AN L2 PROJECTION OF THE STRESS. That is what this file and its
+# siblings used to do on the Neumann side: project -(sigma(u_h) . n_own) over
+# the whole subdomain and sample it at the interface. The gradient of a P1/Q1
+# solution — and therefore the stress — is only O(h) accurate ON the boundary;
+# the superconvergence points are interior, and the boundary trace is exactly
+# what the coupling reads. Measured against a manufactured solution with a known
+# exact interface traction, the projection converges at order ~1 while the
+# consistent traction below converges at ~2, so the recovery, not the physics
+# and not the partner, was setting the answer.
 #
-# THE CONSISTENT (REACTION) TRACTION. From
+# THE CONSISTENT (REACTION) TRACTION — ONE FORMULA, BOTH SIDES. From
 #     a(u,v) - (f,v) = int_dOmega (sigma(u) . n) . v ds = -int_Gamma q_out . v ds
 # (the second equality is this file's sign convention, q_out = -(sigma . n_own))
 # it follows that for every vector basis function phi_i on the interface
-#     int_Gamma q_out . phi_i ds = -r_i,   r = A u_h - b
-# with r the UNCONSTRAINED residual, b the FULL right-hand side (body force
-# included — drop it and the reaction is wrong by the load it carries).
+#     int_Gamma q_out . phi_i ds = -r_i,   r = A u_h - b_vol
+# with r the UNCONSTRAINED residual and b_vol the VOLUME load ALONE: the body
+# force and nothing from the interface. Drop the body force and the reaction is
+# wrong by the load it carries; leave the interface term in and the Neumann side
+# reads back zero.
+#
+# THAT SECOND FAILURE IS WHY THERE IS NO LONGER A SECOND BRANCH HERE. An earlier
+# version used this reaction on the Dirichlet side and the projected stress on
+# the Neumann side, reasoning that the Neumann interface dofs are free, so r
+# comes out ~0 there. That holds only when the residual is taken against a load
+# that ALREADY CONTAINS the interface term. Against b_vol those same rows carry
+# exactly the interface functional the partner applied, int_Gamma t . phi_i ds,
+# so the export comes back as -t — this file's sign convention, the two sides'
+# tractions cancelling. On the Dirichlet side there is no interface term, so
+# b == b_vol and the two cases are one expression.
+#
+# MEASURED (FEniCSx, the scalar conduction version of the same formulation)
+# against a known imposed flux q = 2 + 3 sin(4y) on 8/16/32/64/128 uniform
+# meshes, interior interface nodes: the projected gradient stalls at max 2.6 and
+# does NOT converge (order 0.00; 0.93 away from the ends, 0.50 in rms), while
+# the reaction against b_vol converges at order 2.00 in all three norms.
+#
 # `scheme` cannot supply r: it carries the DirichletBC and so overwrites exactly
 # the constrained rows that ARE the reaction. A second operator built from the
 # SAME forms MINUS the DirichletBC gives the unconstrained residual in one
 # application. Taking the test vector (1,1) in the weight form makes
-# w_i = int_Gamma phi_i ds the SCALAR nodal weight for BOTH components, so the
-# same division works componentwise, and dividing by it turns the functional
-# into a density the partner can interpolate pointwise.
-if SIDE == "dirichlet":
-    op_free = operator_galerkin([a == b])       # same forms, no DirichletBC
-    rfun = space.interpolate(as_vector([0.0, 0.0]), name="residual")
-    op_free(uh, rfun)                           # r = A u_h - b
-    r = np.array(rfun.as_numpy)
+# w_i = int_Gamma phi_i ds the SCALAR nodal weight of the NODE, the same number
+# in both of its interleaved dof slots, so one componentwise division by wt[idx]
+# divides every component of a node by that node's weight and turns the
+# functional into a density the partner can interpolate pointwise.
+op_free = operator_galerkin([a == b_vol])   # volume load, no DirichletBC
+rfun = space.interpolate(as_vector([0.0, 0.0]), name="residual")
+op_free(uh, rfun)                           # r = A u_h - b_vol
+r = np.array(rfun.as_numpy)
 
-    wfun = assemble(conditional(lt(abs(x[0] - IFACE_X), EPS),
-                                v[0] + v[1], 0.0) * ds)
-    wt = np.array(wfun.as_numpy)                # w_i = int_Gamma phi_i ds
+wfun = assemble(conditional(lt(abs(x[0] - IFACE_X), EPS),
+                            v[0] + v[1], 0.0) * ds)
+wt = np.array(wfun.as_numpy)                # w_i = int_Gamma phi_i ds
 
-    idx = np.column_stack([2 * iface_n, 2 * iface_n + 1])
-    wi = wt[idx]
-    Q = np.zeros_like(wi)
-    ok = np.abs(wi) > 1e-14
-    Q[ok] = -r[idx][ok] / wi[ok]
+idx = np.column_stack([2 * iface_n, 2 * iface_n + 1])
+wi = wt[idx]
+Q = np.zeros_like(wi)
+ok = np.abs(wi) > 1e-14
+Q[ok] = -r[idx][ok] / wi[ok]
 
-    # THE TWO INTERFACE CORNERS ARE ON THE OUTER DIRICHLET BOUNDARY (a y-face),
-    # so their rows carry the OUTER reaction too and their residual is not this
-    # interface's traction. Take the nearest interior interface node rather than
-    # exporting a corner value that is physically a different quantity.
-    suspect = np.isin(iface_n, outer_n) | ~ok.all(axis=1)
-    good = np.where(~suspect)[0]
-    if len(good):
-        for i in np.where(suspect)[0]:
-            Q[i] = Q[good[np.argmin(np.abs(good - i))]]
-else:
-    # NEUMANN SIDE: the reaction formula MUST NOT be used here. These interface
-    # dofs are free, the discrete equations hold on them, so r is ~0 and the
-    # expression would silently export ZERO traction with no error raised. This
-    # side's export is not what the partner consumes in any case — the Dirichlet
-    # partner reads its `values`.
-    p_, w_ = TrialFunction(space), TestFunction(space)
-    n_own = as_vector([Constant(S, name="nx"), Constant(0.0, name="ny")])
-    proj = galerkin([dot(p_, w_) * dx == dot(-dot(sigma(uh), n_own), w_) * dx],
-                    solver="cg")
-    qh = space.interpolate(as_vector([0.0, 0.0]), name="traction")
-    proj.solve(target=qh)
-    qd = np.array(qh.as_numpy)
-    Q = np.column_stack([qd[2 * iface_n], qd[2 * iface_n + 1]])
+# THE TWO INTERFACE CORNERS ARE ON THE OUTER DIRICHLET BOUNDARY (a y-face) ON
+# BOTH SIDES, so their rows carry the OUTER reaction too and their residual is
+# not this interface's traction. Take the nearest interior interface node rather
+# than exporting a corner value that is physically a different quantity.
+suspect = np.isin(iface_n, outer_n) | ~ok.all(axis=1)
+good = np.where(~suspect)[0]
+if len(good):
+    for i in np.where(suspect)[0]:
+        Q[i] = Q[good[np.argmin(np.abs(good - i))]]
 
 ud = np.array(uh.as_numpy)
 U = np.column_stack([ud[2 * iface_n], ud[2 * iface_n + 1]])
