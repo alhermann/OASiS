@@ -121,7 +121,16 @@ def _find_dune_python() -> Optional[str]:
     for python in ordered:
         try:
             result = subprocess.run(
-                [python, "-c", "import dune.fem; print('OK')"], stdin=subprocess.DEVNULL,
+                # The probe must BUILD a JIT module, not just import the
+                # package. A conda env with a broken C-ABI passes
+                # `import dune.fem` with rc=0 and then raises
+                # 'undefined symbol: PyThreadState_GetUnchecked' the
+                # moment a generated module loads — so OASiS selected the
+                # poisoned interpreter (priority 0) over the working venv
+                # (priority 99, never reached) and four coupled runs died
+                # on it. structuredGrid triggers the JIT path.
+                [python, "-c", "from dune.grid import structuredGrid; "
+             "structuredGrid([0,0],[1,1],[2,2]); print('OK')"], stdin=subprocess.DEVNULL,
                 capture_output=True, text=True, timeout=30,
             )
             if result.returncode == 0:

@@ -215,9 +215,22 @@ def _read_write_tools_for(workdir: Path, *, audit_on_submit: bool = False):
                         "named place, fix if real, and REWRITE this file. "
                         "Submitting with a standing finding usually grades "
                         "wrong.")
-                elif findings is not None:
+                elif findings == "":
                     reply += ("\n[auto-audit: clean — self-consistent, which "
                               "is necessary but not sufficient for correct]")
+                elif findings == "NOEVIDENCE":
+                    # NEVER an all-clear on nothing. Replaying 494 graded runs,
+                    # the old code told 134 of 137 HONEST_INCOMPLETE runs
+                    # "clean" — because a work dir with no per-level files
+                    # produces no sequences, which it read as no findings. The
+                    # all-clear went almost exclusively to runs that were NOT
+                    # correct, at the moment the agent decides whether to keep
+                    # working, in the measured arm only.
+                    reply += ("\n[auto-audit: found NO per-level result files "
+                              "to check. This is NOT a clean bill — it means "
+                              "there is nothing here to verify. If you have "
+                              "results, write them per level; if you do not, "
+                              "this submission has no numbers behind it.]")
             return reply
         except (OSError, UnicodeError, ValueError) as e:
             return (f"[write failed: {type(e).__name__}: {e} — "
@@ -401,6 +414,14 @@ def _load_oasis_mcp_tools(workdir: Path | None = None) -> list[BaseTool]:
 # ────────────────────────────────────────────────────────────────────
 
 
+# sys.path is extended ONCE here, not on every RESULT.txt write —
+# the per-call insert accumulated 27 duplicate entries in 25 writes
+# and kept putting OASiS's src ahead of the venv for every import.
+import sys as _sys_for_path
+_sys_for_path.path.insert(
+    0, str(Path(__file__).resolve().parents[1] / "src"))
+
+
 def _audit_submission(result_path: Path, content: str):
     """Run the OASiS result audit in-process on the submission's directory.
 
@@ -409,14 +430,28 @@ def _audit_submission(result_path: Path, content: str):
     text so ORDER MISMATCH can fire; absent an order claim, the zero-field,
     floor and non-monotone checks still run.
     """
-    import json as _json
     import re as _re
-    import sys as _sys
-    _sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
     from tools.result_audit import audit as _audit
-    m = _re.search(r"(?:OBSERVED_)?ORDER[A-Z_]*\s*=\s*([0-9.]+)", content)
-    claimed = float(m.group(1)) if m else None
+    # LAST match, line-anchored, sign/exponent allowed, and labels that only
+    # LOOK like an order excluded. The old regex took the FIRST match of a
+    # loose pattern: "ORDER_OF_MAGNITUDE = 5" became a claim of order 5, and
+    # an ELEMENT_ORDER line ahead of the real one won. It also missed
+    # ORDER_L2 (a digit ends [A-Z_]*), lowercase, and negatives.
+    claimed = None
+    for mm in _re.finditer(
+            r"^\s*(?!.*OF_MAGNITUDE)([A-Za-z_0-9]*ORDER[A-Za-z_0-9]*)\s*=\s*"
+            r"([-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)\s*$",
+            content, _re.M):
+        lab = mm.group(1).upper()
+        if any(k in lab for k in ("ELEMENT", "POLYNOMIAL", "DEGREE", "MESH")):
+            continue                      # describes the discretisation
+        try:
+            claimed = float(mm.group(2))
+        except ValueError:
+            claimed = None
     r = _audit(str(result_path.parent), claimed_order=claimed)
+    if r.get("sequences_found", 0) == 0 and r.get("clean"):
+        return "NOEVIDENCE"
     if r.get("clean"):
         return ""
     return "\n".join(f"  * {f['sequence']}: {f['finding']}"

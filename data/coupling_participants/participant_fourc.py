@@ -249,7 +249,14 @@ Path("input.4C.yaml").write_text(deck)
 env = dict(os.environ)
 if FOURC_LD:
     env["LD_LIBRARY_PATH"] = FOURC_LD + os.pathsep + env.get("LD_LIBRARY_PATH", "")
-r = subprocess.run([FOURC_BIN, "input.4C.yaml", "out"],
+# stdbuf IS NOT OPTIONAL. 4C buffers stdout and then calls MPI_Abort, which
+# kills the process before the buffer flushes — so its real error ("Inconsistency
+# is detected at LINE DBC 2", "could not find ':' colon after key") is LOST and
+# all you see is an MPI failure. Five coupled runs in one campaign concluded from
+# that silence that "4C cannot run under subprocess" and gave up; re-running
+# their decks with stdbuf printed an ordinary deck bug every time. OASiS's own
+# run_simulation path already does this.
+r = subprocess.run(["stdbuf", "-oL", "-eL", FOURC_BIN, "input.4C.yaml", "out"],
                    capture_output=True, text=True, env=env)
 
 vtus = sorted(Path("out-vtk-files").glob("scatra-*-0.vtu"))

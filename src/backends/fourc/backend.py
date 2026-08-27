@@ -179,7 +179,11 @@ The solver ran, converged, and wrote 1936 probe values of exactly 0.0, which
 the agent submitted. Nothing errored, because nothing was wrong: the deck
 asked for zero source and got it.
 
-The two halves of the wiring, and both must be right:
+THREE switches, and ALL must be right — `ONOFF`, `VAL`, `FUNCT`. The scatra
+body-force path evaluates `onoff * val * functfac`
+(4C_scatra_ele_calc.cpp), so `ONOFF: [0]` zeroes the load just as surely as
+the other two, and a deck that passes a grep for the other two can still
+apply nothing:
   * `FUNCT: [n]` selects FUNCT<n>. `FUNCT: [0]` means NO FUNCTION — the
     literal zero index is 4C's "none", not "the first one".
   * `VAL: [v]` is the AMPLITUDE MULTIPLYING that function, not an alternative
@@ -193,8 +197,9 @@ whole spatial and temporal shape.
 
 CHECK IT BEFORE YOU BELIEVE A RESULT: a field that is identically zero (or
 identically your Dirichlet value) on a driven problem is this bug until proven
-otherwise. Grep your own deck for `FUNCT: [0]` and for `VAL: [0.0]` next to a
-function you spent effort deriving."""
+otherwise. Grep your own deck for `ONOFF: [0]`, `VAL: [0.0]` and `FUNCT: [0]`
+next to a function you spent effort deriving — all three, because checking two
+of three is how this bug survives a review."""
 
 
 class FourcBackend(SolverBackend):

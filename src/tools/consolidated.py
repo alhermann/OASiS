@@ -878,11 +878,32 @@ def _stamp_verification(result: dict, *, evidence_ok: bool, reason: str = "",
                         "record via submit_critic_review")
     if not evidence_ok:
         result["trustworthy_result"] = False
-        result["verification"] = (
-            "NOT VERIFIED — "
-            + (reason or "the result is not bound to a check-passing run")
-            + ". Per OASiS attestation this claim must NOT be reported as a "
-            "result; revise the setup and re-run.")
+        # A CONVERGENCE failure and a CONSERVATION finding on a converged run
+        # are different situations and must not carry the same imperative.
+        # Measured: 10 coupled runs drove a coupling to convergence, hit a
+        # flux-balance finding, read "must NOT be reported as a result" in the
+        # tool's own reply, and declared COULD_NOT_COMPLETE with a median 69%
+        # of their budget unspent — while the served knowledge said the
+        # opposite ("a converged run with a failed conservation check is still
+        # a result"). The agent obeys the imperative it is holding.
+        _conserv = any(w in (reason or "").lower()
+                       for w in ("balance", "conserv", "flux"))
+        _converged = "did not converge" not in (reason or "").lower()
+        if _conserv and _converged:
+            result["verification"] = (
+                "NOT VERIFIED — " + (reason or "a conservation check failed")
+                + ". This is NOT a reason to discard the run: the field your "
+                "solve produced is unaffected by this check. WRITE YOUR "
+                "DELIVERABLES FIRST from the numbers you have, report this "
+                "finding alongside them, and only then investigate. NOT "
+                "VERIFIED and NOT A RESULT are different verdicts and only "
+                "one of them is worth zero.")
+        else:
+            result["verification"] = (
+                "NOT VERIFIED — "
+                + (reason or "the result is not bound to a check-passing run")
+                + ". Per OASiS attestation this claim must NOT be reported as "
+                "a result; revise the setup and re-run.")
     elif not critic_ok:
         result["trustworthy_result"] = False
         result["verification"] = (
@@ -1966,6 +1987,16 @@ def _unsaved_work_notice(work_dir, out_files) -> str | None:
             "next to a solve.")
 
 
+# THE UNIVERSAL BLOCK MUST RIDE THE TOOL AGENTS ACTUALLY CALL. It lived only
+# in knowledge.register_knowledge_tools, which src/server.py never registers —
+# so every rule placed there since round 4 (write-the-deliverable, the
+# audit_results instruction, the degree rule) was served to NOBODY, while I
+# "verified 9/9 backends" through get_physics_knowledge, a tool the live
+# server does not expose. Agents call `knowledge` 2909 times in the campaign
+# transcripts and get_physics_knowledge zero times.
+from .knowledge import _UNIVERSAL as _UNIVERSAL_BLOCK          # noqa: E402
+
+
 def register_consolidated_tools(mcp: FastMCP):
     """Register all consolidated tools — ~12 tools instead of 48."""
 
@@ -2131,7 +2162,7 @@ def register_consolidated_tools(mcp: FastMCP):
                     f"(topic='postmortems', solver=..., signal=...)"
                     f" when a post-execution Signal needs lookup):\n"
                     + json.dumps(breadcrumbs, indent=2))
-            return result
+            return result + _UNIVERSAL_BLOCK
 
         elif topic == "postmortems":
             if _ABLATE_PITFALLS:
@@ -3421,6 +3452,77 @@ def register_consolidated_tools(mcp: FastMCP):
                             job_id=str(result.get("job_id", job_name or "")))
         return json.dumps(result, indent=2)
 
+
+
+    @mcp.tool()
+    async def materialize_participant(solver: str, work_dir: str,
+                                      kind: str = "", ctx: Context = None) -> str:
+        """COPY a shipped, verified participant script into your working
+        directory so you can run it instead of writing one from scratch.
+
+        Use this before writing any coupling participant. OASiS ships tested
+        participant scripts for every backend — they already contain the flux
+        sign convention, the imports/exports contract, the iteration-1
+        fallback and the interface-node handling that are the usual sources of
+        a silently wrong coupling. Reading one in a knowledge page and
+        retyping it is not the same thing: across one development campaign
+        agents hand-wrote 260 participant scripts and exactly ONE matched the
+        shipped file, and the hand-written ones repeated bugs the shipped
+        headers document.
+
+        Args:
+            solver: backend name — fenics, ngsolve, skfem, dune, dealii,
+                fourc, febio, kratos.
+            work_dir: absolute path of YOUR working directory. Files are
+                copied there and the absolute paths are returned.
+            kind: "" (steady scalar, the default), "elastic" (vector /
+                elasticity), "transient", "3d", or "neumann" — matched against
+                the shipped file names; a partial word is enough.
+
+        Returns JSON with the copied paths, and the EDIT BLOCK line numbers to
+        change. Copy first, then edit only the marked block.
+        """
+        import shutil as _shutil
+        src_dir = (Path(__file__).resolve().parents[2] / "data"
+                   / "coupling_participants")
+        if not src_dir.is_dir():
+            return json.dumps({"error": f"no participant library at {src_dir}"})
+        dst = Path(work_dir)
+        if not dst.is_dir():
+            return json.dumps({"error": f"work_dir does not exist: {work_dir}"})
+        s = (solver or "").strip().lower()
+        k = (kind or "").strip().lower()
+        cands = sorted(
+            q for q in src_dir.glob("*.py")
+            if s and s in q.name.lower() and (not k or k in q.name.lower()))
+        if not cands and s:
+            cands = sorted(q for q in src_dir.glob("*.py")
+                           if s in q.name.lower())
+        if not cands:
+            return json.dumps({
+                "error": f"no shipped participant matches solver={solver!r} "
+                         f"kind={kind!r}",
+                "available": sorted(q.name for q in src_dir.glob("*.py"))})
+        # prefer the shortest name: participant_fenics.py over
+        # participant_fenics_transient.py when no kind was asked for
+        if not k:
+            cands = [min(cands, key=lambda q: len(q.name))]
+        out = []
+        for q in cands[:3]:
+            target = dst / q.name
+            _shutil.copy2(q, target)
+            text = target.read_text(errors="replace").splitlines()
+            block = [i + 1 for i, ln in enumerate(text)
+                     if "EDIT THIS BLOCK" in ln]
+            out.append({"file": str(target), "lines": len(text),
+                        "edit_block_starts_at_line": block[0] if block else None})
+        return json.dumps({
+            "copied": out,
+            "next": ("Edit ONLY the marked block — every number in it is a "
+                     "placeholder. Everything outside it is the tested "
+                     "contract: leave it alone. Run the script once by hand "
+                     "with no imports.json present before calling couple()."),
+        }, indent=2)
 
     @mcp.tool()
     async def audit_results(work_dir: str, claimed_order: float = 0.0,

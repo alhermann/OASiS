@@ -185,6 +185,20 @@ as a result. A run that DID converge is a result even if a downstream check
 complains about it — see section 3b, which is the difference between a scored
 run and a wasted one.
 
+## 3a. DO NOT TYPE A PARTICIPANT OUT. COPY IT.
+
+`materialize_participant(solver='<name>', work_dir='<your dir>', kind='')`
+copies a tested participant script into your directory and tells you which
+line the editable block starts on. kind: '' steady scalar, 'elastic' vector,
+'transient', '3d', 'neumann'.
+
+Measured over one development campaign: agents hand-wrote 260 participant
+scripts and exactly ONE matched the shipped file. The hand-written ones
+re-introduced the bugs the shipped headers exist to prevent — most often
+exporting the raw traction instead of the negated normal flux, which flips the
+sign the partner applies and yields a coupling that converges to the wrong
+answer with a clean residual history. Copy, then edit only the marked block.
+
 ## 3b. FROM A CONVERGED COUPLING TO A SUBMITTED ANSWER
 
 Getting the iteration to converge is the hard part and it is not the last

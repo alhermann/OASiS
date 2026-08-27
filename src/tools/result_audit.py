@@ -55,6 +55,17 @@ def _sequences_from_workdir(work: Path) -> dict[str, list[float]]:
             m = re.match(r"\s*([A-Za-z0-9_]+)\s*=\s*(.+)$", line)
             if not m:
                 continue
+            label = m.group(1).upper()
+            # Only ERROR-LIKE labels. Scanning every "NAME = a, b, c" line
+            # meant the task's own mesh line (H = 0.125, 0.0625, 0.03125)
+            # read as an error sequence converging at exactly 1.00 and
+            # produced ORDER MISMATCH on correct work, advising the one
+            # change every task forbids; and a RESIDUALS line at the 1e-10
+            # the task REQUIRES read as a tolerance FLOOR, advising the agent
+            # to loosen a tolerance it was told to tighten.
+            if not any(k in label for k in ("ERROR", "ERR", "L2", "LINF",
+                                            "DIFF", "RESID_ERR")):
+                continue
             vals = re.findall(r"-?\d+\.?\d*(?:[eE][-+]?\d+)?", m.group(2))
             if len(vals) >= 3:
                 try:
@@ -79,9 +90,19 @@ def _sequences_from_level_csvs(work: Path) -> dict[str, list[float]]:
     import csv as _csv
     levels: list[dict] = []
     for i in range(1, 9):
-        cands = list(work.rglob(f"*level{i}*.csv"))
+        # TOP LEVEL ONLY. rglob + sorted(cands)[0] picked the
+        # lexicographically first PATH, so OASiS's own scratch directories —
+        # benchmark_results/, coupling/, meshes/, simulation_outputs/, all
+        # created by the MCP arm and all sorting before solution_*.csv — won
+        # over the agent's real output. A stale zero-valued probe file left by
+        # a failed first run then produced a NEAR-ZERO FIELD finding on
+        # CORRECT work, in the measured arm only.
+        cands = [q for q in work.glob(f"*level{i}*.csv") if q.is_file()]
         if not cands:
             break
+        if len(cands) > 1:
+            # ambiguity is reported, never silently resolved
+            return {"__ambiguous__": [q.name for q in sorted(cands)]}
         rows = {}
         try:
             with open(sorted(cands)[0]) as fh:
@@ -141,7 +162,20 @@ def audit(work_dir: str, claimed_order: float | None = None) -> dict:
     work = Path(work_dir)
     findings: list[dict] = []
     seqs = _sequences_from_workdir(work)
-    seqs.update(_sequences_from_level_csvs(work))
+    csvs = _sequences_from_level_csvs(work)
+    if "__ambiguous__" in csvs:
+        return {"sequences_found": 0, "clean": False,
+                "findings": [{"sequence": "level files", "values": [],
+                              "finding": (
+                                  "AMBIGUOUS INPUT: more than one file matches "
+                                  "the per-level pattern at the top level (" +
+                                  ", ".join(csvs["__ambiguous__"][:4]) +
+                                  "). I will not guess which is your answer — "
+                                  "name your per-level files uniquely, or "
+                                  "remove the stale ones, and re-run this "
+                                  "check.")}],
+                "note": "audit did not run: input was ambiguous"}
+    seqs.update(csvs)
     # near-zero field: the loads may never have been applied at all
     for label, seq in list(seqs.items()):
         # "< 1e-8" must INCLUDE exact zero — the three 4C runs that wired
@@ -183,6 +217,8 @@ def audit(work_dir: str, claimed_order: float | None = None) -> dict:
             orders = [math.log2(a / b) for a, b in zip(seq, seq[1:]) if b > 0]
         except ValueError:
             continue
+        if not orders:
+            continue                     # nothing comparable; not a finding
         entry["observed_orders"] = [round(o, 2) for o in orders]
         med = sorted(orders)[len(orders) // 2]
         if claimed_order is not None and med < claimed_order - 0.4:
