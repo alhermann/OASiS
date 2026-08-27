@@ -898,3 +898,62 @@ report the tier for what it is.
   instruction in the universal block, the FEBio separable-load door, and the
   process-group kill on timeout in all nine backends (test proven to fail on
   the unfixed tree). Round 7 (seeds 10+11) measures them.
+
+  Round 7 — 27B, seeds 10 and 11, 2026-08-21/27. Repaired and CLEAN: 128 runs,
+    64 per arm, ZERO infrastructure faults after 21 casualties (19 credit
+    starvation, 1 output truncation, 1 stdout-corruption crash) were
+    quarantined and re-run under the unchanged round-7 tree. 14 timeouts,
+    1 context fill.
+
+      16 FEM single-code (grade 1)   bare 18.8%  OASiS 37.5%  +18.8
+      12 pooled coupled (grade 1)    bare  0/24  OASiS  0/24
+      SPARTA (grade 3)               bare  1/4   OASiS  3/4   +50
+
+    +18.8 is the largest FEM uplift of the campaign (prior: +10.4, +12.5,
+    +12.5, +6.25). TREAT IT AS NOISE UNTIL REPLICATED. n=32 pairs, and the
+    round-4-to-6 lesson stands: one cell can carry the whole number, and the
+    clustered interval on a 10-point uplift already spanned [-9.4, +30.2].
+
+    THE TARGET METRIC MOVED, AND THE MOVEMENT IS NOT WHAT IT LOOKS LIKE.
+    Submitted-and-wrong on FEM/OASiS: 21.9% -> 34.4% -> 21.9% -> 6.2% (r4-r7).
+    The r7 drop is 7 wrong answers becoming 2. But the outcome ledger shows
+    where they went:
+
+        CORRECT              10 -> 12   (+2)
+        COMPLETED_UNPHYSICAL  5 ->  2   (-3)
+        CONFIDENTLY_WRONG     2 ->  0   (-2)
+        FAILED                4 ->  6   (+2)
+        MALFORMED_SUBMISSION  3 ->  5   (+2)
+
+    Only 2 of the 5 recovered wrong answers became CORRECT. The other 3 became
+    FAILED or MALFORMED — a different failure, not a success. "Fewer wrong
+    submissions" is therefore HALF good news: the wrong-and-confident
+    population shrank (CONFIDENTLY_WRONG hit zero), which is a real
+    reliability gain, but the solve rate moved by 2.
+
+    AND THE CAUSE IS NOT THE AUDIT. Round 7 shipped audit_results plus the
+    instruction to run it; adoption was 1 of 51 OASiS runs. Whatever moved
+    these numbers, it was not a tool used by 2% of runs. Candidates that
+    DID change for every run: the FEBio separable-load door, the universal
+    write-the-deliverable rule, and the group-kill fix removing solver
+    orphans that previously stole cores. Round 8 — where the audit runs
+    automatically at submission — is the round that can attribute it.
+
+    THE RELIABILITY CLAIM RECOVERS. Coupled fabrication: bare 12/24, OASiS
+    5/24, after round 6's exact parity (9/24 vs 9/24). Rounds 3-5 held, 6
+    broke, 7 recovers — so the honest claim is a strong TENDENCY with one
+    measured exception, not an invariant.
+
+  Primitives from round 7 — TWO, both from re-reading failures rather than
+  from the round's own hypothesis:
+      1  the degree->order rule was stated by NO FEM backend, and four of the
+         18 submitted-and-wrong runs of rounds 4-6 were order-3 tasks solved
+         with degree-1 elements. Now in the universal block, 9/9.
+      2  "an ingredient you define is inert until it is wired in" — 4C's
+         VAL x FUNCT was only the instance I happened to see. Verified each
+         backend's own idiom against working code (FEniCSx L, NGSolve
+         f+=/Assemble, scikit-fem assemble-into-b, DUNE UFL form, deal.II
+         cell_rhs->system_rhs, Kratos process lists, FEBio active load
+         controller, 4C VALxFUNCT, SPARTA fix ave/time c_<id>) and wrote all
+         nine into the universal block. Filing it under one backend would
+         have been the fifth instance of that error.
