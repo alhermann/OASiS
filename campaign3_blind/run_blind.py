@@ -293,6 +293,14 @@ class TrajLiveLog(BaseCallbackHandler):
         except Exception:
             pass
 
+    def note(self, msg):
+        """Record a harness action in the same stream as the tool activity,
+        so a reader of the trajectory can tell the agent's moves from ours."""
+        try:
+            self._f.write(f"{msg}\n")
+        except Exception:
+            pass
+
 
 sys.path.insert(0, str(REPO / "src"))
 from blind_eval import keyvault as _kv                             # noqa: E402
@@ -553,13 +561,74 @@ def run_one(pid: str, model: str, cond: str, seed: int, timeout_s: int) -> dict:
 
     live = TrajLiveLog(work / "trajectory_live.txt")
     t0, err, final, n_calls = time.time(), None, None, 0
+    conts = 0
+
+    # A TURN THAT ENDS WITHOUT A TOOL CALL IS NOT A RUN THAT FINISHED.
+    #
+    # LangGraph's ReAct loop ends the moment a reply carries no tool call. That
+    # is correct when the agent is done and wrong when the pen was taken out of
+    # its hand, and the two are indistinguishable from the loop's side. Measured
+    # over all 813 runs of this campaign, 112 (13.8%) ended with error=null and
+    # no RESULT.txt on disk — and the arms are NOT equally exposed: 79 of 405
+    # OASiS runs (19.5%) against 33 of 408 bare (8.1%), because the OASiS arm
+    # accumulates history faster (one knowledge call can return ~23k tokens) and
+    # carries a larger tool schema in every request. Every uplift this campaign
+    # has reported so far was measured with the OASiS arm silently losing one
+    # run in five to this.
+    #
+    # The stopped runs were not agents giving up. Their last words were
+    # "Now let me run the coupling again:", "First, let me create the FEBio
+    # participant for subdomain A:" — mid-task, with 30-70% of the wall clock
+    # unspent, one of them having just gotten its second participant to run.
+    # Two shapes appear: an empty final message (the provider returned nothing)
+    # and a text-only one that announces the next action and never emits it.
+    # TruncationWatch sees neither — finish_reason is not "length" — so this
+    # went unrecorded through seven rounds.
+    #
+    # So the wall clock becomes the only thing that ends a run, exactly as the
+    # prompt already promises the agent it is. The nudge is deliberately empty
+    # of everything but the contract: it names the missing file, states the time
+    # left, and repeats that COULD_NOT_COMPLETE is the honest way out. It says
+    # nothing about the physics, the method, or the state of the work, and both
+    # arms get the identical text — this is the harness enforcing its own
+    # deliverable, not a hint. It will help OASiS more than bare, because the
+    # defect hurt OASiS more than bare.
+    _CONT_MAX = 8
+    _NUDGE = (
+        "Your last turn ended without a tool call, and {f} does not exist yet, "
+        "so this task is not finished. You have {m} minutes of wall-clock left "
+        "and nothing else will stop you. Continue from exactly where you "
+        "stopped. If you have genuinely exhausted what you can do, write {f} "
+        "containing COULD_NOT_COMPLETE and one line saying why.")
 
     async def _invoke():
-        return await asyncio.wait_for(
-            ag.ainvoke({"messages": [("user", prompt)]},
-                       config={"recursion_limit": RECURSION_LIMIT,
-                               "callbacks": [live]}),
-            timeout=timeout_s)
+        nonlocal conts
+        answer = work / "RESULT.txt"
+        deadline = time.time() + timeout_s
+        state = {"messages": [("user", prompt)]}
+        while True:
+            left = deadline - time.time()
+            if left <= 5:
+                raise asyncio.TimeoutError
+            out = await asyncio.wait_for(
+                ag.ainvoke(state, config={"recursion_limit": RECURSION_LIMIT,
+                                          "callbacks": [live]}),
+                timeout=left)
+            msgs = (out or {}).get("messages", []) if isinstance(out, dict) else []
+            last = msgs[-1] if msgs else None
+            # Deliverable on disk, or the step cap hit (which the block below
+            # turns into an error) — either way the run is over.
+            if answer.exists() or conts >= _CONT_MAX or getattr(last, "tool_calls", None):
+                return out
+            body = getattr(last, "content", "") or ""
+            if isinstance(body, str) and "need more steps" in body:
+                return out
+            conts += 1
+            live.note(f"[harness] turn ended with no tool call and no "
+                      f"RESULT.txt; continuation {conts}/{_CONT_MAX}")
+            state = {"messages": list(msgs) + [
+                ("user", _NUDGE.format(f="RESULT.txt",
+                                       m=max(1, int((deadline - time.time()) // 60))))]}
 
     try:
         final = asyncio.run(_invoke())
@@ -616,7 +685,7 @@ def run_one(pid: str, model: str, cond: str, seed: int, timeout_s: int) -> dict:
     rec = dict(problem=pid, model=model, condition=cond, seed=seed,
                wall_s=round(time.time() - t0, 1), tool_calls=n_calls,
                tokens_in=tin, tokens_out=tout, error=err,
-               truncated_replies=_TRUNC_CB.hits,
+               truncated_replies=_TRUNC_CB.hits, continuations=conts,
                graded=False, note="grading is offline: run grade_blind.py")
     if _TRUNC_CB.hits and not err:
         # The cap cut a reply short. Whatever the agent produced after that is
