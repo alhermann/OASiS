@@ -834,40 +834,86 @@ if SIDE == "dirichlet":
             if j not in good:
                 Q[j] = Q[good[np.argmin(np.abs(good - j))]]
 else:
-    # NEUMANN SIDE: the reaction formula MUST NOT be used here. These interface
-    # dofs are FREE, so FEBio reports Rx = Ry = 0 on them and the expression
-    # would silently export ZERO traction with no error raised.
+    # NEUMANN SIDE: TWO tractions, and they answer two different questions.
     #
-    # It must not be an ECHO of the imported traction either, tempting as that
-    # is (it would be the discretely exact consistent traction of this side —
-    # a Neumann condition applied through the consistent nodal force vector is
-    # satisfied EXACTLY in the variational sense, so -(A u - b_vol)_i / w_i is
-    # algebraically the number that was handed in). Echoing makes the interface
-    # BALANCE CHECK an identity: it would then report ~1e-16 on any coupling,
-    # including a broken one, and stop being evidence.
+    # FEBio reports Rx = Ry = 0 on these dofs — they are free — so the
+    # Dirichlet branch's route is closed here. This branch used to answer that
+    # with the element-stress recovery alone, and it rejected the alternative
+    # for a reason that is half right and worth keeping: an ECHO of the
+    # imported array would be algebraically the exact consistent traction of
+    # this side, and worthless as evidence, because it never passes through the
+    # discretisation. It would make the interface balance check an identity —
+    # ~1e-16 on any coupling including a broken one — and that check is the one
+    # thing that separates an interface-mechanism mutation (self-converges at
+    # ~1.85, looks correct) from a correct run.
     #
-    # So this side recovers its OWN traction from its OWN stress field: FEBio's
-    # element sx/sxy (the integration-point average of the interface-adjacent
-    # element column) averaged onto the interface nodes, with the sign
-    # convention applied. That is a stress recovered from the gradient of a
-    # trilinear solution and evaluated on a boundary, so it is O(h) — FIRST
-    # order, not second, exactly like the L2 stress projection the FEniCSx and
-    # scikit-fem siblings use on THEIR Neumann side. It is not what the partner
-    # consumes (the Dirichlet partner reads this side's `values`); it exists so
-    # the balance check is an independent statement.
+    # WHAT IS EXPORTED IS NOT THAT ECHO. `Fc` is the consistent nodal force
+    # vector this participant BUILT and wrote into the deck,
+    #     Fc_i = int_Gamma t_h . phi_i ds = sum_j M_ij t_j
+    # with M the quad4 surface mass matrix of the interface faces it actually
+    # meshed. Dividing by the same weight w_i the Dirichlet branch uses gives
+    # -Fc_i/w_i, and a wrong facet set, a wrong Jacobian or a wrong mass matrix
+    # all move it. It is the same status as summing a condition's own
+    # right-hand side: a measurement of what entered the load vector, not a
+    # copy of what arrived in imports.json.
+    #
+    # THE HONEST LIMIT. For the codes that assemble in-process the residual
+    # A u - b_vol passes through the SOLVER too, so it also catches an error in
+    # applying the load. Here it does not: the export is built from the same
+    # array the deck was written from, so it cannot see a fault inside FEBio's
+    # own load path. That path is pinned separately — the header measures this
+    # file's <nodal_load> against FEBio's own <body_load> and gets displacements
+    # identical to 1e-15 absolute — and the element-stress recovery below stays
+    # as a genuinely independent second opinion, printed with its discrepancy.
+    w = mesh.iface_weights()
+    Fq = np.array([[Fc[nb][c] + Fc[nt][c] for c in (0, 1)]
+                   for (nb, nt) in mesh.iface_pair], float)
+    W = np.array([w[nb] + w[nt] for (nb, nt) in mesh.iface_pair], float)
+    Q = np.zeros_like(Fq)
+    ok = np.abs(W) > 1e-14
+    Q[ok] = -Fq[ok] / W[ok, None]
+
+    # The two interface corners sit on the outer Dirichlet boundary, exactly as
+    # on the other side, so their weight mixes this interface with that face.
+    good = np.array(mesh.interior_j, dtype=int)
+    good = good[ok[good]]
+    if len(good):
+        for jj in range(len(y_if)):
+            if jj not in good:
+                Q[jj] = Q[good[np.argmin(np.abs(good - jj))]]
+
+    # THE INDEPENDENT SECOND OPINION, AND WHAT IT IS WORTH. This side's OWN
+    # stress field, from FEBio's element sx/sxy averaged onto the interface
+    # nodes. It owes nothing to the partner's numbers, which is what makes the
+    # comparison below non-circular — but it is COARSE. This file used to call
+    # it O(h) and export it; measured against a known imposed traction
+    # t = (2 + 3 sin 4y, 1 - 2 cos 3y) on 8/16/32 meshes it gives max errors
+    # 1.638, 1.440, 1.500 — order 0.19 then -0.06, i.e. it does not converge in
+    # this norm at all, the same shape as the projected boundary gradient the
+    # FEniCSx sibling retired. So it is a gross-error detector and nothing
+    # finer: expect a discrepancy of tens of percent on a correct run, and read
+    # a discrepancy of ORDER ONE as a real fault.
     elog = parse_log(LOG_E, 2)
     if not elog:
         sys.stderr.write(f"empty FEBio element logfile {LOG_E}\n")
         sys.exit(2)
     se = np.array([elog[e] for e in mesh.iface_elems], float)   # (NY, 2)
-    Q = np.zeros((len(y_if), 2))
+    Q_stress = np.zeros((len(y_if), 2))
     cnt = np.zeros(len(y_if))
-    for j in range(len(mesh.iface_elems)):
-        Q[j] += -S * se[j]
-        Q[j + 1] += -S * se[j]
-        cnt[j] += 1.0
-        cnt[j + 1] += 1.0
-    Q /= cnt[:, None]
+    for jj in range(len(mesh.iface_elems)):
+        Q_stress[jj] += -S * se[jj]
+        Q_stress[jj + 1] += -S * se[jj]
+        cnt[jj] += 1.0
+        cnt[jj + 1] += 1.0
+    Q_stress /= cnt[:, None]
+    if len(good):
+        d = float(np.max(np.abs(Q[good] - Q_stress[good])))
+        sc = max(1e-30, float(np.max(np.abs(Q[good]))))
+        print(f"[febio neumann] applied-load traction vs own-stress traction: "
+              f"max diff {d:.3e} ({d / sc:.2%} of peak) over {len(good)} "
+              f"interior interface nodes. The second is a NON-CONVERGENT "
+              f"boundary-stress average (measured order ~0), so tens of "
+              f"percent here is normal; order-one disagreement is not.")
 
 print(f"[febio {SIDE}] interface n={len(U)} "
       f"ux=[{U[:,0].min():.6g},{U[:,0].max():.6g}] "
