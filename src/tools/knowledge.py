@@ -296,6 +296,100 @@ NOT VERIFIED and NOT A RESULT are different outcomes. If a check you ran
 complains about an answer you computed, report the answer AND the complaint —
 do not withhold the answer.
 
+## IF THE TASK NAMES AN ELEMENT, THE ELEMENT WINS. OTHERWISE DEGREE SETS ORDER
+
+Read this in that order, because the second rule has a carve-out that the
+first one settles.
+
+FIRST: if the task prescribes a discretisation — "use exactly this element" —
+that is part of the problem, not a suggestion, and no convergence argument
+overrides it. One cell in this campaign mandates the MORLEY element (a
+NONCONFORMING quadratic triangle) and states order 2, because a biharmonic
+problem discretised with Morley converges at 2 while Argyris reaches 5. An
+agent that "corrects" the degree there is solving a different problem and is
+graded wrong for it.
+
+SECOND, where the element is yours to choose and you are running a CONFORMING
+Lagrange method on a second-order problem with a smooth solution and adequate
+quadrature: the L2 error of the primal field converges at order p+1 for degree
+p.
+
+    order 2 wanted  ->  degree 1 (P1/Q1)
+    order 3 wanted  ->  degree 2 (P2/Q2)
+    order 4 wanted  ->  degree 3
+
+Run degree 1 on an order-3 task and you get a clean, monotone study that
+converges at 2 and is graded wrong — expensive precisely because nothing looks
+broken.
+
+The p+1 rate is NOT unconditional. It needs the elliptic-regularity /
+duality argument behind it, so a re-entrant corner, a crack, or a jumping
+coefficient can cap it below p+1 at any degree; nonconforming (Morley), mixed
+H(div), and reduced-integration elements follow their own rates entirely.
+
+Three things that cap the order even when the degree is right:
+  * THE NORM. p+1 is the L2 norm of the FIELD. A gradient or flux converges
+    one order lower, and a probe value can superconverge. Match what is asked.
+  * QUADRATURE. A rule that was exact for your previous degree will not
+    integrate degree-2 bases against a polynomial source; the load error then
+    sets the rate.
+  * TIME. A first-order integrator behind a spatial study caps the result
+    whenever the steps are refined together — with dt proportional to h,
+    backward Euler holds the whole study at 1.
+
+If your own levels improve at p while you are about to claim p+1, check the
+element first — but check the task's prescribed element before you change it.
+
+## AN INGREDIENT YOU DEFINE IS INERT UNTIL IT IS WIRED IN
+
+The most expensive failure measured in this campaign is not a wrong method. It
+is a right ingredient that never reached the solve: a source term derived
+correctly and never referenced, a formulation built correctly and never
+assembled, a tolerance chosen correctly and never applied. Nothing errors. The
+solver runs, converges, and returns the answer to the problem you accidentally
+posed — usually a field that is identically zero, or identically your boundary
+value.
+
+Three runs in this campaign wrote a complete manufactured source into a deck,
+left the condition that references it switched off, and submitted 1936 probe
+values of exactly 0.0.
+
+So after you build the ingredient, CHECK THE WIRE. Each code has its own, and
+being fluent in one is no help in another:
+
+  FEniCSx      the term must appear in the linear form L and that form must be
+               re-assembled: `L += f * v * ufl.dx`, then
+               `assemble_vector(fem.form(L))`. A Function you interpolate and
+               never place in L is inert.
+  NGSolve      `f += source * v * dx` AND `f.Assemble()`. A CoefficientFunction
+               that never enters the LinearForm does nothing.
+  scikit-fem   the @LinearForm must be assembled AND its result used:
+               `b = my_load.assemble(basis)`. Leaving `b = basis.zeros()` is a
+               zero load, and it looks deliberate.
+  DUNE-fem     the source must be in the UFL form the scheme receives
+               (`b = ffun * v * dx`); filling a discrete function you never
+               reference changes nothing.
+  deal.II      it must be added to `cell_rhs` inside the assembly loop AND the
+               cell vector distributed into `system_rhs`. Assembling into a
+               local vector you never distribute is silent.
+  Kratos       a process declared in the JSON runs only if it is IN the right
+               list — `loads_process_list`, `constraints_process_list`. A
+               declared-but-unlisted process is never executed.
+  FEBio        a load applies only through an ACTIVE load controller: the
+               `<nodal_load>`/`<body_load>` value needs `lc="<id>"` and that
+               `<load_controller>` must exist in `<LoadData>` with points that
+               are non-zero over your step.
+  4C           `VAL` MULTIPLIES `FUNCT`. `FUNCT: [0]` means NO function and
+               `VAL: [0.0]` scales any function to nothing. For a manufactured
+               source you almost always want `VAL: [1.0], FUNCT: [1]`.
+  SPARTA       a `compute` produces no output by itself. A `fix ave/time`
+               (or dump/print) must reference it as `c_<id>` for any number to
+               be written at all.
+
+THE CHECK COSTS ONE COMMAND. Before you believe a result, grep your own input
+for the ingredient's name and confirm something CONSUMES it. A driven problem
+whose field is identically zero is this bug until you have proven otherwise.
+
 ## BEFORE YOU SUBMIT: RUN `audit_results` ON YOUR OWN OUTPUT
 
 One tool call: `audit_results(work_dir=<your results directory>,

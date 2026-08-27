@@ -74,6 +74,9 @@ BARE_SYSTEM = (
 # tool layer, which includes the mandatory critic (MCP).
 
 MCP_SYSTEM = (
+    "When you write your final RESULT.txt, it is automatically audited "
+    "against your own output files and any findings appear in the write "
+    "confirmation - read them, fix what is real, and rewrite the file. "
     "You are connected to the OASiS MCP server with its full toolset "
     "(prepare_simulation, knowledge, discover, examples, developer, "
     "generate_mesh, run_simulation, run_with_generator, coupled_solve, "
@@ -158,7 +161,7 @@ def _kill_group(proc) -> None:
             continue
 
 
-def _read_write_tools_for(workdir: Path):
+def _read_write_tools_for(workdir: Path, *, audit_on_submit: bool = False):
     @tool
     def read_file(path: str, max_bytes: int = 200_000) -> str:
         """Read a file (absolute path, or relative to the cell sandbox)."""
@@ -188,7 +191,47 @@ def _read_write_tools_for(workdir: Path):
                         f"inside it; use a relative path.]")
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(content)
-            return f"wrote {len(content)} chars to {p}"
+            reply = f"wrote {len(content)} chars to {p}"
+            # ROUND-8 MECHANISM, OASiS ARM ONLY: the submission is audited the
+            # moment it is written, and the findings are placed in the reply
+            # the agent is already reading. Round 7 measured why voluntary
+            # does not work: a calibrated audit tool plus the instruction to
+            # run it, sitting in the one channel read by every run, was used
+            # by 1 of 51 agents — while the tool's checks catch 15 of the 18
+            # submitted-and-wrong runs of earlier rounds. Participation is now
+            # by default. The bare arm is untouched: this flag is set only by
+            # build_mcp_agent, because the audit is OASiS's capability.
+            if audit_on_submit and p.name == "RESULT.txt":
+                try:
+                    findings = _audit_submission(p, content)
+                except Exception as e:               # noqa: BLE001
+                    findings = None
+                    reply += f"\n[auto-audit unavailable: {type(e).__name__}]"
+                if findings:
+                    reply += (
+                        "\n\nAUTO-AUDIT of your submission (from your own "
+                        "files only — no reference solution):\n" + findings +
+                        "\nA finding is a pointer, not a verdict: check the "
+                        "named place, fix if real, and REWRITE this file. "
+                        "Submitting with a standing finding usually grades "
+                        "wrong.")
+                elif findings == "":
+                    reply += ("\n[auto-audit: clean — self-consistent, which "
+                              "is necessary but not sufficient for correct]")
+                elif findings == "NOEVIDENCE":
+                    # NEVER an all-clear on nothing. Replaying 494 graded runs,
+                    # the old code told 134 of 137 HONEST_INCOMPLETE runs
+                    # "clean" — because a work dir with no per-level files
+                    # produces no sequences, which it read as no findings. The
+                    # all-clear went almost exclusively to runs that were NOT
+                    # correct, at the moment the agent decides whether to keep
+                    # working, in the measured arm only.
+                    reply += ("\n[auto-audit: found NO per-level result files "
+                              "to check. This is NOT a clean bill — it means "
+                              "there is nothing here to verify. If you have "
+                              "results, write them per level; if you do not, "
+                              "this submission has no numbers behind it.]")
+            return reply
         except (OSError, UnicodeError, ValueError) as e:
             return (f"[write failed: {type(e).__name__}: {e} — "
                     "use a relative path inside the sandbox]")
@@ -369,11 +412,57 @@ def _load_oasis_mcp_tools(workdir: Path | None = None) -> list[BaseTool]:
 # ────────────────────────────────────────────────────────────────────
 # Public factories
 # ────────────────────────────────────────────────────────────────────
+
+
+# sys.path is extended ONCE here, not on every RESULT.txt write —
+# the per-call insert accumulated 27 duplicate entries in 25 writes
+# and kept putting OASiS's src ahead of the venv for every import.
+import sys as _sys_for_path
+_sys_for_path.path.insert(
+    0, str(Path(__file__).resolve().parents[1] / "src"))
+
+
+def _audit_submission(result_path: Path, content: str):
+    """Run the OASiS result audit in-process on the submission's directory.
+
+    Returns a findings string, "" for clean, and raises only when the audit
+    module itself is unavailable. claimed order is parsed from the submission
+    text so ORDER MISMATCH can fire; absent an order claim, the zero-field,
+    floor and non-monotone checks still run.
+    """
+    import re as _re
+    from tools.result_audit import audit as _audit
+    # LAST match, line-anchored, sign/exponent allowed, and labels that only
+    # LOOK like an order excluded. The old regex took the FIRST match of a
+    # loose pattern: "ORDER_OF_MAGNITUDE = 5" became a claim of order 5, and
+    # an ELEMENT_ORDER line ahead of the real one won. It also missed
+    # ORDER_L2 (a digit ends [A-Z_]*), lowercase, and negatives.
+    claimed = None
+    for mm in _re.finditer(
+            r"^\s*(?!.*OF_MAGNITUDE)([A-Za-z_0-9]*ORDER[A-Za-z_0-9]*)\s*=\s*"
+            r"([-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)\s*$",
+            content, _re.M):
+        lab = mm.group(1).upper()
+        if any(k in lab for k in ("ELEMENT", "POLYNOMIAL", "DEGREE", "MESH")):
+            continue                      # describes the discretisation
+        try:
+            claimed = float(mm.group(2))
+        except ValueError:
+            claimed = None
+    r = _audit(str(result_path.parent), claimed_order=claimed)
+    if r.get("sequences_found", 0) == 0 and r.get("clean"):
+        return "NOEVIDENCE"
+    if r.get("clean"):
+        return ""
+    return "\n".join(f"  * {f['sequence']}: {f['finding']}"
+                      for f in r.get("findings", []))
+
 def _host_tools(workdir: Path, *, size: str, seed: int,
-                parent_tools: list[BaseTool], depth: int) -> list[BaseTool]:
+                parent_tools: list[BaseTool], depth: int,
+                audit_on_submit: bool = False) -> list[BaseTool]:
     tools: list[BaseTool] = []
     tools.append(_bash_tool_for(workdir))
-    tools.extend(_read_write_tools_for(workdir))
+    tools.extend(_read_write_tools_for(workdir, audit_on_submit=audit_on_submit))
     tools.append(web_search)
     spawn = _make_spawn_subagent_tool(
         size=size, seed=seed, workdir=workdir,
@@ -393,7 +482,8 @@ def build_bare_agent(*, size: str, seed: int, workdir: Path, depth: int = 0):
 def build_mcp_agent(*, size: str, seed: int, workdir: Path, depth: int = 0):
     mcp_tools = _load_oasis_mcp_tools(workdir)
     host = _host_tools(workdir, size=size, seed=seed,
-                       parent_tools=mcp_tools, depth=depth)
+                       parent_tools=mcp_tools, depth=depth,
+                       audit_on_submit=True)
     llm = _llm(size, temperature=0.2, seed=seed)
     return create_react_agent(llm, tools=mcp_tools + host,
                               prompt=MCP_SYSTEM)

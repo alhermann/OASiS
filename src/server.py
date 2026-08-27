@@ -12,6 +12,22 @@ import os
 import sys
 import logging
 
+# ── PROTECT THE PROTOCOL CHANNEL BEFORE ANYTHING ELSE IS IMPORTED ──────────
+# Over stdio transport, file descriptor 1 IS the JSON-RPC stream. Libraries
+# this server loads write banners to that descriptor from C code — importing
+# KratosMultiphysics prints its ASCII logo — and one such banner, emitted
+# while `rediscover_backends` probed installs mid-session, corrupted the
+# stream ("Invalid JSON: input ' |  / ...'") and killed the client's whole
+# session. Python-level capture cannot stop a C-level write, so the guard is
+# at descriptor level: keep a private duplicate of the real channel for the
+# protocol, and point fd 1 at stderr so anything naive lands in the log
+# instead of the wire. sys.stdout (which the MCP transport writes through)
+# is rebound to the duplicate, so the protocol is unaffected.
+if os.environ.get("OASIS_NO_FD_GUARD") != "1":       # escape hatch for tests
+    _real_stdout_fd = os.dup(1)
+    os.dup2(2, 1)
+    sys.stdout = os.fdopen(_real_stdout_fd, "w", buffering=1)
+
 from mcp.server.fastmcp import FastMCP
 
 # OFA_DISABLE_PITFALLS=1 → knowledge surfaces strip pitfall-DB content
