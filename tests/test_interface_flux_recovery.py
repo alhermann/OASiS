@@ -165,6 +165,70 @@ def test_recovered_flux_converges_to_the_imposed_one(tmp_path, backend):
         f"projected boundary gradient gives ~0 in this norm")
 
 
+def test_kratos_3d_measures_what_its_conditions_assembled(tmp_path):
+    """The 3-D Kratos participant, whose Neumann side has no reaction to read.
+
+    Kratos stores REACTION_FLUX only on FIXED dofs, so the Dirichlet branch's
+    route is closed on the Neumann side. Echoing the imported array would be
+    algebraically exact and useless as evidence — applied on the wrong facets
+    or with the wrong sign it would read the same, and the two-sided balance
+    check would still report roundoff. Summing each condition's own
+    right-hand side is a MEASUREMENT of what entered the linear system.
+
+    Measured here against q(y,z) = 2 + 3 sin(4y) cos(3z), interior nodes of the
+    interface plane (the rim carries the outer reaction too):
+        assembled conditions   5.16e-01, 1.77e-01, 4.77e-02  order 1.55, 1.89
+        gradient averaging     1.27e+00, 8.37e-01, 3.95e-01  order 0.60, 1.08
+    """
+    if not _available("kratos"):
+        pytest.skip("kratos not available on this install")
+    import numpy as _np
+    src = PART_DIR / "participant_kratos_3d.py"
+    if not src.is_file():
+        pytest.skip("no 3-D Kratos participant")
+
+    def q_ex(y, z):
+        return 2.0 + 3.0 * _np.sin(4.0 * y) * _np.cos(3.0 * z)
+
+    errs = []
+    for n in (4, 8, 16):
+        wd = tmp_path / f"k{n}"
+        wd.mkdir(parents=True, exist_ok=True)
+        (wd / "p.py").write_text(_edit(src.read_text(), {
+            "SIDE": '"neumann"', "PARTNER": '"left"', "IFACE_AXIS": "0",
+            "IFACE_POS": "0.5", "X0, X1": "0.5, 1.0", "Y0, Y1": "0.0, 1.0",
+            "Z0, Z1": "0.0, 1.0", "NX, NY, NZ": f"{n}, {n}, {n}",
+            "K": "1.5", "DIRICHLET_FACES": '("x1",)', "LIN_SOLVER": '"direct"'}))
+        m = 41
+        ys, zs = _np.meshgrid(_np.linspace(0, 1, m), _np.linspace(0, 1, m),
+                              indexing="ij")
+        ys, zs = ys.ravel(), zs.ravel()
+        (wd / "imports.json").write_text(json.dumps({"left": {
+            "field_name": "temperature", "n_points": len(ys),
+            "coordinates": [[0.5, float(a), float(b)] for a, b in zip(ys, zs)],
+            "values": [300.0] * len(ys),
+            "normal_fluxes": [float(v) for v in q_ex(ys, zs)]}}))
+        r = subprocess.run([sys.executable, "p.py"], cwd=str(wd),
+                           capture_output=True, text=True, timeout=2400)
+        ep = wd / "exports.json"
+        assert ep.is_file(), (f"kratos_3d n={n} wrote no exports.json, "
+                              f"rc={r.returncode}\n{r.stdout[-800:]}\n{r.stderr[-800:]}")
+        d = json.loads(ep.read_text())
+        c = _np.array(d["coordinates"], float)
+        q = _np.array(d["normal_fluxes"], float)
+        yy, zz = c[:, 1], c[:, 2]
+        rim = (_np.isclose(yy, 0.0) | _np.isclose(yy, 1.0) |
+               _np.isclose(zz, 0.0) | _np.isclose(zz, 1.0))
+        errs.append(float(_np.max(_np.abs(q[~rim] + q_ex(yy, zz)[~rim]))))
+
+    orders = [math.log(errs[i - 1] / errs[i]) / math.log(2.0)
+              for i in range(1, len(errs))]
+    assert orders[-1] >= 1.5, (
+        f"kratos_3d interface flux converges at {orders} (errors {errs}); "
+        f"the gradient averaging this replaced gives ~1.0 and the assembled "
+        f"condition measurement gives ~1.9")
+
+
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_no_participant_projects_the_boundary_gradient(backend):
     """The retired recovery must not come back by copy-paste.

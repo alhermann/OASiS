@@ -649,29 +649,48 @@ def main():
                   f"an outer Dirichlet face; no clean reaction exists anywhere "
                   f"on this interface and the exported flux is the raw one.")
     else:
-        # ── NEUMANN SIDE: -g, and that is EXACT, not a recovery ─────────────
-        # This branch used to average the surrounding constant P1 tet gradients
-        # — an O(h) reconstruction — on the reasoning that the reaction formula
-        # cannot work here because the interface dofs are free, so Kratos
-        # stores no REACTION_FLUX on them.  The premise about Kratos is true;
-        # the conclusion is not, because this side does not need to reconstruct
-        # anything.  FluxCondition3D3N enforces  K grad T . n = FACE_HEAT_FLUX
-        # (verified by the 3-D patch test quoted at the top of this file), and
-        # FACE_HEAT_FLUX was set to the partner's exported `normal_fluxes`
-        # verbatim.  This participant's own outward flux is therefore
-        #     q = -(K grad T) . n = -FACE_HEAT_FLUX = -q_in
-        # exactly, at every interface node, on any mesh.  It is the same
-        # discrete identity the Dirichlet branch above uses -- there
-        # int_Gamma q phi_i ds = -r_i with r the unconstrained residual; here
-        # the residual on those rows IS the applied interface functional, and
-        # the two differ only by the O(h^2) nodal averaging of a P1 field.
+        # ── NEUMANN SIDE: what the CONDITIONS actually assembled ────────────
+        # Kratos stores REACTION_FLUX only on FIXED dofs, so the Dirichlet
+        # branch's route is closed here — the interface dofs are free and read
+        # back as zero.  This branch used to answer that by averaging the
+        # surrounding constant P1 tet gradients, an O(h) reconstruction that
+        # sets the graded interface order all by itself.
         #
-        # MEASURED on the 2-D conduction participants, which CAN take the
-        # residual route directly: imposing q(y) = 2 + 3 sin(4y) and asking for
-        # it back, the consistent flux converges at order 2.00 while the
-        # gradient reconstruction this replaces stalls -- max error flat at 2.6,
-        # order 0.00, and 0.93 only once the end nodes are excluded.
-        Q = -np.asarray(q_in, float)
+        # THE ECHO WOULD BE WRONG, even though it is algebraically right.
+        # FluxCondition3D3N enforces  K grad T . n = FACE_HEAT_FLUX  and
+        # FACE_HEAT_FLUX is the partner's array verbatim, so `-q_in` is exactly
+        # this side's outward flux -- and it is worthless as evidence, because
+        # it never passes through the solve.  Applied on the wrong facets, with
+        # the wrong sign, or with a broken area weight, the echo is unchanged
+        # and the two-sided balance check still reports roundoff.  The whole
+        # point of that check is that an interface-mechanism mutation, which
+        # leaves the self-convergence order at ~1.85 and looks correct, moves
+        # the flux jump from roundoff to O(1).
+        #
+        # So ask the conditions themselves what they contributed.  Summing each
+        # condition's own right-hand side is a MEASUREMENT of what entered the
+        # linear system: it is int_Gamma g phi_i ds when the interface is built
+        # correctly, and it is something else the moment it is not.  Dividing
+        # by the same face-area weight w_i the Dirichlet branch uses turns the
+        # functional into the density the partner interpolates, and the sign is
+        # the same -r/w -- on those rows the assembled interface load IS the
+        # residual (A u - b_vol).
+        info = mp.ProcessInfo
+        rhs_i = np.zeros(max(n.Id for n in mp.Nodes) + 1)
+        for cond in mp.Conditions:
+            vec = KM.Vector()
+            cond.CalculateRightHandSide(vec, info)
+            for k, nd in enumerate(cond.GetNodes()):
+                rhs_i[nd.Id] += float(vec[k])
+        # r = A u - b_vol.  On these rows the discrete equation reads
+        # (A u)_i = b_i = b_vol,i + (assembled interface load)_i, so the
+        # residual against the volume load IS the assembled interface load,
+        # with a PLUS sign; the outward density is then -r_i / w_i, exactly
+        # the expression the Dirichlet branch uses.
+        r = np.array([rhs_i[int(i)] for i in ids])
+        Q = np.zeros(len(ids))
+        ok = np.abs(w) > 1e-14 * max(1.0, float(np.max(w)))
+        Q[ok] = -r[ok] / w[ok]
         Q_raw = Q.copy()
 
     # ── CONSERVATION SELF-CHECK: the discrete divergence theorem ─────────────
