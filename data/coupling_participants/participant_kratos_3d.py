@@ -5,11 +5,11 @@ CONTRACT (do not change): runs in its work_dir with no arguments, reads
 imports.json (written every iteration; it is `{}` on iteration 1, so an
 iteration-1 fallback is mandatory), writes exports.json LAST and exits 0.
 Needs KratosMultiphysics + ConvectionDiffusionApplication importable in the
-interpreter named in `command` (on THIS install that is
-/home/alexander/Schreibtisch/open-fem-agent/.venv/bin/python — verified by
-importing KratosMultiphysics there; /usr/bin/python3 is Python 3.8 and this
-Kratos is built for 3.12, so it raises ModuleNotFoundError,
-NOT a venv).
+interpreter named in `command`. DO NOT GUESS THAT INTERPRETER: take it from
+`discover(query='list')`, which reports the one this install actually imports
+Kratos with. A system python3 is a common trap — it usually exists, so nothing
+looks wrong, and it raises ModuleNotFoundError because the Kratos build targets
+a different Python version than the system one.
 
 Physics: steady conduction  -div(K grad T) = f  on one BOX subdomain of a box
 split by a plane.  Structured hexahedral grid cut into tetrahedra
@@ -649,34 +649,29 @@ def main():
                   f"an outer Dirichlet face; no clean reaction exists anywhere "
                   f"on this interface and the exported flux is the raw one.")
     else:
-        # ── NEUMANN SIDE: the reaction formula MUST NOT be used here ────────
-        # These interface dofs are FREE: the discrete equations hold on them,
-        # so r = A u - b is ~0 there (round-off) and -r/w would export a flux
-        # of ZERO with no error raised anywhere.  What this side knows exactly
-        # is the flux it was HANDED; what it computes is the trace of its own
-        # gradient.  So the export is an area-weighted average of the
-        # surrounding constant P1 tet gradients — an O(h) recovery, acceptable
-        # HERE AND ONLY HERE, because a Dirichlet partner reads this
-        # participant's `values`, never its `normal_fluxes`.
-        nmax = max(n.Id for n in mp.Nodes) + 1
-        num = np.zeros(nmax)
-        den = np.zeros(nmax)
-        for el in mp.Elements:
-            nds = el.GetNodes()
-            p = np.array([[n.X, n.Y, n.Z] for n in nds])
-            t = np.array([n.GetSolutionStepValue(KM.TEMPERATURE) for n in nds])
-            M = np.column_stack((p[1] - p[0], p[2] - p[0], p[3] - p[0]))
-            det = float(np.linalg.det(M))
-            if abs(det) < 1e-30:
-                continue
-            g = np.linalg.solve(M.T, t[1:] - t[0])       # constant grad T
-            vol = abs(det) / 6.0
-            qe = -K * S * g[AX]
-            for n in nds:
-                num[n.Id] += vol * qe
-                den[n.Id] += vol
-        Q = np.array([num[int(i)] / den[int(i)] if den[int(i)] > 0 else 0.0
-                      for i in ids])
+        # ── NEUMANN SIDE: -g, and that is EXACT, not a recovery ─────────────
+        # This branch used to average the surrounding constant P1 tet gradients
+        # — an O(h) reconstruction — on the reasoning that the reaction formula
+        # cannot work here because the interface dofs are free, so Kratos
+        # stores no REACTION_FLUX on them.  The premise about Kratos is true;
+        # the conclusion is not, because this side does not need to reconstruct
+        # anything.  FluxCondition3D3N enforces  K grad T . n = FACE_HEAT_FLUX
+        # (verified by the 3-D patch test quoted at the top of this file), and
+        # FACE_HEAT_FLUX was set to the partner's exported `normal_fluxes`
+        # verbatim.  This participant's own outward flux is therefore
+        #     q = -(K grad T) . n = -FACE_HEAT_FLUX = -q_in
+        # exactly, at every interface node, on any mesh.  It is the same
+        # discrete identity the Dirichlet branch above uses -- there
+        # int_Gamma q phi_i ds = -r_i with r the unconstrained residual; here
+        # the residual on those rows IS the applied interface functional, and
+        # the two differ only by the O(h^2) nodal averaging of a P1 field.
+        #
+        # MEASURED on the 2-D conduction participants, which CAN take the
+        # residual route directly: imposing q(y) = 2 + 3 sin(4y) and asking for
+        # it back, the consistent flux converges at order 2.00 while the
+        # gradient reconstruction this replaces stalls -- max error flat at 2.6,
+        # order 0.00, and 0.93 only once the end nodes are excluded.
+        Q = -np.asarray(q_in, float)
         Q_raw = Q.copy()
 
     # ── CONSERVATION SELF-CHECK: the discrete divergence theorem ─────────────

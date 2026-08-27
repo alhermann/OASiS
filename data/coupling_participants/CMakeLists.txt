@@ -29,11 +29,19 @@ deal_ii_setup_target(elast_iface_dealii)
 # `couple` participant above must keep building on an install with no preCICE,
 # and a hard `find_package(precice)` would break it there.
 #
-# PRECICE_ROOT defaults to /opt/precice; override with -DPRECICE_ROOT=<path>.
+# WHERE preCICE IS, WITHOUT NAMING A MACHINE. This file is served verbatim to
+# agents on installs that are not the one it was written on, so it must not
+# carry a path from the build host. In order of precedence: -DPRECICE_ROOT=...,
+# then $PRECICE_ROOT from the environment, then whatever CMake's own search
+# finds on the default prefixes. An empty PRECICE_ROOT is fine — find_library
+# then searches the system paths, which is where a package-manager install of
+# preCICE already is.
+#
 # A hand-rolled `g++ -I<dealii>/include` does NOT work — deal.II's bundled
 # headers need the flags deal_ii_setup_target() supplies — so the preCICE
 # include/lib are added ON TOP of deal.II's own target setup, not instead.
-set(PRECICE_ROOT "/opt/precice" CACHE PATH "preCICE install prefix")
+set(PRECICE_ROOT "$ENV{PRECICE_ROOT}" CACHE PATH
+    "preCICE install prefix (optional; leave empty to search system paths)")
 find_library(PRECICE_LIBRARY NAMES precice
              HINTS ${PRECICE_ROOT}/lib ${PRECICE_ROOT}/lib64)
 find_path(PRECICE_INCLUDE_DIR precice/precice.hpp
@@ -47,6 +55,8 @@ if(PRECICE_LIBRARY AND PRECICE_INCLUDE_DIR)
   target_include_directories(precice_heat_dealii PRIVATE ${PRECICE_INCLUDE_DIR})
   target_link_libraries(precice_heat_dealii ${PRECICE_LIBRARY})
 else()
-  message(STATUS "preCICE not found under ${PRECICE_ROOT} — skipping "
-                 "precice_heat_dealii (the `couple` participant still builds)")
+  message(STATUS "preCICE not found (PRECICE_ROOT='${PRECICE_ROOT}') — "
+                 "skipping precice_heat_dealii; pass -DPRECICE_ROOT=<prefix> "
+                 "if it is installed somewhere CMake does not search. The "
+                 "`couple` participant still builds.")
 endif()

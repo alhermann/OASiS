@@ -4,11 +4,11 @@ CONTRACT (do not change): runs in its work_dir with no arguments, reads
 imports.json (written every iteration; it is `{}` on iteration 1, so an
 iteration-1 fallback is mandatory), writes exports.json LAST and exits 0.
 Needs KratosMultiphysics + ConvectionDiffusionApplication importable in the
-interpreter named in `command` (on THIS install that is
-/home/alexander/Schreibtisch/open-fem-agent/.venv/bin/python — verified by
-importing KratosMultiphysics there; /usr/bin/python3 is Python 3.8 and this
-Kratos is built for 3.12, so it raises ModuleNotFoundError,
-NOT a venv).
+interpreter named in `command`. DO NOT GUESS THAT INTERPRETER: take it from
+`discover(query='list')`, which reports the one this install actually imports
+Kratos with. A system python3 is a common trap — it usually exists, so nothing
+looks wrong, and it raises ModuleNotFoundError because the Kratos build targets
+a different Python version than the system one.
 
 THE OTHER HALF OF participant_kratos.py. That file is the DIRICHLET side: it
 imports the partner's `values` (interface temperature), fixes them as nodal

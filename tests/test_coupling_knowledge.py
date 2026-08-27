@@ -359,10 +359,20 @@ def test_knowledge_tool_output_matches_the_payload_function(topic):
     fn = coupling_knowledge if topic == "coupling" else precice_knowledge
     tool = _knowledge_tool()
     for solver in [""] + _BACKEND_ORDER:
-        assert tool(topic=topic, solver=solver) == fn(solver), (
+        out = tool(topic=topic, solver=solver)
+        payload = fn(solver)
+        assert out.startswith(payload), (
             f"knowledge(topic={topic!r}, solver={solver!r}) does not match "
             f"{fn.__name__}({solver!r}) — the served path and the tested path "
             f"have diverged")
+        # The ONLY thing the tool may add is the receipt for the participant
+        # files it puts on disk as a side effect of this call. Anything else
+        # appended here is untested prose reaching the agent, which is the
+        # drift this test exists to stop.
+        extra = out[len(payload):].strip()
+        assert not extra or "NOW ON DISK" in extra, (
+            f"knowledge(topic={topic!r}, solver={solver!r}) appends text that "
+            f"is not the materialisation receipt:\n{extra[:400]}")
 
 
 def test_the_accelerator_advice_carries_its_measured_crossover():

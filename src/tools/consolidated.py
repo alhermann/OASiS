@@ -5601,7 +5601,24 @@ def _materialize_on_request(solver: str) -> str:
     cands = sorted(q for q in src.glob("*.py") if s in q.name.lower())
     if not cands:
         return ""
-    dst = _P.cwd()
+    # WHERE THEY GO, NAMED — NOT WHEREVER cwd HAPPENS TO BE.
+    #
+    # This was `_P.cwd()`, on the assumption that the server runs in the
+    # agent's sandbox. It does not: langgraph_eval/agent.py launches it with
+    # cwd=<repo>/src, so the participants would have landed in the OASiS source
+    # tree and NEVER reached the agent — the delivery would have been silently
+    # inert in exactly the campaign it was built for. Running the test suite
+    # from the repo root proved it by littering the root with 24 copies.
+    #
+    # `coupling` is the directory the coupling driver itself resolves through
+    # core.output_paths, and the harness points it at <work_dir>/coupling per
+    # cell, so the files arrive where the driver will look for them.
+    from core.output_paths import output_dir as _outdir
+    dst = _outdir("coupling")
+    try:
+        dst.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return ""
     wrote, skipped = [], []
     for q in cands[:6]:
         target = dst / q.name
@@ -5616,12 +5633,24 @@ def _materialize_on_request(solver: str) -> str:
     if not wrote and not skipped:
         return ""
     lines = ["", "", "=" * 70,
-             "THESE PARTICIPANT SCRIPTS ARE NOW ON DISK IN YOUR WORKING "
-             "DIRECTORY.", "=" * 70, ""]
+             "THESE PARTICIPANT SCRIPTS ARE NOW ON DISK:", "=" * 70, ""]
+    import os as _os
+
+    def _show(n):
+        """Relative to the agent's sandbox when we know it, else bare."""
+        t = dst / n
+        root = _os.environ.get("OASIS_WORK_DIR")
+        if root:
+            try:
+                return f"./{t.relative_to(_P(root))}"
+            except ValueError:
+                pass
+        return f"{dst.name}/{n}"
+
     for n in wrote:
-        lines.append(f"  WRITTEN: ./{n}")
+        lines.append(f"  WRITTEN: {_show(n)}")
     for n in skipped:
-        lines.append(f"  already present (yours, untouched): ./{n}")
+        lines.append(f"  already present (yours, untouched): {_show(n)}")
     lines += [
         "",
         "Do not retype them. Copy the one you need to its participant name,",
