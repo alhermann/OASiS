@@ -81,3 +81,69 @@ If round 6's just-in-time notice converts even half of those, the single-code
 rate moves without a single new fact being added. That is the cheapest available
 distance to the target, and it is why round 6 measures the unwritten-summary
 rate rather than the solve rate.
+
+---
+
+## CORRECTIONS, 2026-08-27 — three claims above are wrong or unsupported
+
+An independent re-derivation of every number from the raw grades, with code
+that shares nothing with the analysis script, found errors I had repeated for
+days. Each is verified by me before being written here.
+
+**RETRACTED — the coupling behaviour claim.** I reported "the bare arm has
+driven a coupling to convergence ZERO times in 55 attempts, while the OASiS arm
+has done it 21 times" as the strongest coupling evidence we had. It is an
+artefact of the instrument. I measured it by grepping run transcripts for
+`converged: true` — a string emitted by the OASiS `couple` tool's JSON return.
+THE BARE ARM HAS NO SUCH TOOL AND CANNOT PRINT IT. The test could only ever
+find OASiS runs; it was biased by construction, and the direction of the bias
+is the direction of the claim.
+
+The opposite measurement is biased the opposite way. The grader's own
+code-agnostic coupling evidence (a falling partitioned residual history in
+FILES) gives BARE 20/90 PROVEN against OASiS 5/88 — but 68 of 88 OASiS records
+carry NO coupling block at all, because `couple` returns its history in-band
+and only 26 of the 61 runs that called it ever wrote a residual file. Each
+instrument sees the arm whose idiom it was written for.
+
+So the honest statement today is: WE DO NOT KNOW how the arms compare on
+achieving coupling convergence. What survives is grader-adjudicated and
+arm-symmetric: the 12 pooled coupled cells are 0/102 (bare) and 0/100 (OASiS)
+across rounds 3-6 — neither arm has produced a gradeable coupled answer. A
+code-agnostic convergence measure has to be built before any coupling
+behaviour claim goes near the paper.
+
+**BROKEN IN ROUND 6 — the reliability claim.** "No OASiS run has been graded
+FABRICATED_NO_RUN at a rate approaching bare's" holds for rounds 3-5 (17/36 vs
+5/36, 10/24 vs 2/24, 9/18 vs 2/16) and FAILS in round 6: BARE 9/24 and OASiS
+9/24, exact parity. The claim is now "held in rounds 3-5, lost in round 6",
+and why it regressed is an open question for round 7's grading, not a
+footnote.
+
+**OVERSTATED — the +10.4 uplift is one cell.** Per cell over seeds 4-9:
+DL1 goes 0/6 -> 6/6 (+6) and NG1 goes 6/6 -> 1/6 (-5); 7 of 16 cells are tied
+at 0/6-vs-0/6 or equal. Net +10 paired wins, of which one cell supplies +6.
+The instance-level cluster bootstrap interval is [-9.4, +30.2] points and
+contains zero comfortably.
+
+**And the significance was computed wrongly.** McNemar over 96 pairs treats six
+seeds per cell as independent trials; they are nested in 16 cells. Cluster-
+correct (exhaustive enumeration of all 2^16 within-cell arm-label swaps) gives
+p = 0.383, and a cell-level sign test gives p = 0.508, against the 0.13 I have
+been quoting. p = 0.13 is anti-conservative by roughly a factor of three. Every
+future rate must carry the clustered interval, not the paired-binomial one.
+
+**Also fixed:** the fabrication line elsewhere in the campaign log used a
+28-run all-14-cell denominator against a grade-1-only numerator (C13/C14
+cannot carry FABRICATED_NO_RUN — different verdict vocabulary), and a
+campaign-wide fabrication count keyed on the top-level status field misses 24
+real fabrications visible only in `evidence.fatal`. True campaign total 106,
+not 82. The duplicate `dev_grades_27b_seed1.json` — byte-identical to the
+`_round2` file and one `*seed*` glob away from double-counting seed 1 — has
+been deleted.
+
+**What this does NOT change:** the FEM uplift arithmetic (+10.4, +12.5, +12.5,
++6.25 per round; pooled 22/96 vs 32/96) reproduced exactly, and the coupled
+0-in-both-arms result reproduced exactly. The errors are in what the numbers
+were claimed to MEAN, not in the numbers themselves — which is the more
+dangerous kind.
