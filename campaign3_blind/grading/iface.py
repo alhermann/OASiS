@@ -170,7 +170,15 @@ def interface_phase(work: Path, spec: dict, key: dict, dim: int,
                for leg in legs]}
 
     lvls: dict[int, dict[str, Path]] = {}
-    for f in sorted(work.glob("interface_level*.csv")):
+    # RECURSIVE, like submission._submission_candidates. This was a
+    # non-recursive glob while the solution-file discovery next door used
+    # rglob — the exact asymmetry submission.py's docstring records as fixed
+    # for solutions and never fixed here. Measured consequence: of the 5
+    # coupled cells booked "no interface_level files", 4 HAD submitted them
+    # (into results/, output/, level1/), and one of those four satisfies the
+    # interface gate. Agents organise their output into subdirectories; the
+    # grader must find it where the rest of the grader already looks.
+    for f in sorted(work.rglob("interface_level*.csv")):
         m = IFACE_FILE.match(f.name)
         if m:
             lvls.setdefault(int(m.group(1)), {})[m.group(2).upper()] = f

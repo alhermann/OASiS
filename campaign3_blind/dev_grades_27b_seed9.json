@@ -3157,15 +3157,34 @@
     "problem": "C2",
     "kind": "coupled",
     "evidence_grade": 1,
-    "outcome": "MALFORMED_SUBMISSION",
+    "outcome": "COMPLETED_UNPHYSICAL",
     "theoretical_order": 2.0,
     "tol": 0.4,
     "band": [
       0.8,
       3.2
     ],
-    "observed_order": null,
-    "per_field": {},
+    "observed_order": 0.849992993979452,
+    "per_field": {
+      "u": {
+        "field": "u",
+        "errors": [
+          0.004322379673820542,
+          0.0017589861239673949,
+          0.0013303813180867308
+        ],
+        "reasons": [
+          "DECAY_NOT_CLEAN(u)"
+        ],
+        "superconvergent": false,
+        "order": 0.849992993979452,
+        "r2": 0.9156,
+        "monotone": true,
+        "magnitude_checked": true,
+        "rel_coarse": 0.08582831526700879,
+        "rel_finest": 0.026417019283537235
+      }
+    },
     "levels": [
       {
         "level": 1,
@@ -3192,19 +3211,40 @@
         }
       }
     ],
-    "r2": null,
-    "monotone": null,
-    "magnitude": {},
+    "r2": 0.9156,
+    "monotone": true,
+    "magnitude": {
+      "exact_rms_key": 0.050360765679412,
+      "exact_rms_computed": 0.050360765679412146,
+      "magnitude_checked": true,
+      "exact_rms_source": "key"
+    },
     "interface": {
-      "verdict": "NOT_CHECKED",
-      "malformed": [
-        "no interface_level<k>_<side>.csv files: the task requires them, and the interface flux is the only reference-free quantity that can detect convergence to the wrong transmission condition"
+      "verdict": "INTERFACE_NOT_SATISFIED",
+      "malformed": [],
+      "reasons": [
+        "INTERFACE_NOT_SATISFIED"
       ],
-      "reasons": [],
       "findings": [
-        "Interface NOT CHECKED: nothing was submitted for it. This is not a passing check \u2014 nothing was compared."
+        "the two subdomains disagree at the interface: max relative field jump 1.197e+27, max relative FLUX jump 1.869e+00, tolerance 0.005. A jump that stays O(1) under refinement means the scheme converged to a fixed point of the wrong transmission condition \u2014 which the observed order cannot see, because convergence to a wrong answer is still convergence."
       ],
-      "per_level": [],
+      "per_level": [
+        {
+          "level": 1,
+          "jump_u_rel": 1.1968885540679524e+27,
+          "jump_q_rel": 1.579893991733306
+        },
+        {
+          "level": 2,
+          "jump_u_rel": 1.07062957378582e+27,
+          "jump_q_rel": 1.8017613078540269
+        },
+        {
+          "level": 3,
+          "jump_u_rel": 1.0423809783994205e+27,
+          "jump_q_rel": 1.868941913170037
+        }
+      ],
       "legs": [
         {
           "axis": 0,
@@ -3288,14 +3328,13 @@
       "COUPLING_ITERATIONS": "6"
     },
     "reasons": [
-      "INTERFACE_CONTRACT"
+      "INTERFACE_NOT_SATISFIED",
+      "DECAY_NOT_CLEAN(u)"
     ],
     "findings": [
-      "Interface NOT CHECKED: nothing was submitted for it. This is not a passing check \u2014 nothing was compared."
+      "the two subdomains disagree at the interface: max relative field jump 1.197e+27, max relative FLUX jump 1.869e+00, tolerance 0.005. A jump that stays O(1) under refinement means the scheme converged to a fixed point of the wrong transmission condition \u2014 which the observed order cannot see, because convergence to a wrong answer is still convergence."
     ],
-    "notes": [
-      "no interface_level<k>_<side>.csv files: the task requires them, and the interface flux is the only reference-free quantity that can detect convergence to the wrong transmission condition"
-    ],
+    "notes": [],
     "result_type": "order"
   },
   "C2_MCP": {
