@@ -296,6 +296,36 @@ NOT VERIFIED and NOT A RESULT are different outcomes. If a check you ran
 complains about an answer you computed, report the answer AND the complaint —
 do not withhold the answer.
 
+## THE ORDER YOU ARE ASKED FOR DECIDES THE ELEMENT DEGREE
+
+If your task states a convergence order and you are running a Galerkin finite
+element method, the element degree is not a free choice. For the L2 error of
+the primal field, degree p converges at order p+1:
+
+    order 2 asked for  ->  degree 1 (P1/Q1, linear)      is CORRECT
+    order 3 asked for  ->  degree 2 (P2/Q2, quadratic)   is REQUIRED
+    order 4 asked for  ->  degree 3
+
+Run a degree-1 element on an order-3 task and you get a clean, monotone,
+beautifully behaved study that converges at 2 and is graded WRONG — the most
+expensive failure mode there is, because nothing looks broken. Measured over
+this campaign's development rounds: every order-3 cell that failed, failed
+this way.
+
+Three things that silently cap the order even when the degree is right:
+  * the ERROR NORM. Order p+1 is the L2 norm of the field. The gradient/flux
+    converges one order lower; a pointwise value at a probe can superconverge.
+    Match the norm the task states.
+  * QUADRATURE. A rule exact only for the degree you had before will not
+    integrate degree-2 basis functions against a polynomial source; the load
+    error then dominates and the rate collapses to the quadrature's.
+  * a first-order TIME integrator behind a spatial study: backward Euler caps
+    the whole thing at 1 no matter how good the mesh is.
+
+If your own levels improve at p and you are about to claim p+1, the degree is
+the first thing to check — `audit_results` below reports exactly this
+mismatch, and it is nearly always the element, not the solver.
+
 ## BEFORE YOU SUBMIT: RUN `audit_results` ON YOUR OWN OUTPUT
 
 One tool call: `audit_results(work_dir=<your results directory>,

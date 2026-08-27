@@ -156,6 +156,47 @@ def _get_generators():
     return get_generator, list_generators
 
 
+# A defined function is INERT until a condition references it, and VAL is a
+# MULTIPLIER on it. Filed as a cross-cutting entry because it is true of every
+# 4C physics, and because filing a universal fact under one physics row is a
+# mistake this project has now made three times.
+_FUNCT_WIRING = """\
+A `FUNCT` YOU DEFINE DOES NOTHING UNTIL A CONDITION POINTS AT IT, AND `VAL`
+SCALES IT.
+
+Measured failure, three separate runs, all graded wrong: the deck defined the
+complete manufactured source as FUNCT1 —
+
+    FUNCT1:
+      - SYMBOLIC_FUNCTION_OF_SPACE_TIME: "exp(t/2)*(t*x^3*y/2 + ...)"
+
+— and then wired every condition with
+
+    VAL: [0.0]
+    FUNCT: [0]
+
+The solver ran, converged, and wrote 1936 probe values of exactly 0.0, which
+the agent submitted. Nothing errored, because nothing was wrong: the deck
+asked for zero source and got it.
+
+The two halves of the wiring, and both must be right:
+  * `FUNCT: [n]` selects FUNCT<n>. `FUNCT: [0]` means NO FUNCTION — the
+    literal zero index is 4C's "none", not "the first one".
+  * `VAL: [v]` is the AMPLITUDE MULTIPLYING that function, not an alternative
+    to it. The applied quantity is v * FUNCT<n>(x, t). So `VAL: [0.0]` with a
+    perfectly correct FUNCT applies exactly nothing, and `VAL: [1.0]` with
+    `FUNCT: [0]` applies a constant 1.0, not your function.
+
+For a manufactured source the pair you almost always want is
+`VAL: [1.0], FUNCT: [1]` — unit amplitude on the function that carries the
+whole spatial and temporal shape.
+
+CHECK IT BEFORE YOU BELIEVE A RESULT: a field that is identically zero (or
+identically your Dirichlet value) on a driven problem is this bug until proven
+otherwise. Grep your own deck for `FUNCT: [0]` and for `VAL: [0.0]` next to a
+function you spent effort deriving."""
+
+
 class FourcBackend(SolverBackend):
 
     def name(self) -> str:
@@ -476,10 +517,16 @@ class FourcBackend(SolverBackend):
             for k, v in gen_entry.items():
                 if k not in merged:
                     merged[k] = v
+            merged = dict(merged)
+            merged["funct_wiring"] = _FUNCT_WIRING
             return merged
         if data_entry:
+            data_entry = dict(data_entry)
+            data_entry["funct_wiring"] = _FUNCT_WIRING
             return data_entry
         if gen_entry:
+            gen_entry = dict(gen_entry)
+            gen_entry["funct_wiring"] = _FUNCT_WIRING
             return gen_entry
         return {"error": f"no knowledge for {physics!r} in fourc"}
 
