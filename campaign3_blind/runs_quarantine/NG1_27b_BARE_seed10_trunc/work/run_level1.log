@@ -1,0 +1,3 @@
+NDOF = 88
+h = 0.125
+Mesh elements: 142

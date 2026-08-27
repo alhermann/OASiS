@@ -1,0 +1,3 @@
+NDOF = 72
+NX = 8, NY = 7
+Interface points = 9

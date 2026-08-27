@@ -5565,7 +5565,78 @@ def _get_coupling_knowledge(solver: str = "", signal: str = ""):
     participant script, which is the whole point of asking for one. It used to
     be dropped on the floor, so every backend got the same bytes.
     """
-    return _capture_knowledge_fn("get_coupling_knowledge", solver, signal)
+    payload = _capture_knowledge_fn("get_coupling_knowledge", solver, signal)
+    return payload + _materialize_on_request(solver)
+
+
+def _materialize_on_request(solver: str) -> str:
+    """Put the shipped participants ON DISK as a side effect of asking for them.
+
+    STRUCTURAL, not offered. Measured twice at 27B: a capability the agent must
+    choose to invoke is not invoked. audit_results, served with an explicit
+    instruction in the block every payload carries, was called by 1 of 51 runs.
+    materialize_participant, named 16% into a coupling payload that six of six
+    probe runs fetched three or four times, was called by 0 of 6 — while those
+    same runs hand-wrote participants, which is what 259 of 260 scripts in the
+    campaign were.
+
+    So the file arrives without being asked for. `knowledge(topic='coupling',
+    solver=X)` is the call agents DO make, reliably, and it already returns
+    that participant's source as text; writing the same bytes to disk beside
+    them costs nothing and removes the transcription step entirely — which is
+    where the sign errors were introduced.
+
+    Writes into the CWD, which is the agent's sandboxed work_dir (run_blind
+    starts the server there). Never overwrites: a file the agent has already
+    edited is its work, not ours.
+    """
+    from pathlib import Path as _P
+    import shutil as _sh
+    s = (solver or "").strip().lower()
+    if not s:
+        return ""
+    src = _P(__file__).resolve().parents[2] / "data" / "coupling_participants"
+    if not src.is_dir():
+        return ""
+    cands = sorted(q for q in src.glob("*.py") if s in q.name.lower())
+    if not cands:
+        return ""
+    dst = _P.cwd()
+    wrote, skipped = [], []
+    for q in cands[:6]:
+        target = dst / q.name
+        if target.exists():
+            skipped.append(q.name)
+            continue
+        try:
+            _sh.copy2(q, target)
+            wrote.append(q.name)
+        except OSError:
+            continue
+    if not wrote and not skipped:
+        return ""
+    lines = ["", "", "=" * 70,
+             "THESE PARTICIPANT SCRIPTS ARE NOW ON DISK IN YOUR WORKING "
+             "DIRECTORY.", "=" * 70, ""]
+    for n in wrote:
+        lines.append(f"  WRITTEN: ./{n}")
+    for n in skipped:
+        lines.append(f"  already present (yours, untouched): ./{n}")
+    lines += [
+        "",
+        "Do not retype them. Copy the one you need to its participant name,",
+        "edit ONLY the block marked `EDIT THIS BLOCK` — every number in it is",
+        "a placeholder — and leave everything outside that block alone: it is",
+        "the tested contract (flux signs, imports/exports shapes, the",
+        "iteration-1 fallback, interface-node handling).",
+        "",
+        "Across one development campaign agents wrote 260 participant scripts",
+        "by hand and exactly ONE matched the shipped file. The hand-written",
+        "ones repeatedly exported the raw traction instead of the negated",
+        "normal flux, which flips the sign the partner applies and converges",
+        "smoothly to the wrong answer.",
+        "=" * 70, ""]
+    return "\n".join(lines)
 
 
 def _get_tsi_knowledge():

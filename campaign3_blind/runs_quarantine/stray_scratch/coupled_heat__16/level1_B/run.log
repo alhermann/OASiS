@@ -1,0 +1,3 @@
+NDOF = 81
+Elements = 128
+Interface points (interior only) = 7

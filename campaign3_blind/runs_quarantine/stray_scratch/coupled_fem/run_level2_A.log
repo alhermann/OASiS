@@ -1,0 +1,2 @@
+NDOF = 374
+FEBio attempted but failed (segfault); using Python FEM fallback

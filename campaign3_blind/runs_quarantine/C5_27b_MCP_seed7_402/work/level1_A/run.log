@@ -1,0 +1,3 @@
+NDOF = 61
+interface_nodes = 6
+outer_dofs = 24

@@ -1,0 +1,3 @@
+NDOF = 1025
+Interface DOFs: 25
+Mesh: 40x24 quadrilaterals

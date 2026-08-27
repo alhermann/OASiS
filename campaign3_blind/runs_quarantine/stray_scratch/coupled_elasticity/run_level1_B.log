@@ -1,0 +1,3 @@
+NDOF = 144
+NX = 7, NY = 8
+Interface nodes = 7
