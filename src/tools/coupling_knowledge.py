@@ -31,18 +31,72 @@ from pathlib import Path
 _PARTICIPANT_DIR = Path(__file__).resolve().parents[2] / "data" / "coupling_participants"
 
 
+_SOLVE_BEGIN = "# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin"
+_SOLVE_END = "# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end"
+
+_SOLVE_ELIDED = """\
+# ─────────────────────────────────────────────────────────────────────────
+# THE SOLVE ITSELF IS YOURS AND IS NOT SERVED HERE.
+#
+# Build the mesh, the function space, the weak form and the linear solve for
+# the problem you were given, in this backend, however you judge best. That is
+# ordinary finite-element work and OASiS has no business dictating it.
+#
+# What OASiS does document — because you cannot guess it and it is what the
+# verification gate grades against — is everything AROUND the solve: the
+# imports/exports handshake above, the interface sign convention, and the flux
+# recovery below. Those are this tool's own interface, not your method.
+#
+# At this point you are expected to have produced:
+#   * the discrete solution on this subdomain, with the partner's interface
+#     data applied according to SIDE, and
+#   * the assembled operator and the VOLUME load separately, because the flux
+#     recovery below subtracts the volume load alone.
+# ─────────────────────────────────────────────────────────────────────────"""
+
+
 def _script(name: str) -> str:
-    """The participant script SHIPPED WITH OASiS, served verbatim.
+    """The participant script SHIPPED WITH OASiS, with the SOLVE removed.
 
     The script is a file rather than a string literal on purpose: the file is
     the artefact that gets executed in the test suite, so the text an agent is
     served and the text that was proven to run cannot drift apart.
+
+    WHAT IS SERVED, AND WHY IT IS LESS THAN THE FILE. The file is a complete,
+    runnable participant, because it has to be — the suite executes it. What
+    an agent is served is that file with the mesh/form/solve region cut out.
+    OASiS documents ITS OWN interface: the imports/exports handshake, the
+    interface sign convention, the consistent flux recovery the gate grades
+    against, the iteration-1 fallback. It does not hand over a working finite
+    element solve; that is the agent's job and not OASiS's to give. Serving the
+    whole file would make the measured uplift partly a measure of handing over
+    code, which is not the claim the paper makes.
+
+    A file with no markers is served whole — that is a gap in the file, not a
+    licence, and `test_every_served_script_elides_its_solve` fails on it.
     """
     p = _PARTICIPANT_DIR / f"participant_{name}.py"
     if not p.is_file():
         return (f"[OASiS] participant script for '{name}' is missing from the "
                 f"install (expected data/coupling_participants/{p.name}).")
-    return p.read_text()
+    text = p.read_text()
+    out, i = [], 0
+    while True:
+        a = text.find(_SOLVE_BEGIN, i)
+        if a < 0:
+            out.append(text[i:])
+            break
+        b = text.find(_SOLVE_END, a)
+        if b < 0:                       # unterminated marker: serve nothing after
+            out.append(text[i:a])
+            out.append(_SOLVE_ELIDED + "\n")
+            break
+        out.append(text[i:a])
+        out.append(_SOLVE_ELIDED + "\n")
+        i = b + len(_SOLVE_END)
+        if i < len(text) and text[i] == "\n":
+            i += 1
+    return "".join(out)
 
 # ══════════════════════════════════════════════════════════════════════════
 # CORE — served by knowledge(topic='coupling') with no solver

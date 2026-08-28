@@ -149,13 +149,61 @@ def test_participant_script_parses_and_is_complete(name):
 
 
 @pytest.mark.parametrize("name", _script_backends())
-def test_served_payload_contains_the_whole_script(name):
+def test_served_payload_is_the_shipped_script_minus_its_solve(name):
+    """What is served must come FROM the tested file, and must not include the
+    finite element solve.
+
+    OASiS documents its own interface — the imports/exports handshake, the
+    interface sign convention, the flux recovery its gate grades against — and
+    not how to do finite elements. Serving the whole file would make the
+    measured uplift partly a measure of handing over a working solver.
+
+    The anti-drift property is kept by deriving the served text from the file
+    rather than from a second copy: every line served is a line of the file.
+    """
+    from tools.coupling_knowledge import _script, _SOLVE_BEGIN, _SOLVE_END
     served = coupling_knowledge(name)
-    text = (_PARTICIPANT_DIR / f"participant_{name}.py").read_text()
-    assert text in served, (
-        f"knowledge(topic='coupling', solver='{name}') does not serve the "
-        f"participant script verbatim — it can drift from the file that is tested")
+    path = _PARTICIPANT_DIR / f"participant_{name}.py"
+    text = path.read_text()
     assert "```python" in served
+
+    excerpt = _script(name)
+    assert excerpt in served, (
+        f"solver='{name}': the payload does not contain what _script() "
+        f"returns — the served path and the tested file have diverged")
+
+    if _SOLVE_BEGIN not in text:
+        return                      # covered by the marker test below
+
+    # every served line is a line of the file (no invented code), except the
+    # elision notice itself
+    marker = "OASiS DOES NOT SERVE THIS"
+    body = [l for l in excerpt.splitlines()
+            if l.strip() and not l.startswith("#")]
+    filelines = set(text.splitlines())
+    stray = [l for l in body if l not in filelines]
+    assert not stray, f"solver='{name}': served lines not in the file: {stray[:3]}"
+
+    # and the solve region is genuinely gone
+    a, b = text.index(_SOLVE_BEGIN), text.index(_SOLVE_END)
+    for line in text[a:b].splitlines():
+        t = line.strip()
+        if len(t) > 25 and not t.startswith("#"):
+            assert t not in excerpt, (
+                f"solver='{name}': the solve region is still served: {t[:60]}")
+
+
+@pytest.mark.parametrize("name", _script_backends())
+def test_every_served_script_elides_its_solve(name):
+    """A file with no markers is served whole. That is a gap, not a licence."""
+    from tools.coupling_knowledge import _SOLVE_BEGIN, _SOLVE_END
+    text = (_PARTICIPANT_DIR / f"participant_{name}.py").read_text()
+    assert _SOLVE_BEGIN in text, (
+        f"participant_{name}.py has no solve markers, so OASiS serves its "
+        f"whole finite element solve to the agent. Wrap the mesh/space/form/"
+        f"solve region in {_SOLVE_BEGIN!r} ... {_SOLVE_END!r}.")
+    assert text.count(_SOLVE_BEGIN) == text.count(_SOLVE_END), (
+        f"participant_{name}.py has unbalanced solve markers")
 
 
 # ── nothing machine-specific may be served ───────────────────────────────

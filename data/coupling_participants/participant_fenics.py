@@ -92,6 +92,7 @@ def sample(imp, key, fallback, y):
 
 imp = read_imports()
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
 domain = dmesh.create_rectangle(MPI.COMM_WORLD, [[X0, Y0], [X1, Y1]],
                                 [NX, NY], dmesh.CellType.triangle)
 V = fem.functionspace(domain, ("Lagrange", 1))
@@ -177,6 +178,7 @@ uh = LinearProblem(a, L, bcs=bcs, petsc_options_prefix="cpl",
 # into a density the partner can interpolate pointwise.
 p_, w_ = ufl.TrialFunction(V), ufl.TestFunction(V)
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 # ONE FORMULA, BOTH SIDES. An earlier version of this file used the reaction
 # only on the Dirichlet side and an L2-projected gradient on the Neumann side,
 # on the reasoning that the Neumann interface DOFs are free, so the discrete
