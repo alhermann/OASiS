@@ -202,6 +202,18 @@ def _read_write_tools_for(workdir: Path, *, audit_on_submit: bool = False):
             # by default. The bare arm is untouched: this flag is set only by
             # build_mcp_agent, because the audit is OASiS's capability.
             if audit_on_submit and p.name == "RESULT.txt":
+                # A GIVE-UP FILED OVER FINISHED WORK, caught structurally.
+                # Checked before the numeric audit because it is the more
+                # basic error: the audit asks whether the numbers are
+                # self-consistent, this asks whether numbers were submitted
+                # at all when they existed.
+                if "COULD_NOT_COMPLETE" in content.upper():
+                    try:
+                        _contra = _work_on_disk_contradicting_a_give_up(workdir)
+                    except Exception:                # noqa: BLE001
+                        _contra = ""
+                    if _contra:
+                        reply += "\n\n" + _contra
                 try:
                     findings = _audit_submission(p, content)
                 except Exception as e:               # noqa: BLE001
@@ -420,6 +432,103 @@ def _load_oasis_mcp_tools(workdir: Path | None = None) -> list[BaseTool]:
 import sys as _sys_for_path
 _sys_for_path.path.insert(
     0, str(Path(__file__).resolve().parents[1] / "src"))
+
+
+def _flat(v):
+    """Every scalar in a nested list, however the participant shaped it."""
+    if isinstance(v, (list, tuple)):
+        for x in v:
+            yield from _flat(x)
+    elif isinstance(v, (int, float)):
+        yield v
+
+
+def _work_on_disk_contradicting_a_give_up(work: Path) -> str:
+    """A give-up written on top of a finished run — reported structurally.
+
+    Measured twice. Ten coupled runs drove a coupling to convergence, hit a
+    flux-balance finding, and declared COULD_NOT_COMPLETE with a median 69% of
+    their budget unspent. The tool's reply was then rewritten to say NOT
+    VERIFIED and NOT A RESULT are different verdicts and to write the
+    deliverables first — and in the very next probe three of six runs did it
+    again anyway (C7, C8, C9), one of them stating in its own words that the
+    coupling converged in ~7 iterations before giving up on the balance check.
+
+    Wording the imperative better does not work; the same lesson as the audit
+    tool that was called by 1 of 51 runs when merely offered. So this reads the
+    agent's OWN files at the moment it writes a give-up and says what is
+    already there. It supplies no knowledge, no method and no numbers — it only
+    refuses to let a finished run be filed as an unfinished one silently.
+    """
+    import csv as _csv
+    sol = sorted(work.rglob("solution_level*.csv"))
+    iface = sorted(work.rglob("interface_level*.csv"))
+    resid = sorted(work.rglob("residual_level*.csv"))
+    # A PARTICIPANT'S OWN EXPORT COUNTS AS WORK. C8 of the seed-13 probe wrote
+    # no CSV at all and still had exports.json for both halves of level 1 —
+    # a solve that ran and an interface exchange that completed, filed as
+    # COULD_NOT_COMPLETE. Looking only for the task's deliverables misses
+    # exactly the run that did the work and never wrote it down.
+    # Non-empty AND not the iteration-1 fallback: a participant that wrote
+    # only placeholder zeros has not solved anything, and calling that "work
+    # on disk" would be the same crying-wolf that teaches agents to ignore a
+    # gate. Checked on the four seed-13 give-ups: all four carry real numbers
+    # (|q| up to 0.98), so none of them is a false positive.
+    def _real(q):
+        try:
+            import json as _json
+            d = _json.loads(q.read_text())
+        except Exception:                            # noqa: BLE001
+            return False
+        for key in ("values", "normal_fluxes"):
+            for x in _flat(d.get(key) or []):
+                if x not in (0, 0.0) and x == x:
+                    return True
+        return False
+
+    exports = [q for q in sorted(work.rglob("exports.json")) if _real(q)]
+    if not (sol or iface or resid or exports):
+        return ""                      # nothing on disk: the give-up is honest
+
+    conv = []
+    for r in resid:
+        try:
+            rows = [row for row in _csv.reader(r.open()) if row]
+            vals = []
+            for row in rows[1:]:
+                try:
+                    vals.append(float(row[-1]))
+                except (ValueError, IndexError):
+                    pass
+            if vals:
+                conv.append((r.name, len(vals), vals[-1]))
+        except OSError:
+            pass
+
+    bits = []
+    if sol:
+        bits.append(f"{len(sol)} solution_level*.csv")
+    if iface:
+        bits.append(f"{len(iface)} interface_level*.csv")
+    if exports and not (sol or iface):
+        bits.append(f"{len(exports)} participant exports.json — a solve ran "
+                    f"and an interface exchange completed, but none of the "
+                    f"task's own output files were written")
+    for name, n, last in conv:
+        bits.append(f"{name} with {n} iterations ending at {last:.3g}")
+    return (
+        "YOU ARE FILING A GIVE-UP ON TOP OF WORK THAT IS ON DISK.\n  "
+        + "\n  ".join(bits)
+        + "\nCOULD_NOT_COMPLETE is graded as nothing. A submission built from "
+          "the numbers you already have is graded on those numbers, and a "
+          "partial one is graded on the part you supply. A verification "
+          "finding — a flux imbalance, a failed conservation check — is NOT a "
+          "reason to withhold a field your solve already produced: those are "
+          "different verdicts and only one of them is worth zero. Write the "
+          "deliverables the task asks for from what you have, state the "
+          "finding alongside them, and keep working on the finding with "
+          "whatever time is left."
+    )
 
 
 def _audit_submission(result_path: Path, content: str):
