@@ -79,7 +79,21 @@ def _script(name: str) -> str:
     if not p.is_file():
         return (f"[OASiS] participant script for '{name}' is missing from the "
                 f"install (expected data/coupling_participants/{p.name}).")
-    text = p.read_text()
+    return _elide_solve(p.read_text())
+
+
+def _elide_solve(text: str) -> str:
+    """Cut every marked SOLVE region out of a participant's source.
+
+    Split out of `_script` because `_script` was NOT the only door. Four
+    helpers — the 3-D, transient, role and vector blocks — served their
+    variant with a bare `p.read_text()`, so marking those files changed
+    nothing an agent actually receives: `knowledge(solver='fenics')` serves the
+    scalar script through `_script` AND the elastic and transient variants
+    through those helpers, and `create_rectangle` was still arriving by the
+    second route while the first was clean. The mechanism has to sit where
+    every door passes through it, not where the first one did.
+    """
     out, i = [], 0
     while True:
         a = text.find(_SOLVE_BEGIN, i)
@@ -1610,7 +1624,7 @@ def _threed_block(script_name: str) -> str:
         "in 3-D against 2 of 25 (8%) in 2-D. Unguarded, the whole-interface "
         "flux loses its order outright (0.52) and the L2 error inflates by "
         "19x to 83x.\n\n"
-        f"```python\n{p.read_text()}```\n")
+        f"```python\n{_elide_solve(p.read_text())}```\n")
 
 
 def _transient_block(script_name: str) -> str:
@@ -1645,7 +1659,7 @@ def _transient_block(script_name: str) -> str:
         "theta-combined right-hand side needs. Exporting it as 'the flux at "
         "t^(n+1)' injects an O(dt) error that looks like a scheme stuck at "
         "first order.\n\n"
-        f"```python\n{p.read_text()}```\n")
+        f"```python\n{_elide_solve(p.read_text())}```\n")
 
 
 def _role_block(script_name: str) -> str:
@@ -1668,7 +1682,7 @@ def _role_block(script_name: str) -> str:
         "applies them UNCHANGED as the natural boundary condition, and "
         "exports the interface values its solve produced. Use whichever role "
         "the problem assigns this subdomain; they are not interchangeable.\n\n"
-        f"```python\n{p.read_text()}```\n")
+        f"```python\n{_elide_solve(p.read_text())}```\n")
 
 
 def _vector_block(script_name: str) -> str:
@@ -1700,7 +1714,7 @@ def _vector_block(script_name: str) -> str:
         "reactions of the assembled residual), never by differencing the "
         "displacement field — a differenced traction converges one order too "
         "slowly and drags the coupled field order down with it.\n\n"
-        f"```python\n{p.read_text()}```\n")
+        f"```python\n{_elide_solve(p.read_text())}```\n")
 
 
 def _payload(title: str, sides: str, script_name: str, launch: str,
@@ -3057,41 +3071,45 @@ def _dune() -> str:
 
 
 def _dealii_sources() -> str:
-    """The C++ the deal.II wrapper shells out to, INLINED.
+    """What the deal.II participant needs, WITHOUT the C++ solver itself.
 
-    The payload used to promise these files were "in the same directory the
-    payload came from". A payload comes from a tool call; there is no
-    directory, and no tool returned the source. Ten separate passages repeated
-    the promise. The measured consequence, in a round-1 transcript: the agent
-    hunted the filesystem, found the scalar solver, discovered it could not do
-    its anisotropic case, hand-wrote a replacement, segfaulted, and spent the
-    session there. A promise the corpus cannot keep is worse than an absence,
-    because it reads as an instruction.
+    This function used to inline the complete solvers — heat_iface_dealii.cc,
+    its transient sibling, elast_iface_dealii.cc and the CMakeLists — under the
+    heading "save these to disk, then build". That made the deal.II payload
+    103 kB and handed the agent a working finite element program, which is
+    exactly what OASiS is not for. The Python wrapper's own solve was elided at
+    the same time; leaving the C++ in place would have made that pointless,
+    since the input format the wrapper writes is readable straight off the .cc.
+
+    THE FAILURE THIS MUST NOT REINTRODUCE. Ten passages once promised the
+    sources were "in the same directory the payload came from". A payload comes
+    from a tool call; there is no directory, and no tool returned the source.
+    Measured in a round-1 transcript: the agent hunted the filesystem, found a
+    scalar solver, discovered it could not do its anisotropic case, hand-wrote
+    a replacement, segfaulted and spent the session there. So this says plainly
+    that writing the solver is the agent's job, and promises nothing.
     """
-    out = ["\n## THE C++ SOLVER SOURCES — save these to disk, then build\n"]
-    for fn, what in (("heat_iface_dealii.cc", "scalar conduction interface solver"),
-                     ("heat_iface_dealii_transient.cc",
-                      "TIME-DEPENDENT scalar conduction (theta-scheme, "
-                      "waveform exchange, theta-averaged reaction flux)"),
-                     ("elast_iface_dealii.cc", "vector elasticity interface solver"),
-                     ("CMakeLists.txt", "build file for all of them")):
-        p = _PARTICIPANT_DIR / fn
-        if not p.is_file():
-            out.append(f"\n### {fn} — MISSING FROM THIS INSTALL "
-                       f"(expected data/coupling_participants/{fn})\n")
-            continue
-        lang = "cmake" if fn.endswith(".txt") else "cpp"
-        out.append(f"\n### `{fn}` — {what}\n\n```{lang}\n{p.read_text()}```\n")
-    out.append(
-        "\nBoth solvers take their parameters on argv and exchange plain text "
-        "with the Python wrapper, so the wrapper is the only file you edit for "
-        "a new problem. The elasticity solver recovers the interface TRACTION "
-        "the same way the scalar one recovers the flux — from the residual of "
-        "the assembled system with no boundary condition applied "
-        "(`free_matrix.vmult(residual, solution); residual -= free_rhs;`), "
-        "which is the consistent recovery every backend in this corpus uses "
-        "and the reason the graded order comes out at 2 rather than 1.\n")
-    return "".join(out)
+    return (
+        "\n## THE C++ SOLVER IS YOURS TO WRITE\n\n"
+        "deal.II is a C++ library, so a participant here is TWO files: a "
+        "compiled solver and the thin Python wrapper above. OASiS does not "
+        "supply the solver and there is no copy of one to find on this "
+        "install — do not go looking for it. Write it, build it against your "
+        "deal.II, and point `DEALII_EXE` at YOUR binary.\n\n"
+        "What OASiS does specify is the part that is its own: the wrapper must "
+        "implement the imports.json/exports.json handshake exactly as shown, "
+        "and the interface flux or traction it exports must be the CONSISTENT "
+        "one — the residual of the assembled system with NO boundary condition "
+        "applied, divided by the nodal interface weight. In deal.II that is "
+        "two lines against a matrix you assembled without constraints "
+        "(`free_matrix.vmult(residual, solution); residual -= free_rhs;`), and "
+        "it is the same recovery every backend in this corpus uses. It is also "
+        "what the verification gate grades: a boundary-gradient projection "
+        "does not converge in that norm, so a solver that recovers the flux "
+        "that way will be marked wrong however good its field is.\n\n"
+        "The solver and the wrapper exchange plain text on argv and files of "
+        "your own choosing — that pair is private to you, and nothing in the "
+        "coupling contract constrains it.\n")
 
 
 def _dealii() -> str:

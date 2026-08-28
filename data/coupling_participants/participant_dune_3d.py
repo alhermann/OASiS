@@ -384,11 +384,13 @@ def order_plane(pts):
     return np.lexsort((q[:, 1], q[:, 0]))
 
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
 def face_indicator(x, name):
     """UFL 0/1 indicator of the named box face, e.g. "y1" -> the plane y = Y1."""
     a = AXN.index(name[0])
     pos = HI[a] if name[1] == "1" else LO[a]
     return conditional(lt(abs(x[a] - float(pos)), EPS), 1.0, 0.0)
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
 
 def main():
@@ -402,6 +404,7 @@ def main():
     if min(NE) < 1:
         sys.exit(f"NX,NY,NZ = {tuple(NE)}: need at least one element per axis")
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
     gridView = structuredGrid(list(LO), list(HI), NE)
     space = lagrange(gridView, order=1)
     x = SpatialCoordinate(space)
@@ -415,19 +418,23 @@ def main():
         sys.exit(f"no interface dofs at {AXN[AX]}={IFACE_POS}: this subdomain "
                  f"spans [{LO[AX]},{HI[AX]}], nothing is shared with the partner")
     pts_all = xd[:, iface_dofs].T                            # (n,3)
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
     order = order_plane(pts_all[:, TAN])
     iface_dofs = iface_dofs[order]
     pts3 = pts_all[order]
     pts = pts3[:, TAN]
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
     outer_mask = np.zeros(xd.shape[1], bool)
     for name in DIRICHLET_FACES:
         a = AXN.index(name[0])
         pos = HI[a] if name[1] == "1" else LO[a]
         outer_mask |= np.abs(xd[a] - pos) < TOL
     outer_dofs = np.where(outer_mask)[0]
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
     edge = outer_mask[iface_dofs]        # interface dofs ALSO on an outer face
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
     u, v = TrialFunction(space), TestFunction(space)
     a_form = Constant(K, name="k_cond") * dot(grad(u), grad(v)) * dx
     fsrc = source_function(space, xd)
@@ -437,9 +444,11 @@ def main():
     # the reaction look like zero on the Neumann side.
     b_vol = fsrc * v * dx
     b_form = b_vol
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
     imp = read_imports()
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
     # ── ONE Dirichlet carrier for BOTH the outer faces and (on the Dirichlet
     # side) the interface.  Two overlapping DirichletBCs would leave the RIM of
     # the interface — where the plane meets the outer Dirichlet faces — decided
@@ -459,6 +468,7 @@ def main():
         t = face_indicator(x, name)
         ind = t if ind is None else ind + t
     iface_ind = conditional(lt(abs(x[AX] - float(IFACE_POS)), EPS), 1.0, 0.0)
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
     if SIDE == "dirichlet":
         free = iface_dofs[~edge]
@@ -478,6 +488,7 @@ def main():
         b_form = b_form + conditional(lt(abs(x[AX] - float(IFACE_POS)), EPS),
                                       gflx * v, 0.0) * ds
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
     if ind is None:
         sys.exit("no Dirichlet condition anywhere: a pure-Neumann conduction "
                  "problem is singular and the solve would return an arbitrary "
@@ -487,6 +498,7 @@ def main():
     scheme = galerkin([a_form == b_form] + bcs, solver="cg")
     uh = space.interpolate(0, name="temperature")
     scheme.solve(target=uh)
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
     # w_i = int_Gamma phi_i ds — FACE AREAS in 3-D, and this assembly is why
     # this file does not have to know that: `v*ds` restricted to the interface

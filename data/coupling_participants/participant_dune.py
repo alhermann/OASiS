@@ -89,6 +89,7 @@ def sample(imp, key, fallback, y):
 
 imp = read_imports()
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
 gridView = structuredGrid([X0, Y0], [X1, Y1], [NX, NY])
 space = lagrange(gridView, order=1)
 x = SpatialCoordinate(space)
@@ -130,6 +131,7 @@ b_vol = ffun * v * dx
 b = b_vol
 
 bcs = [DirichletBC(space, T_OUTER, conditional(lt(abs(x[0] - OUTER_X), EPS), 1, 0))]
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
 # coupling data carrier: a discrete function whose interface dofs hold the
 # imported samples (the FORM never changes between iterations -> no re-JIT)
@@ -146,9 +148,11 @@ else:
     # APPLY the partner's number unchanged: + int(g*v) ds on the interface
     b = b + conditional(lt(abs(x[0] - IFACE_X), EPS), gfun * v, 0.0) * ds
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
 scheme = galerkin([a == b] + bcs, solver="cg")
 uh = space.interpolate(0, name="temperature")
 scheme.solve(target=uh)
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
 # Outward normal flux density q = -(k grad T).n on the interface.
 #

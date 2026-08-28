@@ -48,6 +48,7 @@ def imported_T(y_coords: np.ndarray) -> np.ndarray:
 
 
 def solve(T_if_in: np.ndarray):
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
     model = KM.Model()
     mp = model.CreateModelPart("thermal")
     mp.ProcessInfo[KM.DOMAIN_SIZE] = 2
@@ -88,6 +89,7 @@ def solve(T_if_in: np.ndarray):
         n = mp.Nodes[nid[(nx, j)]]
         n.SetSolutionStepValue(KM.TEMPERATURE, float(T_if_in[j]))
         n.Fix(KM.TEMPERATURE)
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
     # AddDof with a REACTION variable: without the second argument the fixed
     # dofs have nowhere to store their reaction and it is silently discarded.

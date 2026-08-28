@@ -558,3 +558,74 @@ def test_sides_table_covers_every_backend():
     for label in ("FEniCSx", "NGSolve", "scikit-fem", "DUNE", "deal.II",
                   "4C", "FEBio", "Kratos", "SPARTA"):
         assert label in table, f"{label} is absent from the side table"
+
+
+def test_no_backend_is_served_a_working_solver():
+    """OASiS documents its own interface. It does not hand over a solver.
+
+    The Python participants have their mesh/form/solve elided at serving time.
+    deal.II slipped past that for a while by a different route: the payload
+    inlined the complete C++ solvers and the build file under "save these to
+    disk, then build", so an agent asking for solver='dealii' received a
+    working finite element program in C++ — 103 kB of payload — while the
+    Python wrapper's solve was being cut out beside it.
+    """
+    from tools.coupling_knowledge import coupling_knowledge as _ck
+    # constructions that only appear inside a working solver
+    BANNED = {
+        "dealii": ("FEValues", "SparseMatrix", "#include", "dof_handler",
+                   "deal_ii_setup_target"),
+        "fenics": ("create_rectangle", "functionspace("),
+        "ngsolve": ("SplineGeometry", "H1(mesh"),
+        "skfem": ("MeshTri.init_tensor", "stiffness.assemble"),
+        "dune": ("structuredGrid(", "scheme.solve("),
+    }
+    def _code_only(text: str) -> str:
+        """Just the fenced code blocks.
+
+        The ban is on SERVED CODE, not on naming an API in prose. A trap entry
+        like "`MeshTri.init_tensor(x, y)` builds the structured subdomain mesh
+        directly from your NX/NY, so the interface node set is exactly
+        predictable" is a calling convention and a consequence — the kind of
+        thing OASiS exists to say. A line of code that builds the mesh is a
+        solver. Only the second is banned, and only the fence tells them apart.
+        """
+        out, keep = [], False
+        for line in text.splitlines():
+            if line.strip().startswith("```"):
+                keep = line.strip().startswith("```python") or \
+                    line.strip().startswith("```cpp")
+                continue
+            if keep:
+                # An IMPORT names an API; it does not build anything. Every
+                # served participant keeps its import block because the served
+                # handshake needs json/Path/numpy out of the same statement,
+                # and splitting it would cost more markers than it buys. The
+                # already-marked FEniCSx file serves `LinearProblem` on its
+                # import line for exactly this reason.
+                t = line.strip()
+                if t.startswith(("import ", "from ")) or (
+                        out and out[-1].rstrip().endswith((",", "("))
+                        and not t.startswith(("#", "def ", "class "))
+                        and any(x in (out[-1] if out else "")
+                                for x in ("import ",))):
+                    continue
+                out.append(line)
+        return "\n".join(out)
+
+    for solver, banned in BANNED.items():
+        code = _code_only(_ck(solver))
+        for b in banned:
+            assert b not in code, (
+                f"solver={solver!r}: the served CODE still contains {b!r}, "
+                f"which is part of a working solver, not OASiS's interface")
+
+
+def test_the_interface_contract_is_still_served_everywhere():
+    """Cutting the solver must not cut the contract with it."""
+    from tools.coupling_knowledge import coupling_knowledge as _ck
+    for solver in ("fenics", "ngsolve", "skfem", "dune", "dealii",
+                   "fourc", "febio", "kratos"):
+        text = _ck(solver)
+        for need in ("imports.json", "exports.json"):
+            assert need in text, f"solver={solver!r} lost {need!r}"

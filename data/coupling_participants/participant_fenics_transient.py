@@ -355,6 +355,7 @@ def sample_trace(imp, key, fallback, y):
 
 imp = read_imports()
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
 domain = dmesh.create_rectangle(MPI.COMM_WORLD, [[X0, Y0], [X1, Y1]],
                                 [NX, NY], dmesh.CellType.triangle)
 V = fem.functionspace(domain, ("Lagrange", 1))
@@ -429,6 +430,7 @@ facets_if = dmesh.locate_entities_boundary(domain, fdim,
 tags_if = dmesh.meshtags(domain, fdim, np.sort(facets_if),
                          np.full(len(facets_if), 7, dtype=np.int32))
 ds_if = ufl.Measure("ds", domain=domain, subdomain_data=tags_if)(7)
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
 if SIDE == "dirichlet":
     # The trace this side IMPOSES: partner temperature at t^1 ... t^N.
@@ -442,6 +444,7 @@ else:
     imp_trace = sample_trace(imp, "normal_fluxes", Q_GUESS, y_if)
     L = L_vol + g_if * v * ds_if
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
 af, Lf, Lvolf = fem.form(a), fem.form(L), fem.form(L_vol)
 
 # THE THETA-SCHEME MATRIX DOES NOT DEPEND ON t. Assemble and factorize it ONCE:
@@ -453,6 +456,7 @@ ksp = PETSc.KSP().create(domain.comm)
 ksp.setOperators(A)
 ksp.setType("preonly")
 ksp.getPC().setType("lu")
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
 # THE SAME OPERATOR ASSEMBLED WITH NO BOUNDARY CONDITION, plus the nodal
 # interface weight, kept for the reaction recovery in the march. BOTH sides need
@@ -474,6 +478,7 @@ good = np.where(~suspect)[0]
 fixup = [(i, good[np.argmin(np.abs(good - i))])
          for i in np.where(suspect)[0]] if len(good) else []
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
 # ── initial condition ─────────────────────────────────────────────────────
 u_n.interpolate(lambda X: T_INITIAL(X[0], X[1]))
 f_old.interpolate(lambda X: F_SRC(X[0], X[1], TIMES[0]))
@@ -504,6 +509,7 @@ for n in range(N_STEPS):
     _fp.set_bc(b, bcs)
     ksp.solve(b, uh.x.petsc_vec)
     uh.x.scatter_forward()
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
     # Outward normal flux density q = -(K grad T).n on the interface, THETA-
     # averaged over this step.
@@ -590,9 +596,11 @@ for n in range(N_STEPS):
     T_out[:, n] = uh.x.array[iface_dofs]
     Q_out[:, n] = q
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
     u_n.x.array[:] = uh.x.array
     f_old.x.array[:] = f_new.x.array
     b.destroy()
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
 # FIELD DUMP, BEFORE exports.json (see the docstring). `weights` are the nodal
 # volume weights int phi_i dx, so a mass-lumped L2 norm of any nodal field is

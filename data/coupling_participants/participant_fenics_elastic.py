@@ -128,6 +128,7 @@ def sample(imp, key, fallback, y):
 
 imp = read_imports()
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
 domain = dmesh.create_rectangle(MPI.COMM_WORLD, [[X0, Y0], [X1, Y1]],
                                 [NX, NY], dmesh.CellType.triangle)
 V = fem.functionspace(domain, ("Lagrange", 1, (2,)))
@@ -193,6 +194,7 @@ facets = dmesh.locate_entities_boundary(
 tags = dmesh.meshtags(domain, fdim, np.sort(facets),
                       np.full(len(facets), 7, dtype=np.int32))
 ds_if = ufl.Measure("ds", domain=domain, subdomain_data=tags)(7)
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
 if SIDE == "dirichlet":
     g = fem.Function(V)
@@ -210,9 +212,11 @@ else:
     # APPLY the partner's numbers UNCHANGED
     L = L_vol + ufl.inner(g, v) * ds_if
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
 uh = LinearProblem(a, L, bcs=bcs, petsc_options_prefix="cpl",
                    petsc_options={"ksp_type": "preonly",
                                   "pc_type": "lu"}).solve()
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
 # Interface traction export q_out = -(sigma . n_own).
 #

@@ -105,6 +105,7 @@ if SIDE == "dirichlet":
 else:
     side_flag, pairs = 1, sample(imp, "normal_fluxes", Q_INIT)
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
 # The ninth header field is the solver's LEGACY CONSTANT source. It is kept in
 # the file format so a solver binary built before the sampled block below still
 # parses this header, and it is always written as 0.0: the real source is the
@@ -170,6 +171,7 @@ for line in out_txt.read_text().splitlines():
 if not coords:
     sys.stderr.write("deal.II solver produced no interface points\n")
     sys.exit(1)
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
 Path("exports.json").write_text(json.dumps({
     "field_name": "temperature",

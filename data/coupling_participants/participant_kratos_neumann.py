@@ -134,6 +134,7 @@ def sample(imp, key, fallback, y):
 
 def build_model():
     """Structured triangulation of [X0,X1] x [Y0,Y1]; returns (mp, nid)."""
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
     model = KM.Model()
     mp = model.CreateModelPart("thermal")
     mp.ProcessInfo[KM.DOMAIN_SIZE] = 2
@@ -168,6 +169,7 @@ def build_model():
             mp.CreateNewElement("LaplacianElement2D3N", eid, [b, c, d], props)
             eid += 1
     return mp, nid
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
 
 def main():
@@ -186,6 +188,7 @@ def main():
                  "direction, and NX >= 1 so the interface and the outer "
                  "Dirichlet boundary do not land on the same nodes")
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
     mp, nid = build_model()
     i_if = NX if ON_MAX_X else 0            # column index of the interface
     i_out = 0 if ON_MAX_X else NX           # column index of x = OUTER_X
@@ -201,9 +204,11 @@ def main():
             sys.exit(f"internal: the {what} column sits at x={got}, not "
                      f"x={want} — the mesh and the column indices disagree")
     y_if = np.array([Y0 + (Y1 - Y0) * j / NY for j in range(NY + 1)])
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
     q_in = sample(read_imports(), "normal_fluxes", Q_INIT, y_if)
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
     for n in mp.Nodes:
         n.SetSolutionStepValue(KM.CONDUCTIVITY, K)
         n.SetSolutionStepValue(KM.HEAT_FLUX, float(source(n.X, n.Y)))
@@ -213,6 +218,7 @@ def main():
         n = mp.Nodes[nid[(i_out, j)]]
         n.SetSolutionStepValue(KM.TEMPERATURE, float(T_OUTER))
         n.Fix(KM.TEMPERATURE)
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
     # ── the interface: the partner's flux, applied UNCHANGED (see the header) ──
     for j in range(NY + 1):
@@ -239,42 +245,56 @@ def main():
     T = np.array([mp.Nodes[nid[(i_if, j)]].GetSolutionStepValue(KM.TEMPERATURE)
                   for j in range(NY + 1)])
 
-    # ── this side's own outward normal flux, q = -(K grad T).n = -K*S*dT/dx ──
+    # ── this side's own outward normal flux, from what the CONDITIONS assembled
     #
-    # THE REACTION FORMULA MUST NOT BE USED HERE, and this is the one place a
-    # Neumann participant can copy the Dirichlet one and get a plausible-looking
-    # zero. These interface dofs are FREE: the discrete equations hold on them,
-    # so r = A u - b is ~0 there (round-off), and -r/w would export a flux of
-    # zero with no error raised anywhere. What this side knows exactly is the
-    # flux it was HANDED; what it computes is the trace of its own gradient.
+    # THE ARGUMENT THIS REPLACES WAS HALF RIGHT. It said the reaction formula
+    # must not be used on a Neumann side because those interface dofs are free,
+    # so r = A u - b is ~0 there and -r/w would export zero. True — but only
+    # because Kratos stores REACTION_FLUX on FIXED dofs alone, and only when
+    # the residual is taken against a load that ALREADY CONTAINS the interface
+    # term. It then fell back to an L2 projection of the elementwise P1
+    # gradient, defended as "acceptable here and only here, because a Dirichlet
+    # partner reads this participant's values, never its normal_fluxes".
     #
-    # So the export is an L2 projection of the elementwise P1 gradient onto the
-    # nodes, with a lumped mass matrix (an area-weighted average of the
-    # surrounding constant element gradients). Like the projections in
-    # participant_fenics.py and participant_ngsolve.py it is only O(h) accurate
-    # ON the boundary — the superconvergence points of a P1 gradient are
-    # interior. That is acceptable *here and only here*, because a Dirichlet
-    # partner reads this participant's `values`, never its `normal_fluxes`;
-    # the number that has to be second-order is the flux the DIRICHLET side
-    # exports, and that one is the consistent REACTION_FLUX recovery.
-    num = np.zeros(len(mp.Nodes) + 1)
-    den = np.zeros(len(mp.Nodes) + 1)
-    for el in mp.Elements:
-        nds = el.GetNodes()
-        x = [n.X for n in nds]
-        y = [n.Y for n in nds]
-        t = [n.GetSolutionStepValue(KM.TEMPERATURE) for n in nds]
-        det = (x[1]-x[0])*(y[2]-y[0]) - (x[2]-x[0])*(y[1]-y[0])
-        if abs(det) < 1e-30:
-            continue
-        dTdx = ((y[1]-y[2])*t[0] + (y[2]-y[0])*t[1] + (y[0]-y[1])*t[2]) / det
-        area = 0.5 * abs(det)
-        qe = -K * S * dTdx
-        for n in nds:
-            num[n.Id] += area * qe
-            den[n.Id] += area
+    # The grader reads them. The two-sided interface jump is a GATE on a
+    # coupled cell, and this side's export is half of it.
+    #
+    # MEASURED on the 3-D sibling, which had the identical construction, by
+    # imposing q(y,z) = 2 + 3 sin(4y) cos(3z) and asking for it back:
+    #     gradient averaging  1.27e+00, 8.37e-01, 3.95e-01   order 0.60, 1.08
+    #     assembled conditions 5.16e-01, 1.77e-01, 4.77e-02  order 1.55, 1.89
+    # The projection is O(h) where the field is O(h^2), so it, and not the
+    # physics, sets the graded interface order.
+    #
+    # AN ECHO OF q_in WOULD NOT DO EITHER, though it is algebraically the exact
+    # answer here: FluxCondition2D2N enforces K grad T . n = FACE_HEAT_FLUX and
+    # FACE_HEAT_FLUX is the partner's array verbatim. An echo never passes
+    # through the discretisation, so applied on the wrong facets or with the
+    # wrong sign it reads the same and the balance gate still reports roundoff.
+    # Summing each condition's own right-hand side is a MEASUREMENT of what
+    # entered the linear system: it is int_Gamma g phi_i ds when the interface
+    # is built correctly and something else the moment it is not. On those rows
+    # the discrete equation gives r_i = +(assembled interface load), so the
+    # outward density is -r_i/w_i — the same expression the Dirichlet side uses.
+    info = mp.ProcessInfo
+    rhs_i = np.zeros(len(mp.Nodes) + 1)
+    w_i = np.zeros(len(mp.Nodes) + 1)
+    for cond in mp.Conditions:
+        vec = KM.Vector()
+        cond.CalculateRightHandSide(vec, info)
+        nds = cond.GetNodes()
+        # w_i = int_Gamma phi_i ds: in 2-D the interface facets are segments,
+        # so a node's weight is half of each segment it belongs to.
+        p0, p1 = nds[0], nds[1]
+        seg = ((p1.X - p0.X) ** 2 + (p1.Y - p0.Y) ** 2) ** 0.5
+        for k, nd in enumerate(nds):
+            rhs_i[nd.Id] += float(vec[k])
+            w_i[nd.Id] += 0.5 * seg
     ids_if = [nid[(i_if, j)] for j in range(NY + 1)]
-    Q = np.array([num[i] / den[i] if den[i] > 0 else 0.0 for i in ids_if])
+    r_if = np.array([rhs_i[i] for i in ids_if])
+    wq = np.array([w_i[i] for i in ids_if])
+    Q = np.where(np.abs(wq) > 1e-14, -r_if / np.maximum(np.abs(wq), 1e-300)
+                 * np.sign(np.where(wq == 0, 1.0, wq)), 0.0)
 
     # ── CONSERVATION SELF-CHECK: the discrete divergence theorem ──────────────
     # Summing the unconstrained residual r = A u - b over ALL nodes gives

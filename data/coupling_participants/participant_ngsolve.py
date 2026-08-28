@@ -88,6 +88,7 @@ def sample(imp, key, fallback, y):
 
 imp = read_imports()
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
 # ── mesh: SplineGeometry.AddRectangle edge order is bottom, right, top, left ──
 geo = SplineGeometry()
 geo.AddRectangle((X0, Y0), (X1, Y1),
@@ -137,6 +138,7 @@ gfu = GridFunction(fes)                    # also carries the Dirichlet data
 gfu.vec[:] = 0.0
 for d in outer_dofs:
     gfu.vec[int(d)] = T_OUTER
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
 if SIDE == "dirichlet":
     T_if = sample(imp, "values", T_INIT, y_if)
@@ -151,6 +153,7 @@ else:
     f += gfun * v * ds("interface")        # APPLY the partner's number unchanged
 
 with TaskManager():
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
     a.Assemble()
     f.Assemble()
     f_vol.Assemble()
@@ -158,6 +161,7 @@ with TaskManager():
     res.data = f.vec - a.mat * gfu.vec
     gfu.vec.data += a.mat.Inverse(fes.FreeDofs(),
                                   inverse="sparsecholesky") * res
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
     # Outward normal flux density q = -(k grad T).n on the interface.
     #

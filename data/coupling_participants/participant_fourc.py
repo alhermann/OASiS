@@ -97,6 +97,7 @@ def sample(imp, key, fallback, ys):
     return np.interp(ys, yy[o], vv[o])
 
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
 def funct_expr(ys, vals, deg):
     """4C takes a boundary profile as VAL x FUNCT(x,y,z,t), and FUNCT is a
     symbolic expression — not a table. So the imported samples are fitted by a
@@ -157,12 +158,14 @@ def src_expr(vals, gx, gy, rtol=1e-9):
         terms.append(f"({v:.12e})" + (f"*x^{i}" if i else "")
                      + (f"*y^{j}" if j else ""))
     return " + ".join(terms) if terms else None
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
 
 imp = read_imports()
 ys = np.linspace(Y0, Y1, NY + 1)
 iface_vals = sample(imp, "values" if SIDE == "dirichlet" else "normal_fluxes",
                     T_INIT if SIDE == "dirichlet" else Q_INIT, ys)
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
 expr = funct_expr(ys, iface_vals, FIT_DEG)
 
 # F_SRC on the element-node grid — the points at which 4C itself evaluates the
@@ -280,6 +283,7 @@ flux = m.point_data.get("flux_domain_phi_1")
 if flux is None:
     sys.exit("no flux field in the 4C VTU — set CALCFLUX_DOMAIN: \"diffusive\"")
 flux = np.asarray(flux)
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
 mask = np.abs(pts[:, 0] - IFACE_X) < 1e-9
 if not mask.any():

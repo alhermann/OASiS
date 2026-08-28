@@ -121,6 +121,7 @@ def sample(imp, key, fallback, y):
 
 imp = read_imports()
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
 # ── mesh: SplineGeometry.AddRectangle edge order is bottom, right, top, left ──
 # Everything that is not the interface carries the prescribed displacement, so
 # it all gets the same boundary name.
@@ -189,6 +190,7 @@ f_vol += InnerProduct(gfb, v) * dx
 
 gfu = GridFunction(fes)                    # also carries the Dirichlet data
 gfu.vec[:] = 0.0
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
 if SIDE == "dirichlet":
     u_if = sample(imp, "values", (UI_X, UI_Y), y_if)
@@ -207,6 +209,7 @@ else:
     # APPLY the partner's numbers UNCHANGED
     f += InnerProduct(gfun, v) * ds("interface")
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
 # The outer boundary is written LAST so it wins at the two interface corners.
 ox, oy = vxy[outer_v, 0], vxy[outer_v, 1]
 oux = UDX[0] + UDX[1] * ox + UDX[2] * oy + UDX[3] * oy * oy
@@ -214,8 +217,10 @@ ouy = UDY[0] + UDY[1] * ox + UDY[2] * oy + UDY[3] * oy * oy
 for k, vtx in enumerate(outer_v):
     gfu.vec[int(vdof[vtx, 0])] = float(oux[k])
     gfu.vec[int(vdof[vtx, 1])] = float(ouy[k])
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
 with TaskManager():
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
     a.Assemble()
     f.Assemble()
     f_vol.Assemble()
@@ -223,6 +228,7 @@ with TaskManager():
     res.data = f.vec - a.mat * gfu.vec
     gfu.vec.data += a.mat.Inverse(fes.FreeDofs(),
                                   inverse="sparsecholesky") * res
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
     # Interface traction export q_out = -(sigma . n_own).
     #

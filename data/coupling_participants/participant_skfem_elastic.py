@@ -142,14 +142,17 @@ def sample(imp, key, fallback, y):
                             for c in range(vs.shape[1])])
 
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
 def u_dirichlet(x, y):
     """The prescribed displacement on the non-interface boundary."""
     return (UDX[0] + UDX[1] * x + UDX[2] * y + UDX[3] * y * y,
             UDY[0] + UDY[1] * x + UDY[2] * y + UDY[3] * y * y)
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
 
 imp = read_imports()
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
 mesh = MeshTri.init_tensor(np.linspace(X0, X1, NX + 1),
                            np.linspace(Y0, Y1, NY + 1))
 elem = ElementVector(ElementTriP1())
@@ -195,6 +198,7 @@ def body_force(v, w):
     field that varies over the element."""
     bx, by = B_SRC(w.x[0], w.x[1])
     return bx * v[0] + by * v[1]
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
 
 @LinearForm
@@ -209,6 +213,7 @@ def unit_load(v, w):
     return 1.0 * v[0] + 1.0 * v[1]
 
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
 A = stiffness.assemble(basis)          # UNCONSTRAINED: condense() below does
 b = body_force.assemble(basis)         # not modify A or b in place
 # THE VOLUME LOAD ALONE, kept for the traction recovery at the bottom. The
@@ -224,6 +229,7 @@ ux_d, uy_d = u_dirichlet(px[outer_n], py[outer_n])
 sol[nd[0, outer_n]] = ux_d
 sol[nd[1, outer_n]] = uy_d
 D = outer_dofs
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
 if SIDE == "dirichlet":
     u_if = sample(imp, "values", (UI_X, UI_Y), y_if)
@@ -241,7 +247,9 @@ else:
     # `b_vol` above still holds the VOLUME load alone — the traction recovery
     # below subtracts that, not this, and the distinction is the whole point.
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
 sol = solve(*condense(A, b, x=sol, D=D))
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
 # Interface traction export q_out = -(sigma . n_own).
 #
