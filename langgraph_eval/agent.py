@@ -378,11 +378,6 @@ def _load_oasis_mcp_tools(workdir: Path | None = None) -> list[BaseTool]:
         env["OASIS_COUPLING_DIR"] = str(Path(workdir) / "coupling")
         env["OASIS_MESH_DIR"] = str(Path(workdir) / "meshes")
         env["OASIS_BENCHMARK_DIR"] = str(Path(workdir) / "benchmark_results")
-        # The sandbox ROOT, so a tool that writes into one of the directories
-        # above can name its file the way the agent must refer to it — relative
-        # to the work dir — instead of printing an absolute path that is both
-        # useless to the agent's own file tools and specific to this machine.
-        env["OASIS_WORK_DIR"] = str(Path(workdir))
 
     # THE SERVER INTERPRETER, RESOLVED — NOT ASSUMED.
     #
