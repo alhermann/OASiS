@@ -29,8 +29,20 @@ def load(v, w):
 K = asm(biharmonic, ib)
 f = asm(load, ib)
 
-# Simply supported: u=0 on boundary
-D = ib.get_dofs().flatten()
+# BOUNDARY CONDITIONS ON A MORLEY ELEMENT: which dofs you constrain IS the
+# boundary condition, and the two cases are one method call apart.
+#
+#   CLAMPED         u = 0 AND du/dn = 0   ->  ib.get_dofs().flatten()
+#   SIMPLY SUPPORTED u = 0 only           ->  ib.get_dofs().nodal_ix
+#
+# Morley carries two kinds of dof: a value at each vertex and a normal
+# derivative at each edge midpoint. .flatten() returns BOTH (on a refined unit
+# square: 16 nodal + 16 facet = 32), so it clamps. Taking .nodal_ix leaves the
+# normal derivative free, which is simple support. This comment used to say
+# "simply supported" above the clamped call — the two differ by a boundary
+# layer and by the constant in the error, not by an error message, so nothing
+# would have told you.
+D = ib.get_dofs().flatten()          # CLAMPED
 u = solve(*condense(K, f, D=D))
 
 print(f"Biharmonic: {{K.shape[0]}} DOFs, max(u)={{u.max():.6e}}")
