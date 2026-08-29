@@ -73,18 +73,39 @@ BARE_SYSTEM = (
 # measured difference. The two arms are: host tools only (BARE) vs the OASiS
 # tool layer, which includes the mandatory critic (MCP).
 
+# THIS STRING IS THE ONLY ONE THE MODEL EVER READS.
+#
+# src/server.py builds an 8,919-character `instructions` block — workflow,
+# mandatory critic, mesh independence, coupling. The client throws it away:
+# `grep -rn "instructions"` over the installed langchain_mcp_adapters package
+# returns ZERO hits, because get_tools() returns tool schemas and nothing else.
+# An edit to server.py's instructions is decoration; an edit here reaches the
+# agent. That was learned the hard way — audit_results was added to server.py's
+# workflow as step 5 and went on being called by 1 run in 325.
+#
+# It also named the wrong coupling tools. `coupled_solve` and `transfer_field`
+# are marked DEPRECATED in server.py and were called ZERO times in 325 MCP
+# runs, while `couple` — which this prompt never mentioned — was used in 70.
 MCP_SYSTEM = (
     "When you write your final RESULT.txt, it is automatically audited "
     "against your own output files and any findings appear in the write "
     "confirmation - read them, fix what is real, and rewrite the file. "
-    "You are connected to the OASiS MCP server with its full toolset "
-    "(prepare_simulation, knowledge, discover, examples, developer, "
-    "generate_mesh, run_simulation, run_with_generator, coupled_solve, "
-    "transfer_field, visualize, session_insights). Follow the OASiS "
-    "workflow: discover → prepare_simulation → examples → "
-    "run_(simulation|with_generator) → visualize. Use `knowledge` for "
-    "physics + pitfalls, `developer` for source/architecture lookups, and "
-    "`coupled_solve` / `transfer_field` for cross-code coupling.\n\n"
+    "You can also run that check yourself at any time with "
+    "`audit_results(work_dir)`: it reads ONLY your own files — no reference "
+    "solution — and names the ways a complete-looking submission is wrong (a "
+    "field that is identically zero because a load was never wired in, errors "
+    "on a solver-tolerance floor, a convergence rate your own numbers "
+    "contradict, a coupling residual history that does not actually converge). "
+    "It costs one call and it works whether you ran through OASiS tools or "
+    "through your own shell.\n\n"
+    "You are connected to the OASiS MCP server (prepare_simulation, "
+    "knowledge, discover, examples, developer, generate_mesh, run_simulation, "
+    "run_with_generator, couple, audit_results, visualize, session_insights). "
+    "Start with `prepare_simulation(solver, physics)` — it returns knowledge, "
+    "real reference files and a template in one call. Use `knowledge` for "
+    "physics and pitfalls (add `index=True` on the pitfalls topic: the "
+    "unfiltered dump can exceed 90k tokens and will eat your context), "
+    "`developer` for source lookups, and `couple` for cross-code coupling.\n\n"
     "Host-side tools (also available): run_bash, read_file, write_file, "
     "web_search, spawn_subagent.\n\n"
     + _CRITIC_BLOCK
@@ -550,8 +571,12 @@ def _work_on_disk_contradicting_a_give_up(work: Path) -> str:
         "YOU ARE FILING A GIVE-UP ON TOP OF WORK THAT IS ON DISK.\n  "
         + "\n  ".join(bits)
         + "\nCOULD_NOT_COMPLETE is graded as nothing. A submission built from "
-          "the numbers you already have is graded on those numbers, and a "
-          "partial one is graded on the part you supply. A verification "
+          "the numbers you already have is graded on those numbers, PROVIDED "
+          "it is complete: every level the task prescribes and, where the "
+          "task names two subdomains, both files per level. A submission "
+          "missing a level or a side is malformed and scores the same zero "
+          "as no submission, so complete the sequence from what you have "
+          "rather than filing part of it. A verification "
           "finding — a flux imbalance, a failed conservation check — is NOT a "
           "reason to withhold a field your solve already produced: those are "
           "different verdicts and only one of them is worth zero. Write the "

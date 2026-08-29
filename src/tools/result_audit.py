@@ -40,6 +40,13 @@ import math
 import re
 from pathlib import Path
 
+# Directories OASiS itself creates. A stale zero-valued probe file in one of
+# these once produced a NEAR-ZERO FIELD finding on CORRECT work, in the
+# measured arm only, which is why the search is filtered rather than naive.
+_SCRATCH = {"simulation_outputs", "coupling", "meshes", "benchmark_results",
+            ".git", "__pycache__", "runs", "runs_quarantine"}
+
+
 
 def _sequences_from_workdir(work: Path) -> dict[str, list[float]]:
     """Pull per-level scalar sequences out of whatever the agent wrote.
@@ -120,9 +127,8 @@ def _sequences_from_level_csvs(work: Path) -> dict[str, list[float]]:
     # C9 seed 23 wrote its 15 files into level1/, level2/, level3/, and the
     # audit found ZERO sequences and returned clean=True on a full submission.
     # Name the directories to skip instead of refusing to descend at all.
-    _SCRATCH = {"simulation_outputs", "coupling", "meshes", "benchmark_results",
-                ".git", "__pycache__", "runs", "runs_quarantine"}
     groups: dict[tuple, dict[int, list]] = {}
+    resid_files: list = []
     for q in work.rglob("*level*.csv"):
         if not q.is_file():
             continue
@@ -133,7 +139,12 @@ def _sequences_from_level_csvs(work: Path) -> dict[str, list[float]]:
             continue
         kind = m.group("kind").lower()
         if kind.startswith("residual"):
-            continue                  # an iteration history, not a field on a grid
+            # NOT SKIPPED ANY MORE — see _residual_findings below. It is not a
+            # field on a grid, so it does not join the per-level sequences, but
+            # it is the single file that decides a third of coupled outcomes
+            # and the audit used to look straight past it.
+            resid_files.append(q)
+            continue
         key = (kind, (m.group("side") or "").upper())
         groups.setdefault(key, {}).setdefault(int(m.group("k")), []).append(q)
 
@@ -254,10 +265,88 @@ def _one_sequence(by_level: dict, key: tuple, _csv) -> dict[str, list[float]]:
     return out
 
 
+
+def residual_findings(work: Path) -> list[dict]:
+    """What the coupling residual history says about itself.
+
+    THE FILE THE AUDIT USED TO SKIP. residual_level<k>.csv is not a field on a
+    grid, so it never joined the per-level sequences — and it is the single
+    file that decides the largest failure bucket on coupled cells:
+    COUPLING_EVIDENCE_CONTRADICTED is 80 of 250 graded coupled rows (32%).
+    Measured across 91 submissions the grader marked contradicted, this audit
+    returned clean=True on 53 of them (58%) and NOT ONE finding named the
+    residual history. The agent was told its work was self-consistent while
+    three levels carried non-finite residuals.
+
+    Every check here is computable from the agent's own files and needs no
+    reference solution: enough iterations to be an iteration, positive and
+    finite, an actual decrease, and a history that is not a constant column.
+    They mirror src/blind_eval/evidence.py::coupling_evidence, which is what
+    the grader applies afterwards — so a finding here is a warning about a
+    verdict the agent is otherwise going to meet for the first time in its
+    score.
+    """
+    import csv as _csv
+    out: list[dict] = []
+    for q in sorted(work.rglob("residual_level*.csv")):
+        if not q.is_file():
+            continue
+        if _SCRATCH & set(q.relative_to(work).parts[:-1]):
+            continue
+        vals: list[float] = []
+        try:
+            with open(q) as fh:
+                for row in _csv.reader(fh):
+                    if not row:
+                        continue
+                    try:
+                        vals.append(float(row[-1]))
+                    except ValueError:
+                        continue            # header
+        except OSError:
+            continue
+        name = q.name
+        if len(vals) < 3:
+            out.append({"sequence": name, "values": vals,
+                        "finding": (
+                            f"COUPLING HISTORY TOO SHORT: {len(vals)} "
+                            f"iteration(s). A partitioned scheme that reached "
+                            f"a fixed point leaves a history; fewer than three "
+                            f"entries is graded as not having coupled.")})
+            continue
+        if any((v != v) or v in (float('inf'), float('-inf')) or v <= 0
+               for v in vals):
+            out.append({"sequence": name, "values": vals[:6],
+                        "finding": (
+                            "NON-POSITIVE OR NON-FINITE RESIDUAL: a relative "
+                            "interface mismatch is a positive number. A zero, "
+                            "a negative or a nan here means the residual was "
+                            "never actually computed from the two sides.")})
+            continue
+        if vals[0] / max(vals[-1], 1e-300) < 10.0:
+            out.append({"sequence": name, "values": [vals[0], vals[-1]],
+                        "finding": (
+                            f"RESIDUAL BARELY MOVED: {vals[0]:.3g} -> "
+                            f"{vals[-1]:.3g}, a factor of "
+                            f"{vals[0] / max(vals[-1], 1e-300):.2g}. That is "
+                            f"not a converged coupling; it is the iteration "
+                            f"standing still, and it is graded as not "
+                            f"coupled.")})
+            continue
+        if len(set(f"{v:.12g}" for v in vals)) == 1:
+            out.append({"sequence": name, "values": vals[:4],
+                        "finding": (
+                            "CONSTANT RESIDUAL COLUMN: every iteration reports "
+                            "the same number, so the column is a placeholder "
+                            "rather than a measured mismatch.")})
+    return out
+
+
 def audit(work_dir: str, claimed_order: float | None = None) -> dict:
     """The three questions, answered from the agent's own files."""
     work = Path(work_dir)
     findings: list[dict] = []
+    findings.extend(residual_findings(work))
     seqs = _sequences_from_workdir(work)
     csvs = _sequences_from_level_csvs(work)
     if "__ambiguous__" in csvs:
@@ -318,6 +407,21 @@ def audit(work_dir: str, claimed_order: float | None = None) -> dict:
             continue                     # nothing comparable; not a finding
         entry["observed_orders"] = [round(o, 2) for o in orders]
         med = sorted(orders)[len(orders) // 2]
+        # THE CLAIMED ORDER IS THE FIELD'S, NOT THE INTERFACE TRACTION'S.
+        #
+        # Grouping by (kind, side) gave the audit interface_* sequences for the
+        # first time, and the order check then compared them against the order
+        # claimed in RESULT.txt. Those are different quantities: an interface
+        # node that sits at the end of the interface has a one-sided boundary
+        # weight and converges at order 1, measured 1.000/1.013/1.010 against a
+        # known exact flux while the interior runs at 1.99. So a perfectly good
+        # coupling shows interface self-differences improving at ~0.9-1.4.
+        # It cost exactly one false alarm, and it was on C7_BARE seed 2 — the
+        # single coupled cell anyone has ever had graded CORRECT.
+        _is_iface = label.startswith("selfdiff_interface") or \
+            label.startswith("magnitude_interface")
+        if _is_iface:
+            continue
         if claimed_order is not None and med < claimed_order - 0.4:
             entry["finding"] = (
                 f"ORDER MISMATCH: you are about to claim order "

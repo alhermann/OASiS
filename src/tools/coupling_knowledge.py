@@ -199,7 +199,7 @@ Dirichlet-Neumann coupling, but know that it happens.
       {"name": "right", "command": ["<interpreter>", "participant_right.py"],
        "work_dir": "/abs/path/run/right", "imports_from": ["left"],
        "timeout": 900}]',
-      max_iter=60, tol=1e-8, accelerator="constant", theta=0.5,
+      max_iter=60, tol=1e-8, accelerator="aitken", theta=0.5,
       critic_approved=True)
 
   * `name` — how the partner finds this participant's data inside imports.json.
@@ -1774,7 +1774,7 @@ _LAUNCH_PY = '''\
 submit_critic_review(solver="couple",
                      coupling_args='{{"participants": "<the same JSON string>",
                                      "max_iter": 60, "tol": 1e-8,
-                                     "accelerator": "constant", "theta": 0.5}}',
+                                     "accelerator": "aitken", "theta": 0.5}}',
                      findings="<what the critic checked and concluded>")
 ```
 
@@ -1787,7 +1787,7 @@ couple(participants='[
    "work_dir":"/abs/run/left","imports_from":["right"],"timeout":900}},
   {{"name":"right","command":["<interpreter>","participant_right.py"],
    "work_dir":"/abs/run/right","imports_from":["left"],"timeout":900}}]',
-  max_iter=60, tol=1e-8, accelerator="constant", theta=0.5, critic_approved=True)
+  max_iter=60, tol=1e-8, accelerator="aitken", theta=0.5, critic_approved=True)
 ```
 '''.replace("{RIGHT}", _RIGHT_BLOCK)
 
@@ -1971,14 +1971,33 @@ def _fenics() -> str:
   `q_i = -r_i / w_i`. This is ONE expression for both sides — on the Dirichlet
   side there is no interface term so `b == b_vol`, and on the Neumann side the
   same rows carry exactly the interface functional the partner applied.
-  Measured against a known imposed flux on 8/16/32/64/128 meshes: this
-  converges at order 2.00, while an L2 projection of `-K*S*grad(T)[0]` — which
-  this guidance used to recommend — does not converge at all in the max norm
-  over interior interface nodes (order 0.00; 0.93 away from the ends, 0.50 in
-  rms). The recovery, not the physics and not the partner, sets the graded
-  order on a coupled task. And do not finite-difference towards an "adjacent"
-  node either: on an unstructured triangle mesh the nearest interior node is
-  not normal to the interface.
+  MEASURED against an ANALYTIC interface flux on the Dirichlet side, on
+  8/16/32/64 meshes — a manufactured `T = 300 + sin(3x) cos(pi y/Ly)` whose
+  exact flux `-3 K cos(3 X1) cos(pi y/Ly)` is NOT the number the participant is
+  handed: max error over interior interface nodes 2.889e-01 / 7.243e-02 /
+  1.814e-02 / 4.556e-03, ORDER 1.996, 1.998, 1.993. At the two nodes where the
+  interface meets the outer boundary it is only first order (1.10, 1.06, 1.04),
+  so report and export those apart. The L2 projection of `-K*S*grad(T)[0]` that
+  this guidance used to recommend is order ~1 in the interior away from the
+  ends (0.93), 0.50 in rms, and does not converge at all in the max norm that
+  includes the near-end nodes, where it stalls at 2.6 against a true flux of
+  size 2 to 5 — order ~1 is simply what a P1 gradient evaluated ON a boundary
+  is worth. The recovery, not the physics and not the partner, sets the graded
+  order on a coupled task.
+* DO NOT VERIFY THE RECOVERY BY HANDING THE NEUMANN SIDE A FLUX AND ASKING FOR
+  IT BACK. On that side `A u = b_vol + M_Gamma g`, so the free interface rows
+  give `r = A u - b_vol = M_Gamma g` IDENTICALLY and the export is just
+  `-(M_Gamma g)/(M_Gamma 1)`, the consistent-to-nodal conversion of the P1
+  boundary mass matrix. Its offset from `-g` is `-(h^2/6) g''(y)`, i.e. "second
+  order", for any correct assembly of any equation with any material — a bare
+  NumPy mass matrix reproduces the same numbers with no PDE in it. That round
+  trip is a useful check of your SIGN CONVENTION, your weight `w_i`, your facet
+  tags and your dof mapping, and it is worth running for those. It is not
+  evidence of an order. Measure the order on the Dirichlet side against a
+  manufactured solution, as above.
+* And do not finite-difference towards an "adjacent" node either: on an
+  unstructured triangle mesh the nearest interior node is not normal to the
+  interface.
 * Run FEniCSx participants serially (one MPI rank). Under `mpirun` each rank
   would write its own `exports.json` over the others.''')
 
@@ -3109,9 +3128,10 @@ def _dealii_sources() -> str:
         "two lines against a matrix you assembled without constraints "
         "(`free_matrix.vmult(residual, solution); residual -= free_rhs;`), and "
         "it is the same recovery every backend in this corpus uses. It is also "
-        "what the verification gate grades: a boundary-gradient projection "
-        "does not converge in that norm, so a solver that recovers the flux "
-        "that way will be marked wrong however good its field is.\n\n"
+        "what the verification gate grades: a boundary-gradient projection is "
+        "only order ~1 on the boundary trace and does not converge at all in "
+        "the max norm the gate reads, so a solver that recovers the flux that "
+        "way will be marked wrong however good its field is.\n\n"
         "The solver and the wrapper exchange plain text on argv and files of "
         "your own choosing — that pair is private to you, and nothing in the "
         "coupling contract constrains it.\n")

@@ -51,6 +51,13 @@ def test_it_fires_on_a_give_up_over_a_converged_run(tmp_path):
     # it must name the remedy, not merely scold
     assert "COULD_NOT_COMPLETE is graded as nothing" in out
     assert "different verdicts" in out
+    # and the remedy must be true to the grader: a submission is graded on
+    # its numbers only when it is COMPLETE. grade_blind_v2 returns
+    # MALFORMED_SUBMISSION (WRONG_LEVEL_COUNT / MISSING_SUBDOMAIN_FILE) for
+    # a missing level or side — the notice must not promise partial credit
+    # the grader does not give.
+    assert "every level the task prescribes" in out
+    assert "graded on the part you supply" not in out
 
 
 def test_it_is_silent_when_the_give_up_is_honest(tmp_path):
@@ -62,10 +69,19 @@ def test_it_is_silent_when_the_give_up_is_honest(tmp_path):
 
 
 def test_partial_work_still_fires(tmp_path):
-    """One level solved is still a submission worth more than nothing."""
+    """One level solved still fires — but the notice must not oversell it.
+
+    The grader scores a submission missing prescribed levels as
+    MALFORMED_SUBMISSION / WRONG_LEVEL_COUNT, i.e. zero. The notice fires
+    here because the run can still COMPLETE the sequence from where it is,
+    and it must say that a partial filing scores nothing, not promise it
+    will be graded on the part supplied.
+    """
     (tmp_path / "solution_level1_A.csv").write_text("x,y,ux,uy\n0,0,1,1\n")
     out = _fn()(tmp_path)
     assert out and "1 solution_level" in out
+    assert "scores the same zero" in out
+    assert "graded on the part you supply" not in out
 
 
 def test_a_residual_history_alone_fires(tmp_path):

@@ -1,25 +1,79 @@
-"""The shipped participants must RECOVER an interface flux, not approximate it.
+"""ASSEMBLY SELF-CONSISTENCY of the interface mechanism. NOT a convergence study.
 
-WHY THIS FILE EXISTS. The pair test next door runs both sides of every shipped
-participant and passes — and it cannot see this defect at all. Its placeholder
-problem has a zero source and equal outer temperatures, so the solution is the
-1-D profile between them, the interface flux is ONE CONSTANT (18.46 along the
-whole edge), and a P1 gradient is exact on a linear field. Every recovery,
-right or wrong, agrees to machine precision there. A test whose fixture cannot
-express the failure is not evidence about the failure.
+READ THIS BEFORE QUOTING ANY NUMBER FROM THIS FILE. The convergence order of
+the reaction recovery is measured in
+`tests/test_interface_flux_converges_to_a_known_exact_flux.py`, against an
+analytic flux on the Dirichlet side. It is NOT measured here, and it cannot be.
 
-So this one imposes a flux that VARIES along the interface, q(y) = 2 + 3 sin(4y),
-hands it to the Neumann side as if a partner had exported it, and asks the
-participant to give it back. No manufactured PDE solution and no coupling
-iteration are needed: the participant applies the partner's number as
-+int_Gamma g v ds, so the exported outward flux must come back as -g.
+WHAT THIS FILE DOES. It imposes a flux that VARIES along the interface,
+q(y) = 2 + 3 sin(4y), hands it to the NEUMANN side as if a partner had exported
+it, and asks the participant to give it back. The participant applies the
+partner's number as +int_Gamma g v ds, so its own outward flux must come back
+as -g.
 
-Measured for FEniCSx with the two candidate recoveries, interior interface
-nodes, 8/16/32/64/128 uniform triangle meshes:
+WHY THAT IS AN IDENTITY AND NOT A MEASUREMENT. On the Neumann side the
+participant solves `A u = b_vol + M_Gamma g`. The recovery forms
+`r = A u - b_vol`, so on every FREE interface row
 
-    projected gradient   max error stalls at 2.6 — order 0.00, it never
-                         converges; 0.93 away from the ends, 0.50 in rms
-    reaction vs b_vol    order 2.00 in max, away-from-ends and rms alike
+    r_i = (M_Gamma g)_i          EXACTLY, for any A, any b_vol, any solution,
+
+and the export is `-r_i / w_i` with `w_i = (M_Gamma 1)_i`. What comes back is
+therefore the consistent-to-nodal conversion of the P1 boundary mass matrix
+applied to g — the PDE, the conductivity, the mesh interior and the solver
+never enter it. Its deviation from -g has the closed form
+
+    Q_i + g(y_i) = -(h^2 / 6) g''(y_i) + O(h^4),
+
+which is second order for ANY correct assembly of ANY equation. MEASURED here,
+max over interior interface nodes at n = 8/16/32, by all four backends this
+fixture runs:
+
+    FEniCSx        1.9643385e-02  4.9833201e-03  1.2496293e-03
+    scikit-fem     1.9643385e-02  4.9833201e-03  1.2496293e-03
+    NGSolve        1.9643385e-02  4.9833201e-03  1.2496293e-03
+    DUNE-fem       1.9643386e-02  4.9832892e-03  1.2496477e-03
+    NumPy, no FEM  1.9643386e-02  4.9833201e-03  1.2494690e-03
+
+The last row is a bare 1-D P1 mass matrix in twenty lines of NumPy with no FEM,
+no PDE, no solver and no material in it. Four codes agreeing to seven
+significant figures here is NOT a cross-code check; it is four evaluations of
+the same algebra. The earlier version of this docstring read an "order 2.00"
+off exactly these numbers and called it a convergence result. It is not one,
+and the `min(orders) >= 1.8` assertion it carried could not fail for any
+correct assembly.
+
+WHY THE TEST IS KEPT ANYWAY — IT HAS REAL, NARROW VALUE. The identity above is
+what the export SHOULD equal, and checking it against the exact discrete form
+catches, decisively and cheaply, exactly the errors this interface mechanism is
+prone to and that no field-error check sees:
+
+  * a flipped sign convention (the export lands near +g, off by ~2 |g|);
+  * a wrong or lumped interface weight w_i;
+  * the wrong facets tagged, or `ds` taken over the whole boundary;
+  * a blocked-dof mapping that divides a node's component by another node's
+    weight (the vector participants' standing footgun);
+  * a residual taken against a load that already contains the interface term,
+    which zeroes the free rows.
+
+So the assertion below is against the CLOSED FORM, not against an order. An
+order assertion here is unfalsifiable; this one is not.
+
+The pair test next door cannot see any of this: its placeholder problem has a
+zero source and equal outer temperatures, so the interface flux is ONE CONSTANT
+(18.46 along the whole edge) and a P1 gradient is exact on a linear field.
+Every recovery, right or wrong, agrees to machine precision there.
+
+THE RETIRED PROJECTED-GRADIENT RECOVERY, STATED HONESTLY. The measurement that
+retired it was reported here as "order 0.00, it never converges", which was
+norm-shopping: the same measurement recorded 0.93 away from the ends and 0.50
+in rms. What it actually showed is that the L2-projected boundary gradient is
+order ~1 in the interior AWAY FROM THE ENDS, and non-convergent in the max norm
+that includes the nodes near the interface ends, where its error stalls at 2.6
+against a true flux of size 2 to 5. Order ~1 is the expected accuracy of a P1
+gradient evaluated ON a boundary and is the honest reason to prefer the
+second-order reaction; "it never converges" is true only of one norm, and that
+norm was not stated. Those figures are from the original 8/16/32/64/128 sweep
+and have NOT been re-measured since the retired branch was deleted.
 
 The end nodes are reported apart from the interior throughout, because an
 interface node that also sits on the outer Dirichlet boundary carries the outer
@@ -132,14 +186,43 @@ def _run_once(tmp: Path, backend: str, n: int):
 BACKENDS = ["fenics", "skfem", "ngsolve", "dune"]
 
 
-@pytest.mark.parametrize("backend", BACKENDS)
-def test_recovered_flux_converges_to_the_imposed_one(tmp_path, backend):
-    """Order >= 1.8 on the interior, against the flux the partner sent.
+def _consistent_to_nodal(y, g):
+    """(M_Gamma g)_i / (M_Gamma 1)_i on the 1-D P1 grid the interface nodes
+    define. This is the EXACT value the Neumann-side recovery must return, up
+    to solver roundoff — no Taylor truncation, and no assumption that the nodes
+    are equally spaced."""
+    n = len(y)
+    mg = np.zeros(n)
+    w = np.zeros(n)
+    for e in range(n - 1):
+        h = y[e + 1] - y[e]
+        mg[e] += h * (2.0 * g[e] + g[e + 1]) / 6.0
+        mg[e + 1] += h * (g[e] + 2.0 * g[e + 1]) / 6.0
+        w[e] += h / 2.0
+        w[e + 1] += h / 2.0
+    return mg / w
 
-    The participant applies the partner's g as +int g v ds, so its own outward
-    flux is -g. Anything that merely APPROXIMATES the boundary gradient lands
-    near this value on a coarse mesh and then stops improving, which is what
-    the order check catches and a tolerance check would not.
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_neumann_export_is_the_consistent_nodal_form_of_the_applied_load(
+        tmp_path, backend):
+    """The export must equal -(M_Gamma g)/(M_Gamma 1) on the free rows.
+
+    NOT AN ORDER CHECK — see the module docstring. On the Neumann side those
+    rows carry the applied interface load identically, so this asserts the
+    identity itself, which is falsifiable: a flipped sign, a wrong weight, a
+    mistagged facet set or a blocked-dof mix-up all break it by O(1), while the
+    order it used to assert could not fail for any correct assembly.
+
+    Tolerance. Measured deviations at n = 8/16/32 on this host: FEniCSx
+    3.1e-12 / 1.7e-11 / 1.6e-07, scikit-fem 3.9e-12 / 1.3e-11 / 1.6e-07,
+    NGSolve 2.6e-12 / 7.0e-12 / 1.6e-07, DUNE-fem 7.9e-09 / 5.2e-08 / 1.9e-07.
+    The ~1.6e-07 at n = 32 is the participant's own np.interp of the
+    2001-sample partner export, not the recovery. 1e-3 leaves four orders of
+    margin above the worst of those and stays twenty times below the identity's
+    own O(h^2) offset from -g on the coarsest mesh, so the check is still sharp
+    at every level. A flipped sign lands at ~10.0 — measured, by mutating this
+    assertion's `pred`.
     """
     if not _available(backend):
         pytest.skip(f"{backend} not available on this install")
@@ -147,22 +230,30 @@ def test_recovered_flux_converges_to_the_imposed_one(tmp_path, backend):
         pytest.skip(f"no interpreter resolved for {backend}")
 
     ns = (8, 16, 32)
-    errs = []
+    errs, devs = [], []
     for n in ns:
         y, q = _run_once(tmp_path, backend, n)
-        want = -q_partner(y)
+        g = q_partner(y)
         # Drop the two end nodes: they carry the outer reaction as well.
         inner = (y > Y0 + 1e-12) & (y < Y1 - 1e-12)
         assert inner.sum() >= 3, f"{backend}: interface too small to judge"
-        errs.append(float(np.max(np.abs(q[inner] - want[inner]))))
+        pred = -_consistent_to_nodal(y, g)
+        errs.append(float(np.max(np.abs(q[inner] + g[inner]))))
+        devs.append(float(np.max(np.abs(q[inner] - pred[inner]))))
 
-    assert all(math.isfinite(e) for e in errs), f"{backend}: {errs}"
-    orders = [math.log(errs[i - 1] / errs[i]) / math.log(2.0)
-              for i in range(1, len(errs))]
-    assert min(orders) >= 1.8, (
-        f"{backend}: interface flux recovery converges at {orders} "
-        f"(errors {errs}); the consistent reaction gives 2.0 and an L2-"
-        f"projected boundary gradient gives ~0 in this norm")
+    assert all(math.isfinite(d) for d in devs), f"{backend}: {devs}"
+    assert max(devs) <= 1e-3, (
+        f"{backend}: the Neumann export is NOT the consistent-to-nodal form of "
+        f"the load it applied — deviations {devs} at n={ns}. On free interface "
+        f"rows r = A u - b_vol IS M_Gamma g, so this is an assembly, sign, "
+        f"weight or dof-mapping defect, not a discretisation error. "
+        f"(Offsets from -g were {errs}; the closed form says "
+        f"-(h^2/6) g''(y), i.e. 8 h^2 sin(4y) for this g.)")
+
+    # Reported, never asserted: this "order" is entailed by the identity above
+    # and is 2.00 for any correct assembly. The real order lives in
+    # tests/test_interface_flux_converges_to_a_known_exact_flux.py.
+    print(f"{backend}: offsets from -g {errs}; identity deviations {devs}")
 
 
 def test_kratos_3d_measures_what_its_conditions_assembled(tmp_path):
@@ -175,7 +266,18 @@ def test_kratos_3d_measures_what_its_conditions_assembled(tmp_path):
     check would still report roundoff. Summing each condition's own
     right-hand side is a MEASUREMENT of what entered the linear system.
 
-    Measured here against q(y,z) = 2 + 3 sin(4y) cos(3z), interior nodes of the
+    SAME CAVEAT AS THE 2-D FIXTURE ABOVE: this is an assembly check, not a
+    convergence study. What the summed condition right-hand sides carry IS the
+    applied interface load, so the figures below say the conditions were built
+    and integrated on the right facets with the right sign — they are not
+    evidence that the recovery converges to a true interface flux. That
+    evidence is in tests/test_interface_flux_converges_to_a_known_exact_flux.py
+    for the reaction route; there is no 3-D equivalent, and none is claimed.
+    The numbers below are from the original measurement. The assertion in this
+    test re-checks only that the last order stays >= 1.5; it does not re-derive
+    the three error values, so treat them as recorded rather than reproduced.
+
+    Measured against q(y,z) = 2 + 3 sin(4y) cos(3z), interior nodes of the
     interface plane (the rim carries the outer reaction too):
         assembled conditions   5.16e-01, 1.77e-01, 4.77e-02  order 1.55, 1.89
         gradient averaging     1.27e+00, 8.37e-01, 3.95e-01  order 0.60, 1.08
@@ -267,5 +369,6 @@ def test_served_guidance_does_not_recommend_the_retired_recovery():
                     "exported traction is an l2 projection"):
             assert bad not in low, (
                 f"solver={solver!r}: served guidance still recommends the "
-                f"retired recovery ({bad!r}). Measured, it does not converge "
-                f"in the max norm over interior interface nodes.")
+                f"retired recovery ({bad!r}). Measured, it is order ~1 in the "
+                f"interior away from the interface ends and does not converge "
+                f"at all in the max norm that includes the near-end nodes.")
