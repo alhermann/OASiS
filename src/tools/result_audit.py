@@ -88,6 +88,59 @@ def _sequences_from_level_csvs(work: Path) -> dict[str, list[float]]:
     magnitude, because a near-zero field is its own finding.
     """
     import csv as _csv
+    import re as _re
+
+    # ONE GROUP PER (KIND, SIDE), NOT ONE PER LEVEL NUMBER.
+    #
+    # This globbed *level{i}*.csv and refused to proceed when more than one
+    # file matched. On a SINGLE-CODE submission that is right. On a COUPLED one
+    # every level has five matches — solution_level1_A, solution_level1_B,
+    # interface_level1_A, interface_level1_B, residual_level1 — so the audit
+    # reported AMBIGUOUS INPUT and found zero sequences. Every check it exists
+    # for (near-zero field, tolerance floor, order, monotonicity) was therefore
+    # dead on every coupled cell, which is half the campaign and the half that
+    # scores zero.
+    #
+    # Measured on C9 seed 23: the agent submitted three levels of identically
+    # zero displacement, the audit said "ambiguous" instead of "your field is
+    # zero", and the run reached the grader, which scored it FABRICATED_NO_RUN.
+    # The gate had the data and did not look at it.
+    #
+    # The submission contract names the sides, so the grouping is not a guess:
+    # <kind>_level<k>[_<side>].csv. Ambiguity is still refused, but only when
+    # two files claim the SAME (kind, level, side).
+    _PAT = _re.compile(r"^(?P<kind>[A-Za-z_]+?)_level(?P<k>\d+)"
+                       r"(?:_(?P<side>[A-Za-z0-9]+))?\.csv$")
+    groups: dict[tuple, dict[int, list]] = {}
+    for q in work.glob("*level*.csv"):
+        if not q.is_file():
+            continue
+        m = _PAT.match(q.name)
+        if not m:
+            continue
+        kind = m.group("kind").lower()
+        if kind.startswith("residual"):
+            continue                  # an iteration history, not a field on a grid
+        key = (kind, (m.group("side") or "").upper())
+        groups.setdefault(key, {}).setdefault(int(m.group("k")), []).append(q)
+
+    dup = [f"{k[0]}{'_' + k[1] if k[1] else ''} level {lv}: "
+           f"{sorted(x.name for x in qs)}"
+           for k, byl in groups.items() for lv, qs in byl.items() if len(qs) > 1]
+    if dup:
+        return {"__ambiguous__": dup}
+
+    out_all: dict[str, list[float]] = {}
+    for key in sorted(groups):
+        seq = _one_sequence(groups[key], key, _csv)
+        out_all.update(seq)
+    return out_all
+
+
+def _one_sequence(by_level: dict, key: tuple, _csv) -> dict[str, list[float]]:
+    """The original per-level analysis, for ONE (kind, side) group."""
+    kind, side = key
+    tag = f"{kind}_{side}" if side else kind
     levels: list[dict] = []
     for i in range(1, 9):
         # TOP LEVEL ONLY. rglob + sorted(cands)[0] picked the
@@ -97,12 +150,9 @@ def _sequences_from_level_csvs(work: Path) -> dict[str, list[float]]:
         # over the agent's real output. A stale zero-valued probe file left by
         # a failed first run then produced a NEAR-ZERO FIELD finding on
         # CORRECT work, in the measured arm only.
-        cands = [q for q in work.glob(f"*level{i}*.csv") if q.is_file()]
+        cands = by_level.get(i) or []
         if not cands:
             break
-        if len(cands) > 1:
-            # ambiguity is reported, never silently resolved
-            return {"__ambiguous__": [q.name for q in sorted(cands)]}
         rows = {}
         try:
             with open(sorted(cands)[0]) as fh:
@@ -150,10 +200,10 @@ def _sequences_from_level_csvs(work: Path) -> dict[str, list[float]]:
             diffs.append(_m.sqrt(sum((a[k][f] - b[k][f]) ** 2
                                      for k in common) / len(common)))
         if len(diffs) >= 2 and all(d > 0 for d in diffs):
-            out[f"selfdiff_{f}"] = diffs
+            out[f"selfdiff_{tag}_{f}"] = diffs
         mag = max((abs(v[f]) for v in levels[-1].values() if f in v),
                   default=0.0)
-        out[f"magnitude_{f}"] = [mag]
+        out[f"magnitude_{tag}_{f}"] = [mag]
     return out
 
 
