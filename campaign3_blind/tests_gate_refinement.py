@@ -30,11 +30,22 @@ sys.path.insert(0, str(HERE))
 
 from grading import constants as C          # noqa: E402
 
-TOL, DEC = C.IFACE_JUMP_TOL, C.IFACE_JUMP_DECAY
+TOL, DEC, CEIL = (C.IFACE_JUMP_TOL, C.IFACE_JUMP_DECAY,
+                  C.IFACE_JUMP_CEILING)
 
 
 def _verdict(seq_u, seq_q):
-    """The gate's decision, mirroring grading/iface.py."""
+    """The gate's decision.
+
+    THIS MIRRORS grading/iface.py RATHER THAN IMPORTING IT, and an independent
+    reviewer was right to flag that as drift risk: a change to the grader that
+    this file does not copy would go unnoticed. It is mirrored because
+    interface_phase() needs a work directory, a spec and a sealed key to reach
+    the verdict, and the point here is to exercise the DECISION over sequences
+    that no run has produced. test_the_mirror_matches_the_grader below pins the
+    two together on the constants, so a threshold change cannot silently
+    diverge.
+    """
     graded = [{"jump_u_rel": u, "jump_q_rel": q} for u, q in zip(seq_u, seq_q)]
 
     def shrinks(key):
@@ -46,7 +57,8 @@ def _verdict(seq_u, seq_q):
         first, last = v[0], v[-1]
         if first <= 0:
             return last <= TOL
-        return last < first * (DEC ** (len(v) - 1))
+        return (last < first * (DEC ** (len(v) - 1))
+                and last <= CEIL)
 
     su, sq = shrinks("jump_u_rel"), shrinks("jump_q_rel")
     if su is None or sq is None:
@@ -96,3 +108,47 @@ def test_the_decay_threshold_is_between_mutation_and_o_of_h():
 if __name__ == "__main__":
     import pytest
     sys.exit(pytest.main([__file__, "-q"]))
+
+
+# (name, field jumps, flux jumps, expected) — the magnitude floor
+CEILING_CASES = [
+    ("decays past the rate but lands at 49%", [0, 0, 0], [1.00, 0.70, 0.49], "FAIL"),
+    ("decays but lands at 40%", [0, 0, 0], [0.90, 0.60, 0.40], "FAIL"),
+    ("decays to 6%", [0, 0, 0], [0.5, 0.2, 0.06], "PASS"),
+    ("O(h), lands at 1.1%", [0, 0, 0], [3.3e-2, 2.0e-2, 1.1e-2], "PASS"),
+]
+
+
+def test_a_decaying_but_enormous_jump_is_refused():
+    """Decay alone was not enough.
+
+    Requiring only that the jump SHRINKS admitted a 49% interface mismatch,
+    which is not a coupling — the gate's own message says a mismatch means the
+    scheme converged to the wrong transmission condition. The ceiling is 20x
+    the strict tolerance and an order of magnitude above the largest
+    finest-level jump any legitimate run in this campaign produces (1.5%).
+    """
+    bad = []
+    for name, u, q, want in CEILING_CASES:
+        got = _verdict(u, q)
+        if got != want:
+            bad.append(f"{name}: wanted {want}, got {got}")
+    assert not bad, "\n  ".join(bad)
+
+
+def test_the_mirror_matches_the_grader():
+    """The mirror must not drift from the code it mirrors.
+
+    _verdict reimplements grading/iface.py's decision. Pin every constant it
+    reads, so a threshold changed in one place and not the other fails here
+    rather than in a graded round.
+    """
+    import re
+    src = (HERE / "grading" / "iface.py").read_text()
+    for const in ("IFACE_JUMP_TOL", "IFACE_JUMP_DECAY", "IFACE_JUMP_CEILING"):
+        assert f"C.{const}" in src, (
+            f"grading/iface.py no longer reads {const}; the mirror in this "
+            f"file is stale")
+    # and the shape of the test: decay AND ceiling, both required
+    assert re.search(r"IFACE_JUMP_DECAY.*\n.*IFACE_JUMP_CEILING", src), (
+        "iface.py no longer applies decay and ceiling together")

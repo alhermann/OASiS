@@ -167,3 +167,29 @@ def test_two_files_at_the_same_depth_are_still_refused(tmp_path):
 if __name__ == "__main__":
     import pytest
     sys.exit(pytest.main([__file__, "-q"]))
+
+
+def test_ambiguous_filenames_do_not_erase_a_broken_residual_history(tmp_path):
+    """Two independent checks; one failing must not silence the other.
+
+    The ambiguity branch rebuilt the findings list from scratch, so a residual
+    history already read and found broken was dropped the moment two files
+    collided on one per-level slot. The residual check needs no per-level field
+    files at all — reporting only the ambiguity told the agent to tidy its
+    filenames while saying nothing about a coupling that never converged.
+    """
+    from tools.result_audit import audit
+    (tmp_path / "residual_level1.csv").write_text(
+        "iteration,interface_residual\n1,0.98\n2,0.98\n3,0.98\n")
+    for sub in ("runA", "runB"):                 # same depth, same slot
+        (tmp_path / sub).mkdir()
+        (tmp_path / sub / "solution_level1.csv").write_text("x,y,u\n0,0,1\n")
+
+    r = audit(str(tmp_path), claimed_order=None)
+    kinds = [f.get("sequence") for f in r.get("findings", [])]
+    assert any("residual" in (k or "") for k in kinds), (
+        f"the broken residual history was dropped: {kinds}")
+    assert any("level files" in (k or "") for k in kinds), (
+        f"the ambiguity itself must still be reported: {kinds}")
+    assert "did not run" in (r.get("note") or ""), (
+        "the note must say WHICH check was skipped, not imply none ran")

@@ -340,8 +340,10 @@ def interface_phase(work: Path, spec: dict, key: dict, dim: int,
             return last <= C.IFACE_JUMP_TOL
         # h halves per level, so a genuine O(h) recovery falls ~2x per level.
         # Require a clear overall fall, not a per-step monotone chain, so that
-        # one noisy level does not condemn a converging sequence.
-        return last < first * (C.IFACE_JUMP_DECAY ** (len(v) - 1))
+        # one noisy level does not condemn a converging sequence — AND a floor
+        # on where it lands, because decay alone admitted a 49% mismatch.
+        return (last < first * (C.IFACE_JUMP_DECAY ** (len(v) - 1))
+                and last <= C.IFACE_JUMP_CEILING)
 
     su, sq = _shrinks("jump_u_rel"), _shrinks("jump_q_rel")
     if su is None or sq is None:

@@ -353,17 +353,27 @@ def audit(work_dir: str, claimed_order: float | None = None) -> dict:
     seqs = _sequences_from_workdir(work)
     csvs = _sequences_from_level_csvs(work)
     if "__ambiguous__" in csvs:
+        # KEEP WHAT IS ALREADY KNOWN. This rebuilt the findings list from
+        # scratch, so a residual history that had already been read and found
+        # broken was dropped the moment two files collided on one per-level
+        # slot. The two are independent — the residual check needs no per-level
+        # field files at all, and the ambiguity is about which field file to
+        # read — so reporting only the ambiguity told the agent to tidy its
+        # filenames while saying nothing about a coupling that never converged.
         return {"sequences_found": 0, "clean": False,
-                "findings": [{"sequence": "level files", "values": [],
-                              "finding": (
-                                  "AMBIGUOUS INPUT: more than one file matches "
-                                  "the per-level pattern at the top level (" +
-                                  ", ".join(csvs["__ambiguous__"][:4]) +
-                                  "). I will not guess which is your answer — "
-                                  "name your per-level files uniquely, or "
-                                  "remove the stale ones, and re-run this "
-                                  "check.")}],
-                "note": "audit did not run: input was ambiguous"}
+                "findings": findings + [
+                    {"sequence": "level files", "values": [],
+                     "finding": (
+                         "AMBIGUOUS INPUT: more than one file matches "
+                         "the per-level pattern at the top level (" +
+                         ", ".join(csvs["__ambiguous__"][:4]) +
+                         "). I will not guess which is your answer — "
+                         "name your per-level files uniquely, or "
+                         "remove the stale ones, and re-run this "
+                         "check.")}],
+                "note": ("the per-level field check did not run: input was "
+                         "ambiguous. Any other finding above DID run and "
+                         "stands.")}
     seqs.update(csvs)
     # near-zero field: the loads may never have been applied at all
     for label, seq in list(seqs.items()):

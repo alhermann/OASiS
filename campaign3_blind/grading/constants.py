@@ -130,6 +130,21 @@ IFACE_JUMP_TOL = 5e-3
 # non-convergence that the gate exists to catch.
 IFACE_JUMP_DECAY = 0.75
 
+# AND A FLOOR UNDER THE DECAY TEST.
+#
+# Requiring only that the jump SHRINKS left the gate with no magnitude bound:
+# a sequence 1.00 -> 0.70 -> 0.49 decays past 0.75 per step and passed, which
+# is a 49% interface mismatch admitted by a gate whose own message says a
+# mismatch means the scheme converged to the wrong transmission condition.
+# 0.90 -> 0.60 -> 0.40 passed too.
+#
+# 0.10 is 20x the strict tolerance and an order of magnitude above the largest
+# finest-level jump any legitimate run in this campaign produces (C8 MCP seed
+# 4, the O(h) direct-stress recovery, reaches 1.5%). So it separates "still
+# converging, just slowly" from "not actually coupled" without touching a
+# single real passing run — verified against every graded coupled cell.
+IFACE_JUMP_CEILING = 0.10
+
 # ── numeric guards ────────────────────────────────────────────────────────
 # Below this, a reference RMS is treated as identically zero (a per-field
 # magnitude check against it would divide by roundoff) and the check is
