@@ -318,9 +318,9 @@ p.
     order 3 wanted  ->  degree 2 (P2/Q2)
     order 4 wanted  ->  degree 3
 
-Run degree 1 on an order-3 task and you get a clean, monotone study that
-converges at 2 and is graded wrong — expensive precisely because nothing looks
-broken.
+Run degree 1 where order 3 is wanted and you get a clean, monotone study that
+converges at 2 — the wrong answer to the wrong problem, and expensive
+precisely because nothing looks broken.
 
 The p+1 rate is NOT unconditional. It needs the elliptic-regularity /
 duality argument behind it, so a re-entrant corner, a crack, or a jumping

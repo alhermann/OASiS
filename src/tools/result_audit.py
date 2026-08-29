@@ -272,10 +272,13 @@ def residual_findings(work: Path) -> list[dict]:
     THE FILE THE AUDIT USED TO SKIP. residual_level<k>.csv is not a field on a
     grid, so it never joined the per-level sequences — and it is the single
     file that decides the largest failure bucket on coupled cells:
-    COUPLING_EVIDENCE_CONTRADICTED is 80 of 250 graded coupled rows (32%).
-    Measured across 91 submissions the grader marked contradicted, this audit
-    returned clean=True on 53 of them (58%) and NOT ONE finding named the
-    residual history. The agent was told its work was self-consistent while
+    COUPLING_EVIDENCE_CONTRADICTED is 69 of 250 graded grade-1 coupled rows
+    (28%) — the second-largest reason after an outright give-up. Before this
+    function existed the audit
+    returned clean=True on most of them and NOT ONE finding named the residual
+    history. (An earlier version of this note said "80 of 250" and "53 of 91";
+    neither denominator is reconstructible from the tree and both are
+    withdrawn in favour of the counts above, which are.) The agent was told its work was self-consistent while
     three levels carried non-finite residuals.
 
     Every check here is computable from the agent's own files and needs no

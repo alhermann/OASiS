@@ -164,7 +164,7 @@ _FUNCT_WIRING = """\
 A `FUNCT` YOU DEFINE DOES NOTHING UNTIL A CONDITION POINTS AT IT, AND `VAL`
 SCALES IT.
 
-Measured failure, three separate runs, all graded wrong: the deck defined the
+A common and expensive failure: the deck defines the
 complete manufactured source as FUNCT1 —
 
     FUNCT1:
@@ -175,9 +175,9 @@ complete manufactured source as FUNCT1 —
     VAL: [0.0]
     FUNCT: [0]
 
-The solver ran, converged, and wrote 1936 probe values of exactly 0.0, which
-the agent submitted. Nothing errored, because nothing was wrong: the deck
-asked for zero source and got it.
+The solver runs, converges, and writes a field of exactly 0.0 at every probe
+point. Nothing errors, because nothing is wrong: the deck asked for zero
+source and got it.
 
 THREE switches, and ALL must be right — `ONOFF`, `VAL`, `FUNCT`. The scatra
 body-force path evaluates `onoff * val * functfac`

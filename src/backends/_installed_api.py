@@ -135,7 +135,8 @@ INSTALLED_API = {
     "#   </logfile>\n"
     "# </Output>\n"),
   "gotchas": [
-    "NO ARBITRARY-POINT EVALUATION. FEBio exposes NODAL output and no user-facing shape-function interpolation. If the task prescribes probe points, build the mesh so nodes SIT at those coordinates rather than interpolating afterwards.",
+    "NO ARBITRARY-POINT EVALUATION INSIDE FEBio. It exposes NODAL output and no user-facing shape-function interpolation, so the interpolation is YOURS to do afterwards: export node_data, and evaluate at your target points in Python from the nodal values and the element they fall in. On a structured mesh that is bilinear (2-D) or trilinear (3-D) interpolation inside the containing cell — locate the cell from the mesh spacing, then weight its corner values.",
+    "DO NOT MOVE THE MESH TO THE PROBE POINTS. If a task prescribes BOTH a mesh sequence and a probe grid, the mesh is part of the problem and refitting it to make probes land on nodes is solving a different problem — it is graded as not following the prescribed sequence. Probe grids are commonly chosen to be deliberately off-node precisely so that interpolation is exercised.",
     "A deck with only <plotfile> writes a binary .xplt and nothing readable. Add <logfile> with node_data or you have no numbers to submit.",
     "The logfile format string sets precision: use %.15g.",
     "A log accumulates one block per step: parse the LAST block.",

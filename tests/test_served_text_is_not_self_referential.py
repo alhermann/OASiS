@@ -26,9 +26,17 @@ sys.path.insert(0, str(REPO / "src"))
 
 # phrases that tell the reader it is inside a measured study, or describe the
 # evaluation set
+# A PHRASE LIST IS NOT A FACT ABOUT THE TEXT. The first version of this list
+# passed while src/backends/fourc/backend.py still said "Measured failure,
+# three separate runs, all graded wrong ... which the agent submitted" — the
+# same genus of sentence, minus the words "in this campaign". Widened to the
+# shape rather than the wording: any claim that runs were GRADED, that an
+# AGENT submitted something, or that a count of runs was measured.
 BANNED = re.compile(
     r"this campaign|blind campaign|graded runs of|this benchmark|"
-    r"one cell in this|of the campaign|our campaign|the eval(uation)? set",
+    r"one cell in this|of the campaign|our campaign|the eval(?:uation)? set|"
+    r"graded wrong|the agent submitted|separate runs|runs of this|"
+    r"\bgraded (?:as )?(?:wrong|correct)\b",
     re.I)
 
 
