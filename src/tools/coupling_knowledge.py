@@ -253,19 +253,24 @@ as a result. A run that DID converge is a result even if a downstream check
 complains about it — see section 3b, which is the difference between a scored
 run and a wasted one.
 
-## 3a. DO NOT TYPE A PARTICIPANT OUT. COPY IT.
+## 3a. THE ONE BUG THAT CONVERGES TO THE WRONG ANSWER
 
-`materialize_participant(solver='<name>', work_dir='<your dir>', kind='')`
-copies a tested participant script into your directory and tells you which
-line the editable block starts on. kind: '' steady scalar, 'elastic' vector,
-'transient', '3d', 'neumann'.
+Measured over one development campaign: agents wrote 260 participant scripts
+and the same defect kept coming back — exporting the raw traction instead of
+the NEGATED outward normal flux. That flips the sign the partner applies, and
+the coupling then converges, smoothly, with a clean residual history, to the
+wrong answer. Nothing errors and nothing looks wrong.
 
-Measured over one development campaign: agents hand-wrote 260 participant
-scripts and exactly ONE matched the shipped file. The hand-written ones
-re-introduced the bugs the shipped headers exist to prevent — most often
-exporting the raw traction instead of the negated normal flux, which flips the
-sign the partner applies and yields a coupling that converges to the wrong
-answer with a clean residual history. Copy, then edit only the marked block.
+So state it once, plainly: every participant exports its flux or traction with
+respect to ITS OWN outward normal, the two sides of an interface carry
+OPPOSITE signs, and the partner's number is applied UNCHANGED — no minus sign
+anywhere in the application. If you ever flip that sign to make the fields
+look right, you have built a coupling that drives the quantity the wrong way
+across the interface and still converges.
+
+You write the participant. The sections below give the handshake, this sign
+convention, and the flux recovery the verification gate grades against; the
+solve itself is yours.
 
 ## 3b. FROM A CONVERGED COUPLING TO A SUBMITTED ANSWER
 

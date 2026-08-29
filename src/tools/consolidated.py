@@ -3454,75 +3454,23 @@ def register_consolidated_tools(mcp: FastMCP):
 
 
 
-    @mcp.tool()
-    async def materialize_participant(solver: str, work_dir: str,
-                                      kind: str = "", ctx: Context = None) -> str:
-        """COPY a shipped, verified participant script into your working
-        directory so you can run it instead of writing one from scratch.
-
-        Use this before writing any coupling participant. OASiS ships tested
-        participant scripts for every backend — they already contain the flux
-        sign convention, the imports/exports contract, the iteration-1
-        fallback and the interface-node handling that are the usual sources of
-        a silently wrong coupling. Reading one in a knowledge page and
-        retyping it is not the same thing: across one development campaign
-        agents hand-wrote 260 participant scripts and exactly ONE matched the
-        shipped file, and the hand-written ones repeated bugs the shipped
-        headers document.
-
-        Args:
-            solver: backend name — fenics, ngsolve, skfem, dune, dealii,
-                fourc, febio, kratos.
-            work_dir: absolute path of YOUR working directory. Files are
-                copied there and the absolute paths are returned.
-            kind: "" (steady scalar, the default), "elastic" (vector /
-                elasticity), "transient", "3d", or "neumann" — matched against
-                the shipped file names; a partial word is enough.
-
-        Returns JSON with the copied paths, and the EDIT BLOCK line numbers to
-        change. Copy first, then edit only the marked block.
-        """
-        import shutil as _shutil
-        src_dir = (Path(__file__).resolve().parents[2] / "data"
-                   / "coupling_participants")
-        if not src_dir.is_dir():
-            return json.dumps({"error": f"no participant library at {src_dir}"})
-        dst = Path(work_dir)
-        if not dst.is_dir():
-            return json.dumps({"error": f"work_dir does not exist: {work_dir}"})
-        s = (solver or "").strip().lower()
-        k = (kind or "").strip().lower()
-        cands = sorted(
-            q for q in src_dir.glob("*.py")
-            if s and s in q.name.lower() and (not k or k in q.name.lower()))
-        if not cands and s:
-            cands = sorted(q for q in src_dir.glob("*.py")
-                           if s in q.name.lower())
-        if not cands:
-            return json.dumps({
-                "error": f"no shipped participant matches solver={solver!r} "
-                         f"kind={kind!r}",
-                "available": sorted(q.name for q in src_dir.glob("*.py"))})
-        # prefer the shortest name: participant_fenics.py over
-        # participant_fenics_transient.py when no kind was asked for
-        if not k:
-            cands = [min(cands, key=lambda q: len(q.name))]
-        out = []
-        for q in cands[:3]:
-            target = dst / q.name
-            _shutil.copy2(q, target)
-            text = target.read_text(errors="replace").splitlines()
-            block = [i + 1 for i, ln in enumerate(text)
-                     if "EDIT THIS BLOCK" in ln]
-            out.append({"file": str(target), "lines": len(text),
-                        "edit_block_starts_at_line": block[0] if block else None})
-        return json.dumps({
-            "copied": out,
-            "next": ("Edit ONLY the marked block — every number in it is a "
-                     "placeholder. Everything outside it is the tested "
-                     "contract: leave it alone. Run the script once by hand "
-                     "with no imports.json present before calling couple()."),
-        }, indent=2)
+    # materialize_participant WAS HERE, AND IT WALKED THROUGH OPTION B.
+    #
+    # It shutil-copied the COMPLETE participant file — solve included — into
+    # the agent's work_dir. Option B elides the solve at SERVING time, so the
+    # knowledge payload stopped handing over a solver while this tool went on
+    # handing over the same file whole, by a different door. Measured in the
+    # C9 iteration of 2026-08-29: agents called it 2-4 times per run and 8 to
+    # 10 participant files landed in each workspace, two per run carrying the
+    # full solve. Those runs are void.
+    #
+    # It is also the behaviour that was already reverted once, in 64a922af:
+    # OASiS answers questions, it does not install runnable solvers into the
+    # agent's workspace. Reverting the automatic delivery and leaving the
+    # manual one standing fixed the door and not the room.
+    #
+    # There is no replacement. An agent that wants the participant reads it in
+    # the coupling knowledge, minus the solve, and writes its own.
 
     @mcp.tool()
     async def audit_results(work_dir: str, claimed_order: float = 0.0,

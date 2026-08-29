@@ -1,0 +1,4 @@
+NDOF = 510
+NX = 16, NY = 14
+n_elements = 448
+n_nodes = 255

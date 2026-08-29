@@ -1,0 +1,5 @@
+NDOF = 126
+Interface nodes: 9
+Side: neumann
+Level: 1
+NX, NY: 8, 5

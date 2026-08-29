@@ -1,0 +1,4 @@
+NDOF = 126
+NX = 8, NY = 5
+n_elements = 98
+n_vertices = 63

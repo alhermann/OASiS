@@ -1,0 +1,4 @@
+NDOF = 1914
+NX = 32, NY = 28
+n_elements = 1792
+n_nodes = 957
