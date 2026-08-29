@@ -58,13 +58,13 @@ from petsc4py import PETSc
 # ── EDIT THIS BLOCK ─ every number below is an ARBITRARY PLACEHOLDER.
 #    Replace ALL of them with your problem's geometry, material and BCs.
 PARTNER    = "solid"     # the structure participant's `name` in your couple(...) call
-LX         = 1.0         # channel length
-HY         = 0.2         # channel height (undeformed)
+LX         = 1.2         # channel length
+HY         = 0.25        # channel height (undeformed)
 IFACE_SIDE = "top"       # which fluid boundary is the FSI interface: "top" | "bottom"
-NX, NY     = 48, 10      # fluid mesh
-MU         = 1.0         # dynamic viscosity
-RHO_F      = 1.0         # fluid density
-U_MEAN     = 1.0         # mean inflow speed (parabolic profile)
+NX, NY     = 30, 6       # fluid mesh
+MU         = 0.8         # dynamic viscosity
+RHO_F      = 1.2         # fluid density
+U_MEAN     = 0.75        # mean inflow speed (parabolic profile)
 ALE_STIFF  = 1.0         # Jacobian stiffening exponent for the ALE lift
                          # (0.0 = plain harmonic; see the form below)
 DT         = 0.0         # 0.0 -> STEADY. >0 -> ONE backward-Euler step from rest:

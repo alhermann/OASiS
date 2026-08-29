@@ -109,13 +109,13 @@ import numpy as np
 # ── EDIT THIS BLOCK ─ every number below is an ARBITRARY PLACEHOLDER.
 #    Replace ALL of them with your problem's geometry, material and BCs.
 PARTNER    = "fluid"     # the fluid participant's `name` in your couple(...) call
-LX         = 1.0         # wall length
-Y0         = 0.2         # the FSI interface (this body's LOWER edge)
-HS         = 0.05        # wall thickness
-NXS, NYS   = 40, 4       # this body's OWN QUAD4 mesh; need not match the fluid's
-E_MOD      = 3.0e6       # Young's modulus
-NU         = 0.3         # Poisson ratio
-CLAMP_X    = (0.0, 1.0)  # x positions of the clamped ends; each must land on a
+LX         = 1.2         # wall length
+Y0         = 0.25        # the FSI interface (this body's LOWER edge)
+HS         = 0.04        # wall thickness
+NXS, NYS   = 24, 3       # this body's OWN QUAD4 mesh; need not match the fluid's
+E_MOD      = 1.5e6       # Young's modulus
+NU         = 0.35       # Poisson ratio
+CLAMP_X    = (0.0, 1.2)  # x positions of the clamped ends; each must land on a
                          # mesh column, i.e. be a multiple of LX/NXS
 T_INIT     = 0.0         # iteration-1 fallback interface traction (both comps)
 FEEDBACK   = True        # SET False ONLY to suppress the fluid->structure

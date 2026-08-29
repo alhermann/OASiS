@@ -554,9 +554,25 @@ def test_interface_probes_stay_clear_of_the_interface_ends():
 def test_task_states_that_interface_corners_belong_to_the_outer_boundary():
     """Getting this wrong converges, balances to 1e-10, and is 4.7% wrong in
     displacement and 28% wrong in traction — a silent wrong answer."""
+    # THE GLOB USED TO BE "D*" AND SO NEVER REACHED THE CELLS IT MEANS.
+    #
+    # It was written when the coupled family was D1..D8. The current campaign's
+    # coupled cells are C1..C14, and "D*" also matches DL1, DL2, DU1 and DU2 —
+    # single-code deal.II and DUNE problems on the unit square that have no
+    # interface at all. So the test asserted corner ownership of four cells that
+    # cannot have it, failed on the first, and checked none of the twenty that
+    # do. Match a DIGIT after the letter to exclude the backend-prefixed names.
+    #
+    # C13 (conjugate heat transfer) and C14 (FSI) are deliberately not in scope:
+    # their interfaces are not a rectangular split of one domain and they do not
+    # use this wording. Whether they SHOULD state corner ownership is a real
+    # question about those two task texts, tracked separately rather than
+    # answered by quietly widening a test.
     probs = REPO / "campaign3_blind" / "problems"
+    cells = sorted(d for d in probs.glob("[CD][0-9]*")
+                   if d.is_dir() and d.name not in {"C13", "C14"})
     seen = 0
-    for d in sorted(probs.glob("D*")):
+    for d in cells:
         t = d / "task.txt"
         if not t.is_file():
             continue
@@ -564,7 +580,7 @@ def test_task_states_that_interface_corners_belong_to_the_outer_boundary():
         txt = t.read_text()
         assert "INTERFACE CORNERS" in txt, f"{d.name} does not state corner ownership"
         assert "BOTH" in txt.split("INTERFACE CORNERS")[1][:400]
-    assert seen >= 8
+    assert seen >= 8, f"only {seen} coupled cells inspected: {[d.name for d in cells]}"
 
 
 def test_vector_relaxation_uses_the_worst_component():

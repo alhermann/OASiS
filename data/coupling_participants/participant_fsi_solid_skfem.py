@@ -33,13 +33,13 @@ from skfem.models.elasticity import linear_elasticity
 # ── EDIT THIS BLOCK ─ every number below is an ARBITRARY PLACEHOLDER.
 #    Replace ALL of them with your problem's geometry, material and BCs.
 PARTNER    = "fluid"     # the fluid participant's `name` in your couple(...) call
-LX         = 1.0         # wall length
-Y0         = 0.2         # the FSI interface (this body's LOWER edge)
-HS         = 0.05        # wall thickness
-NXS, NYS   = 40, 4       # this body's OWN mesh; need not match the fluid's
-E_MOD      = 3.0e6       # Young's modulus
-NU         = 0.3         # Poisson ratio
-CLAMP_X    = (0.0, 1.0)  # x positions of the clamped ends
+LX         = 1.2         # wall length
+Y0         = 0.25        # the FSI interface (this body's LOWER edge)
+HS         = 0.04        # wall thickness
+NXS, NYS   = 24, 3       # this body's OWN mesh; need not match the fluid's
+E_MOD      = 1.5e6       # Young's modulus
+NU         = 0.35       # Poisson ratio
+CLAMP_X    = (0.0, 1.2)  # x positions of the clamped ends
 RHO_S      = 0.0         # structure density; only used when DT > 0
 DT         = 0.0         # 0.0 -> STATIC. >0 -> ONE backward-Euler step from rest,
                          # which adds rho_s/dt^2 * M to the stiffness. Pair it with
@@ -152,18 +152,23 @@ def main():
     # than it is.
     #
     # WHY NOT THE TRACTION RECOVERED FROM THE STRUCTURE'S OWN STRESS FIELD,
-    # which would be independent: it does not converge on a bending structure
-    # with clamped ends. sigma_s . n_s was measured here against the applied
-    # traction on this exact case at four refinements (40x4, 80x8, 160x16,
-    # 240x24 P2 elements). The applied net came out 148.29 / 148.22 / 148.19 /
-    # 148.18 against the fluid's 148.183, while the RECOVERED net went
-    # 44.0 / 60.7 / 67.1 / 69.2 and its pointwise maximum GREW with refinement,
-    # 1.06e4 / 1.15e4 / 1.31e4 / 1.45e4, against an applied maximum of 297.
-    # Both are correct behaviour: the clamped corners where the Dirichlet
-    # boundary meets the loaded face carry a genuine stress singularity, so the
-    # pointwise traction there diverges under refinement and a nodal quadrature
-    # of it converges to the wrong number. A check built on it would fault a
-    # coupling that is right.
+    # which would be independent: on a bending structure with clamped ends it
+    # does not converge, so it cannot be used as a check.
+    #
+    # The mechanism: where the clamped Dirichlet boundary meets the loaded face
+    # there is a genuine stress singularity. The pointwise traction there
+    # DIVERGES under refinement, and a nodal quadrature of it converges to the
+    # wrong number.
+    #
+    # What that looks like if you try it, on a four-level refinement of any
+    # clamped bending wall: the applied net force settles immediately and agrees
+    # with the fluid's to four digits, while the recovered net climbs level by
+    # level and is still less than half the applied one at the finest mesh, and
+    # the recovered POINTWISE maximum grows monotonically — ending orders of
+    # magnitude above the applied maximum rather than approaching it. Both
+    # behaviours are correct; they are what a singularity does. A conservation
+    # check built on the recovered traction would therefore fault a coupling
+    # that is right, which is why the check above uses the APPLIED traction.
     t_applied = sampler(x_if)
 
     out = {
