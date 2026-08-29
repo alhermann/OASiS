@@ -398,9 +398,11 @@ produced and catches, in seconds, the failures that most often sink an
 otherwise complete submission — a field that is numerically zero because the
 source was defined but never referenced by any condition; error levels sitting
 at a solver-tolerance floor so refinement changes nothing; a convergence rate
-your own numbers contradict. Calibrated against 93 independently-checked
+your own numbers contradict. Calibrated against 94 independently-checked
 correct submissions it raised no false alarm on any of them, and it catches
-roughly three quarters of submissions that are complete but wrong.
+about four in ten submissions that are complete but wrong. It catches many
+more when your summary states the convergence order you are claiming — the
+order check has nothing to compare against otherwise.
 
 A finding is not a verdict — it is a pointer at the exact place to look while
 you still have budget to fix it. The single most common root cause it finds:
