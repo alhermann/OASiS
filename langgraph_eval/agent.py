@@ -109,6 +109,35 @@ def _llm(size: str, *, temperature: float, seed: int) -> ChatOpenAI:
 # ────────────────────────────────────────────────────────────────────
 # Host-side tools (parity with Claude Code's native surface)
 # ────────────────────────────────────────────────────────────────────
+# THE AGENT CANNOT SEE A CLOCK, AND IT GUESSES BADLY.
+#
+# The prompt states the wall-clock budget once, at the start, and nothing ever
+# tells the agent how much is left. Measured on C9, 27B, seeds 22 and 23: both
+# wrote COULD_NOT_COMPLETE blaming the budget — "Time constraints (45 minutes)
+# prevented completion", "Insufficient time ... within the 45-minute budget" —
+# after using 1093 s and 1110 s of 2700. They stopped at eighteen minutes
+# believing they were out of forty-five, and threw away 59% of the run.
+#
+# So the harness stamps the remaining time on every command result. It is set
+# by the runner, it carries no domain content, and BOTH ARMS get it: the bare
+# arm builds its shell tool from this same function, and a clock is not an
+# OASiS capability.
+_DEADLINE = None
+
+
+def _time_left_note() -> str:
+    """`[clock: N min left of M]`, or nothing when no deadline is set."""
+    if _DEADLINE is None:
+        return ""
+    import time as _t
+    left = _DEADLINE[0] - _t.time()
+    total = _DEADLINE[1]
+    if left <= 0:
+        return "\n[clock: budget spent]"
+    return (f"\n[clock: {int(left // 60)} min left of "
+            f"{int(total // 60)}]")
+
+
 def _bash_tool_for(workdir: Path):
     @tool
     def run_bash(command: str) -> str:
@@ -134,11 +163,12 @@ def _bash_tool_for(workdir: Path):
             )
             out_s, err_s = proc.communicate(timeout=900)
             out = (out_s or "") + (("\n[stderr]\n" + err_s) if err_s else "")
-            return out[-12000:] if len(out) > 12000 else out
+            out = out[-12000:] if len(out) > 12000 else out
+            return out + _time_left_note()
         except subprocess.TimeoutExpired:
             _kill_group(proc)
             return ("[timeout after 900s; the command and everything it "
-                    "spawned were terminated]")
+                    "spawned were terminated]" + _time_left_note())
         except (OSError, UnicodeError, ValueError) as e:
             _kill_group(proc)
             return f"[command failed to launch: {type(e).__name__}: {e}]"

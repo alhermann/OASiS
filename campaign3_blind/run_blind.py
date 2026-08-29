@@ -559,6 +559,11 @@ def run_one(pid: str, model: str, cond: str, seed: int, timeout_s: int) -> dict:
     ag = (build_bare_agent if cond == "BARE" else build_mcp_agent)(
         size=model, seed=seed, workdir=work)
 
+    # Hand the agent a clock. Both arms: _bash_tool_for is shared, and knowing
+    # the time is not an OASiS capability. Two C9 runs threw away 59% of their
+    # budget while stating they had run out of it.
+    _agent._DEADLINE = (time.time() + timeout_s, float(timeout_s))
+
     live = TrajLiveLog(work / "trajectory_live.txt")
     t0, err, final, n_calls = time.time(), None, None, 0
     conts = 0
