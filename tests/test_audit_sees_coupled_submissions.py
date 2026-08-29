@@ -105,6 +105,65 @@ def test_residual_history_is_not_treated_as_a_field(tmp_path):
     assert "residual" not in names.lower()
 
 
+def test_a_submission_written_into_level_subdirectories_is_seen(tmp_path):
+    """C9 seed 23 wrote its 15 files into level1/, level2/, level3/.
+
+    The audit globbed the TOP LEVEL only and reported ZERO sequences and
+    clean=True on a complete submission — an all-clear on a run it never
+    looked at. Nothing in the task says the files must be at the top level.
+    """
+    from tools.result_audit import audit
+    for k in (1, 2, 3):
+        sub = tmp_path / f"level{k}"
+        sub.mkdir()
+        for side in ("A", "B"):
+            rows = ["x,y,ux,uy"] + [f"{0.02*i},{0.01*i},0.0,0.0" for i in range(40)]
+            (sub / f"solution_level{k}_{side}.csv").write_text("\n".join(rows))
+    r = audit(str(tmp_path), claimed_order=None)
+    assert r.get("sequences_found", 0) > 0, "nested submission still invisible"
+    assert not r.get("clean"), "an all-zero nested field passed"
+
+
+def test_a_build_directory_copy_does_not_make_it_ambiguous(tmp_path):
+    """Shallowest wins. Every deal.II run keeps a build/ copy of its CSVs.
+
+    Descending naively made three graded-CORRECT runs report AMBIGUOUS INPUT —
+    the exact false alarm the old top-level-only rule protected against. Depth
+    decides it without enumerating every scratch directory a backend invents.
+    """
+    from tools.result_audit import audit
+    build = tmp_path / "build"
+    build.mkdir()
+    for k in (1, 2, 3):
+        h = 2.0 ** -k
+        good = ["x,y,u"] + [f"{0.02*i},{0.01*i},{1.0 + h*h*i}" for i in range(40)]
+        (tmp_path / f"solution_level{k}.csv").write_text("\n".join(good))
+        stale = ["x,y,u"] + [f"{0.02*i},{0.01*i},0.0" for i in range(40)]
+        (build / f"solution_level{k}.csv").write_text("\n".join(stale))
+    r = audit(str(tmp_path), claimed_order=None)
+    assert not any("AMBIGUOUS" in (f.get("finding") or "")
+                   for f in r.get("findings", [])), r.get("findings")
+    # and the TOP-LEVEL (real) file is the one that was read, not the stale zero
+    assert not any("NEAR-ZERO" in (f.get("finding") or "")
+                   for f in r.get("findings", [])), (
+        "the build/ copy won over the real deliverable")
+
+
+def test_two_files_at_the_same_depth_are_still_refused(tmp_path):
+    """Ambiguity is narrowed by depth, not abandoned."""
+    from tools.result_audit import audit
+    a = tmp_path / "runA"; a.mkdir()
+    b = tmp_path / "runB"; b.mkdir()
+    for k in (1, 2, 3):
+        for d in (a, b):
+            rows = ["x,y,u"] + [f"{0.02*i},{0.01*i},1.0" for i in range(40)]
+            (d / f"solution_level{k}.csv").write_text("\n".join(rows))
+    r = audit(str(tmp_path), claimed_order=None)
+    assert any("AMBIGUOUS" in (f.get("finding") or "")
+               for f in r.get("findings", [])), (
+        "two candidates at the same depth must still be refused")
+
+
 if __name__ == "__main__":
     import pytest
     sys.exit(pytest.main([__file__, "-q"]))

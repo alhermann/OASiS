@@ -3480,7 +3480,9 @@ def register_consolidated_tools(mcp: FastMCP):
         reference solution is involved, so a clean audit means self-consistent,
         not correct.
 
-        What it catches, measured over 40 graded runs of a blind campaign
+        What it catches, calibrated against 93 independently-checked correct
+        submissions (no false alarm on any) and a set of complete-but-wrong
+        ones (roughly three quarters caught)
         (0 false alarms on correct work, 15 of 18 known-wrong caught):
 
           * NEAR-ZERO FIELD - your finest solution peaks below 1e-8. On a

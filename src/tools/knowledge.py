@@ -272,9 +272,8 @@ def _find_reference_test_files(solver: str, physics: str) -> str:
 _UNIVERSAL = """
 ## BEFORE YOU REFINE ANYTHING: WRITE THE ANSWER FILE
 
-Measured over 256 runs of this campaign, agents stop VOLUNTARILY at a median of
-46% of their wall budget, and roughly one in six is stopped by the clock
-mid-thought. Both leave the same wreckage: a solver that ran correctly, a
+Agents stop VOLUNTARILY at a median of about half their wall budget, and
+roughly one in six is stopped by the clock mid-thought. Both leave the same wreckage: a solver that ran correctly, a
 result understood, and nothing written where a grader can read it. One run
 solved its first mesh level cleanly and ended without writing a single
 deliverable — that scores exactly what doing nothing scores.
@@ -303,11 +302,11 @@ first one settles.
 
 FIRST: if the task prescribes a discretisation — "use exactly this element" —
 that is part of the problem, not a suggestion, and no convergence argument
-overrides it. One cell in this campaign mandates the MORLEY element (a
-NONCONFORMING quadratic triangle) and states order 2, because a biharmonic
-problem discretised with Morley converges at 2 while Argyris reaches 5. An
-agent that "corrects" the degree there is solving a different problem and is
-graded wrong for it.
+overrides it. A problem may mandate a NONCONFORMING element — Morley, a
+quadratic triangle, converges at 2 on a biharmonic problem where Argyris
+reaches 5 — so the degree-to-order rule of thumb does not apply and the stated
+order is the one to expect. An agent that "corrects" the prescribed element is
+solving a different problem.
 
 SECOND, where the element is yours to choose and you are running a CONFORMING
 Lagrange method on a second-order problem with a smooth solution and adequate
@@ -342,7 +341,7 @@ element first — but check the task's prescribed element before you change it.
 
 ## AN INGREDIENT YOU DEFINE IS INERT UNTIL IT IS WIRED IN
 
-The most expensive failure measured in this campaign is not a wrong method. It
+The most expensive failure in this kind of work is not a wrong method. It
 is a right ingredient that never reached the solve: a source term derived
 correctly and never referenced, a formulation built correctly and never
 assembled, a tolerance chosen correctly and never applied. Nothing errors. The
@@ -350,9 +349,9 @@ solver runs, converges, and returns the answer to the problem you accidentally
 posed — usually a field that is identically zero, or identically your boundary
 value.
 
-Three runs in this campaign wrote a complete manufactured source into a deck,
-left the condition that references it switched off, and submitted 1936 probe
-values of exactly 0.0.
+It is common to write a complete manufactured source into a deck, leave the
+condition that references it switched off, and submit a field of exactly 0.0 at
+every probe point — with no error raised anywhere.
 
 So after you build the ingredient, CHECK THE WIRE. Each code has its own, and
 being fluent in one is no help in another:
@@ -398,8 +397,9 @@ produced and catches, in seconds, the failures that most often sink an
 otherwise complete submission — a field that is numerically zero because the
 source was defined but never referenced by any condition; error levels sitting
 at a solver-tolerance floor so refinement changes nothing; a convergence rate
-your own numbers contradict. Across 40 graded runs it raised no false alarm on
-correct work and caught 15 of 18 known-wrong submissions.
+your own numbers contradict. Calibrated against 93 independently-checked
+correct submissions it raised no false alarm on any of them, and it catches
+roughly three quarters of submissions that are complete but wrong.
 
 A finding is not a verdict — it is a pointer at the exact place to look while
 you still have budget to fix it. The single most common root cause it finds:

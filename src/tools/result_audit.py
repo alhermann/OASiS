@@ -111,9 +111,22 @@ def _sequences_from_level_csvs(work: Path) -> dict[str, list[float]]:
     # two files claim the SAME (kind, level, side).
     _PAT = _re.compile(r"^(?P<kind>[A-Za-z_]+?)_level(?P<k>\d+)"
                        r"(?:_(?P<side>[A-Za-z0-9]+))?\.csv$")
+    # RECURSIVE, MINUS OUR OWN SCRATCH. This globbed the TOP LEVEL only,
+    # because rglob once picked OASiS's own directories — benchmark_results/,
+    # coupling/, meshes/, simulation_outputs/, all created by the MCP arm and
+    # all sorting before solution_*.csv — and a stale zero-valued probe file
+    # there produced a NEAR-ZERO FIELD finding on CORRECT work, in the measured
+    # arm only. The restriction fixed that and introduced a blind spot:
+    # C9 seed 23 wrote its 15 files into level1/, level2/, level3/, and the
+    # audit found ZERO sequences and returned clean=True on a full submission.
+    # Name the directories to skip instead of refusing to descend at all.
+    _SCRATCH = {"simulation_outputs", "coupling", "meshes", "benchmark_results",
+                ".git", "__pycache__", "runs", "runs_quarantine"}
     groups: dict[tuple, dict[int, list]] = {}
-    for q in work.glob("*level*.csv"):
+    for q in work.rglob("*level*.csv"):
         if not q.is_file():
+            continue
+        if _SCRATCH & set(q.relative_to(work).parts[:-1]):
             continue
         m = _PAT.match(q.name)
         if not m:
@@ -124,9 +137,28 @@ def _sequences_from_level_csvs(work: Path) -> dict[str, list[float]]:
         key = (kind, (m.group("side") or "").upper())
         groups.setdefault(key, {}).setdefault(int(m.group("k")), []).append(q)
 
-    dup = [f"{k[0]}{'_' + k[1] if k[1] else ''} level {lv}: "
-           f"{sorted(x.name for x in qs)}"
-           for k, byl in groups.items() for lv, qs in byl.items() if len(qs) > 1]
+    # SHALLOWEST WINS, and only a TIE is ambiguous.
+    #
+    # The deliverable belongs in the work dir; a copy deeper down is a
+    # byproduct. Every deal.II run keeps one — cmake builds in build/ and the
+    # solver writes its CSVs beside the binary — so descending made three
+    # graded-CORRECT runs report AMBIGUOUS INPUT, which is exactly the false
+    # alarm the old top-level-only rule was protecting against. Depth decides
+    # it without having to enumerate every scratch directory a backend might
+    # invent; genuine ambiguity (two files at the SAME depth for one slot) is
+    # still refused.
+    dup = []
+    for k, byl in groups.items():
+        for lv, qs in list(byl.items()):
+            if len(qs) == 1:
+                continue
+            depth = {q: len(q.relative_to(work).parts) for q in qs}
+            shallowest = min(depth.values())
+            keep = [q for q in qs if depth[q] == shallowest]
+            if len(keep) > 1:
+                dup.append(f"{k[0]}{'_' + k[1] if k[1] else ''} level {lv}: "
+                           f"{sorted(x.name for x in keep)}")
+            byl[lv] = keep
     if dup:
         return {"__ambiguous__": dup}
 
