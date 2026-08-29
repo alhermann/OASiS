@@ -272,15 +272,60 @@ def read_residual_history(work: Path) -> dict:
     return out
 
 
+# A HAND-WRITTEN HISTORY DECAYS AT A CONSTANT RATIO. A REAL ITERATION DOES NOT.
+#
+# The docstring below used to claim the residual history is "the artefact a
+# monolithic solve cannot produce at all". That is false, and it was the whole
+# hole: nobody runs a monolithic solve to make one, the agent types the numbers
+# into a CSV. C7_27b_BARE_seed2 wrote 0.99999 * 0.5^k for 21 rows at all three
+# levels, said so in its own IMPLEMENTATION_NOTES ("simulates the
+# Dirichlet-Neumann iteration for demonstration"), and graded CORRECT — the
+# campaign's only coupled success.
+#
+# What separates the two is not whether the sequence converges (a forged one
+# converges beautifully) but how CONSTANT its ratio is. A real partitioned
+# iteration's rate wanders: the error's modal composition changes and the
+# linear solves carry noise. A closed-form sequence does not wander at all.
+#
+# Measured over all 223 residual histories in the run tree: 180 have a ratio
+# coefficient-of-variation above 1e-2; the forged ones sit at 0 (exactly
+# constant) up to 8.8e-6; the nearest honest history above the band is 2.2e-5.
+# The threshold is placed in that empty valley. It flags both arms — of the 14
+# runs it catches, 3 are OASiS and 11 are bare — so it is instrument repair,
+# not a thumb on the scale.
+SYNTHETIC_RATIO_CV = 1e-5
+MIN_RATIOS_FOR_DECAY_TEST = 5
+
+
+def _decay_ratio_cv(vals: list) -> float | None:
+    """Coefficient of variation of the consecutive-residual ratios.
+
+    None when the history is too short, or carries a non-positive value, to
+    say anything — silence, not a pass.
+    """
+    if len(vals) < MIN_RATIOS_FOR_DECAY_TEST + 1:
+        return None
+    if any((not math.isfinite(v)) or v <= 0 for v in vals):
+        return None
+    ratios = [vals[i + 1] / vals[i] for i in range(len(vals) - 1)]
+    if not all(math.isfinite(r) and r > 0 for r in ratios):
+        return None
+    mean = sum(ratios) / len(ratios)
+    if mean <= 0:
+        return None
+    var = sum((r - mean) ** 2 for r in ratios) / len(ratios)
+    return math.sqrt(var) / mean
+
+
 def coupling_evidence(work: Path, iface_tol: float = 1e-6,
                       min_iterations: int = 3,
                       min_decrease: float = 10.0,
                       claimed_iterations: int | None = None) -> dict:
     """A partitioned iteration leaves a residual history.  Require it.
 
-    This is the artefact a monolithic solve cannot produce at all, which is why
-    it carries most of the weight now that the per-code check is understood to
-    be forgeable.
+    Require also that the history look like an iteration rather than like a
+    formula — see SYNTHETIC_RATIO_CV. The file is written by the agent, so its
+    mere existence proves nothing; only its shape does.
     """
     hist = read_residual_history(work)
     if not hist:
@@ -305,6 +350,17 @@ def coupling_evidence(work: Path, iface_tol: float = 1e-6,
                             f"exceeds the prescribed {iface_tol:g}")
         if len(set(vals)) == 1:
             problems.append(f"level {lvl}: residual is constant")
+        cv = _decay_ratio_cv(vals)
+        if cv is not None:
+            info["ratio_cv"] = cv
+            if cv < SYNTHETIC_RATIO_CV:
+                problems.append(
+                    f"level {lvl}: residual decays at a constant ratio "
+                    f"(coefficient of variation {cv:.2e} over "
+                    f"{len(vals) - 1} steps) — that is a closed-form "
+                    f"sequence written into the file, not a partitioned "
+                    f"iteration, whose rate varies as the error's modal "
+                    f"composition changes")
         per_level[lvl] = info
     if claimed_iterations is not None and hist:
         finest = max(hist)
@@ -329,13 +385,29 @@ def assess(work: Path, codes: list, coupled: bool, iface_tol: float = 1e-6,
     unproven = [e.code for e in rep.per_code if e.verdict != "PROVEN"]
 
     if coupled and len(codes) > 1:
+        # THIS FIRED ONLY WHEN EACH CODE HAD EXACTLY ONE FILE.
+        #
+        # `all(len(v) == 1 ...)` meant the check could not reach the case it was
+        # built for. C7_27b_BARE_seed2 gave each code the SAME FOUR files — one
+        # per level per side, every one of them a single hand-written
+        # `NDOF = <n>` line — and sailed through with an empty notes list, then
+        # graded CORRECT. The report even certified those same four files as
+        # "structured febio solver output" AND "structured dealii solver
+        # output", which cannot both be true of one file.
+        #
+        # What matters is not how many files there are but whether the two sets
+        # are the same set: if every file that proves code A also proves code B,
+        # nothing here distinguishes two runs from one.
         seen = {e.code: set(e.files) for e in rep.per_code}
         shared = set.intersection(*seen.values()) if all(seen.values()) else set()
-        if shared and all(len(v) == 1 for v in seen.values()):
+        identical = len({frozenset(v) for v in seen.values()}) == 1
+        if shared and (identical or all(len(v) == 1 for v in seen.values())):
             rep.notes.append(
-                f"both codes' only evidence is the same file "
-                f"{sorted(shared)}: one solve writes one solver's output, so "
-                f"this does not distinguish two runs from one")
+                f"every file proving one code also proves the other "
+                f"({sorted(shared)}): this does not distinguish two runs from "
+                f"one. Only the canonical `NDOF =` line matched, and it is "
+                f"code-agnostic by design, so the weight falls entirely on the "
+                f"partitioned-iteration history.")
         rep.coupling = coupling_evidence(
             work, iface_tol=iface_tol, claimed_iterations=claimed_iterations)
 

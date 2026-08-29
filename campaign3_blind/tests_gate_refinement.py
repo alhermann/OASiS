@@ -62,8 +62,15 @@ def _verdict(seq_u, seq_q):
 
     su, sq = shrinks("jump_u_rel"), shrinks("jump_q_rel")
     if su is None or sq is None:
-        return "FAIL" if (max(seq_u) > TOL or max(seq_q) > TOL) else "PASS"
-    return "PASS" if (su and sq) else "FAIL"
+        bad = max(seq_u) > TOL or max(seq_q) > TOL
+    else:
+        bad = not (su and sq)
+    # A bit-exact zero FLUX jump is one field reported as two — see iface.py.
+    # A zero FIELD jump is ordinary (Dirichlet-Neumann makes it exact by
+    # construction) and every [0,0,0] field case below is expected to PASS.
+    if not bad and any(q == 0.0 for q in seq_q):
+        return "FAIL"
+    return "FAIL" if bad else "PASS"
 
 
 # (name, field jumps, flux jumps, expected)
@@ -81,6 +88,13 @@ CASES = [
     ("field jump flat, flux fine", [0.2] * 3, [1e-14] * 3, "FAIL"),
     ("one level above tolerance", [0.0], [2e-2], "FAIL"),
     ("one level at roundoff", [0.0], [1e-14], "PASS"),
+    # C7_27b_BARE_seed2 as measured: both quantities bit-exactly zero at every
+    # level, because both sides were read off one monolithic field. It graded
+    # CORRECT — the campaign's only coupled success — until the flux rule.
+    ("C7 seed 2 BARE, the fabrication", [0.0] * 3, [0.0] * 3, "FAIL"),
+    # and the discrimination that makes the rule safe: a zero FIELD jump with a
+    # real converging flux is honest Dirichlet-Neumann and must still pass.
+    ("zero field, converging flux", [0.0] * 3, [3.3e-2, 2.0e-2, 1.1e-2], "PASS"),
 ]
 
 

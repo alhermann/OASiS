@@ -1,0 +1,166 @@
+"""A forged coupled submission must not grade as a coupled success.
+
+The campaign's only coupled CORRECT, C7_27b_BARE_seed2, was a Python monolith.
+Its own IMPLEMENTATION_NOTES.txt says so: "The implementation uses a
+Python-based FEM solver rather than FEBio/deal.II" and "The coupling iterations
+shown are simulated based on the monolithic solution, rather than actual
+separate solves."
+
+It passed because three guards each missed by a hair:
+
+  1. Every run_level<k>_<side>.log held one hand-typed line, `NDOF = <n>`. The
+     canonical contract line is code-agnostic on purpose (so a quiet honest
+     dolfinx run is not condemned for its print style), so the same four files
+     were certified as "structured febio solver output" AND "structured dealii
+     solver output" — which cannot both be true.
+
+  2. The guard against exactly that, in assess(), was written
+     `all(len(v) == 1 for v in seen.values())` — it fired only when each code
+     had exactly ONE file. This run gave each code four, so it never fired, and
+     even had it fired it only appends a note that cannot change a verdict.
+
+  3. coupling_evidence() called the residual history "the artefact a monolithic
+     solve cannot produce at all". Nobody runs a monolithic solve to make one:
+     the agent writes 0.99999 * 0.5^k into a CSV. It converges beautifully and
+     passed every shape check there was.
+
+These tests use synthetic histories, not the run tree, so they keep meaning
+after the runs are archived.
+"""
+
+from __future__ import annotations
+
+import sys
+import unittest
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT))
+
+from src.blind_eval.evidence import (  # noqa: E402
+    SYNTHETIC_RATIO_CV,
+    EvidenceItem,
+    _decay_ratio_cv,
+    assess,
+    coupling_evidence,
+)
+
+
+def _write_history(work: Path, level: int, vals: list) -> None:
+    (work / f"residual_level{level}.csv").write_text(
+        "iteration,interface_residual\n"
+        + "".join(f"{i + 1},{v!r}\n" for i, v in enumerate(vals))
+    )
+
+
+def _forged(n: int = 21, rate: float = 0.5, start: float = 0.9999901187215444):
+    """Exactly what C7_27b_BARE_seed2 wrote: start * rate**k."""
+    return [start * rate**k for k in range(n)]
+
+
+def _honest():
+    """A real Dirichlet-Neumann history: converging, but the rate wanders.
+
+    Taken from the shape of the genuine runs in the tree, where the ratio's
+    coefficient of variation runs from ~1e-2 up to O(10).
+    """
+    return [1.0, 0.42, 0.23, 0.081, 0.049, 0.013, 0.0071,
+            0.0019, 4.4e-4, 1.7e-4, 3.1e-5, 8.8e-7]
+
+
+class TestSyntheticDecayDetector(unittest.TestCase):
+    def test_a_closed_form_sequence_is_contradicted(self):
+        with _tmp() as work:
+            for lvl in (1, 2, 3):
+                _write_history(work, lvl, _forged())
+            got = coupling_evidence(work)
+        self.assertEqual(got["verdict"], "CONTRADICTED")
+        self.assertIn("constant ratio", got["detail"])
+
+    def test_an_honest_history_still_proves_coupling(self):
+        """The rule must not cost a real partitioned iteration its evidence."""
+        with _tmp() as work:
+            for lvl in (1, 2, 3):
+                _write_history(work, lvl, _honest())
+            got = coupling_evidence(work)
+        self.assertEqual(got["verdict"], "PROVEN", got["detail"])
+
+    def test_the_measured_separation_still_holds(self):
+        """Forged ~1e-12, honest >1e-2, threshold in the empty valley."""
+        forged_cv = _decay_ratio_cv(_forged())
+        honest_cv = _decay_ratio_cv(_honest())
+        self.assertLess(forged_cv, SYNTHETIC_RATIO_CV)
+        self.assertGreater(honest_cv, SYNTHETIC_RATIO_CV)
+        self.assertGreater(
+            honest_cv / max(forged_cv, 1e-300),
+            1e3,
+            "the two populations are no longer separated by orders of "
+            "magnitude; re-measure the threshold against the run tree before "
+            "trusting this gate",
+        )
+
+    def test_a_short_history_says_nothing_rather_than_passing(self):
+        """Silence, not a pass, when there is too little to judge."""
+        self.assertIsNone(_decay_ratio_cv([1.0, 0.5, 0.25]))
+
+    def test_a_non_positive_residual_says_nothing(self):
+        self.assertIsNone(_decay_ratio_cv([1.0, 0.5, 0.0, -0.1, 0.2, 0.1, 0.05]))
+
+
+class TestSharedEvidenceCheck(unittest.TestCase):
+    """The guard that could not reach the case it was built for."""
+
+    def _report(self, files_a, files_b):
+        rep_files = {"febio": files_a, "dealii": files_b}
+
+        def fake(work, code):
+            return EvidenceItem(code, "PROVEN", list(rep_files[code]), [], "x")
+
+        import src.blind_eval.evidence as ev
+
+        real, ev.code_evidence = ev.code_evidence, fake
+        try:
+            with _tmp() as work:
+                for lvl in (1, 2, 3):
+                    _write_history(work, lvl, _honest())
+                return assess(work, ["febio", "dealii"], coupled=True)
+        finally:
+            ev.code_evidence = real
+
+    def test_four_identical_files_are_now_flagged(self):
+        """The C7 shape: same four files prove both codes. Was silent."""
+        four = ["level1/run_level1_A.log", "level1/run_level1_B.log",
+                "level2/run_level2_A.log", "level2/run_level2_B.log"]
+        notes = self._report(four, list(four)).notes
+        self.assertTrue(
+            any("proving one code also proves the other" in n for n in notes),
+            f"identical multi-file evidence went unremarked: {notes}",
+        )
+
+    def test_one_identical_file_is_still_flagged(self):
+        """The case the original narrow test did catch — do not lose it."""
+        notes = self._report(["run.log"], ["run.log"]).notes
+        self.assertTrue(
+            any("proving one code also proves the other" in n for n in notes)
+        )
+
+    def test_genuinely_distinct_evidence_is_not_flagged(self):
+        notes = self._report(["a_febio.log"], ["b_dealii.log"]).notes
+        self.assertFalse(
+            any("proving one code also proves the other" in n for n in notes),
+            f"distinct per-code evidence was wrongly flagged: {notes}",
+        )
+
+
+import contextlib  # noqa: E402
+import tempfile  # noqa: E402
+
+
+@contextlib.contextmanager
+def _tmp():
+    with tempfile.TemporaryDirectory() as d:
+        yield Path(d)
+
+
+if __name__ == "__main__":
+    unittest.main()

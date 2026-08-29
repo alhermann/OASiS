@@ -357,6 +357,34 @@ def interface_phase(work: Path, spec: dict, key: dict, dim: int,
         _q = ", ".join("%.3e" % g["jump_q_rel"] for g in graded)
         why = (f"the jump does not shrink under refinement "
                f"(field [{_u}], flux [{_q}])")
+    # A BIT-EXACT ZERO FLUX JUMP IS NOT A PERFECT COUPLING. IT IS ONE FIELD.
+    #
+    # Two independently solved subdomains cannot agree on the interface flux to
+    # the last bit. Exactly 0.0 means both sides were evaluated from the same
+    # solution — the signature of a monolithic solve reported as a partitioned
+    # one. C7_27b_BARE_seed2 scored 0.0 for field AND flux at all three levels
+    # and graded CORRECT on that basis; its own notes say the coupling was
+    # "simulated based on the monolithic solution".
+    #
+    # Only the FLUX carries this meaning. A zero FIELD jump is ordinary and must
+    # not be flagged: Dirichlet-Neumann sets one side's interface displacement
+    # to the other's, so field agreement can be exact by construction. Measured
+    # across the 60 graded interface levels in the tree: jump_u_rel is exactly
+    # zero 12 times, jump_q_rel exactly 3 times — and those 3 are this one
+    # fabricated run.
+    exact_zero_flux = [g["level"] for g in graded if g["jump_q_rel"] == 0.0]
+    if exact_zero_flux and not bad:
+        out["verdict"] = "INTERFACE_NOT_SATISFIED"
+        out["reasons"].append("INTERFACE_NOT_SATISFIED")
+        out["findings"].append(
+            f"the relative FLUX jump is exactly 0.0 at level(s) "
+            f"{exact_zero_flux}. Two subdomains solved separately cannot agree "
+            f"on the interface flux to the last bit; a bit-exact zero means "
+            f"both sides were read off one field, so there is no evidence of "
+            f"two solves. This is not a tolerance being met — it is the "
+            f"quantity being absent.")
+        return out
+
     if bad:
         out["verdict"] = "INTERFACE_NOT_SATISFIED"
         out["reasons"].append("INTERFACE_NOT_SATISFIED")
