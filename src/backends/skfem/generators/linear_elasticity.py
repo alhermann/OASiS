@@ -109,7 +109,10 @@ KNOWLEDGE = {
             "type(linear_elasticity(lam, mu)) is "
             "skfem.assembly.form.BilinearForm; asm() returns "
             "a scipy.sparse matrix of shape (basis.N, basis.N). "
-            "(Claim inherited — not yet empirically separated.)",
+            "(Verified empirically 2026-08-30, skfem 12.0.1: the "
+            "`is` check holds, and asm on ElementVector("
+            "ElementQuad1()) over MeshQuad().refined(3) returns a "
+            "sparse 162x162 matrix matching basis.N.)",
             "[Numerical] For eigenvalue (vibration) problems: "
             "use scipy.sparse.linalg.eigsh(K, M=M, k=n, sigma=0). "
             "sigma=0 (shift) targets the LOWEST eigenmodes; "

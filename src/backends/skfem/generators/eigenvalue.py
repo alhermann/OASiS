@@ -103,8 +103,14 @@ KNOWLEDGE = {
             "passing both K and M to eigsh as eigsh(K, M=M, ...) "
             "solves the generalised problem; passing only K "
             "solves the standard problem (against identity), "
-            "giving wrong frequency values. (Claim inherited — "
-            "not yet empirically separated.)",
+            "giving wrong frequency values that get WORSE under "
+            "refinement rather than better, because without M the "
+            "result carries the mesh scale. (Verified empirically "
+            "2026-08-30 on the unit-square Dirichlet Laplacian, "
+            "first eigenvalue, exact 2*pi^2 = 19.739: generalised "
+            "gives 19.930 / 19.787 / 19.751 at refine 4 / 5 / 6, "
+            "converging at order 2; K alone gives 0.077 / 0.019 / "
+            "0.005, i.e. 99.6% / 99.9% / 100.0% error.)",
         ],
     },
 }

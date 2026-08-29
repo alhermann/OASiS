@@ -92,8 +92,9 @@ KNOWLEDGE = {
             "ElementLineHermite on a MeshLine. 4 DOFs per "
             "element (deflection + slope at each endpoint), "
             "C^1 continuous. Signal: skfem.Basis(MeshLine(), "
-            "ElementLineHermite()).Nbfun == 4. (Claim inherited "
-            "— not yet empirically verified.)",
+            "ElementLineHermite()).Nbfun == 4, unchanged under "
+            "refinement because it is a per-element count. "
+            "(Verified empirically 2026-08-30, skfem 12.0.1.)",
         ],
     },
 }
