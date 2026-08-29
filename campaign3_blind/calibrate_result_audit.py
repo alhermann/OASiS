@@ -39,17 +39,18 @@ for seed in (4, 5, 6, 7):
             continue
         theo = r.get("theoretical_order")
         # MEASURE THE PATH PRODUCTION TAKES, NOT A BETTER ONE.
-    #
-    # This passed the grader's SEALED theoretical_order as claimed_order, so
-    # the ORDER MISMATCH check always had something to compare against and the
-    # calibration reported ~79% caught. In production the claim is parsed from
-    # the agent's own RESULT.txt — and 0 of 508 submissions carry a parseable
-    # ORDER line, because no task.txt asks for one. The live catch rate is 38%.
-    # Calibrating a gate with an input the gate never receives is how a number
-    # becomes advertising. Both are reported below; the LIVE one is the one
-    # that may be quoted.
-    a = audit(str(wd), claimed_order=None)
-    a_sealed = audit(str(wd), claimed_order=theo)
+        #
+        # This passed the grader's SEALED theoretical_order as claimed_order,
+        # so the ORDER MISMATCH check always had something to compare against
+        # and the calibration reported ~79% caught. In production the claim is
+        # parsed from the agent's own RESULT.txt — and 0 of 508 submissions
+        # carry a parseable ORDER line, because no task.txt asks for one. The
+        # live catch rate is 38%. Calibrating a gate with an input the gate
+        # never receives is how a measured number turns into advertising.
+        # `a` is the live path and is the one that may be quoted; `a_sealed`
+        # is an upper bound only.
+        a = audit(str(wd), claimed_order=None)
+        a_sealed = audit(str(wd), claimed_order=theo)
         name = f"{cell}_s{seed}"
         if out in GOOD:
             fa_n += 1
