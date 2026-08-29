@@ -30,19 +30,23 @@ K = asm(biharmonic, ib)
 f = asm(load, ib)
 
 # BOUNDARY CONDITIONS ON A MORLEY ELEMENT: which dofs you constrain IS the
-# boundary condition, and the two cases are one method call apart.
+# boundary condition. Morley carries two kinds of dof — a value at each vertex
+# ('u') and a normal derivative at each edge midpoint ('u_n') — so:
 #
-#   CLAMPED         u = 0 AND du/dn = 0   ->  ib.get_dofs().flatten()
-#   SIMPLY SUPPORTED u = 0 only           ->  ib.get_dofs().nodal_ix
+#   CLAMPED          u = 0 AND du/dn = 0  ->  d.flatten()      (both blocks)
+#   SIMPLY SUPPORTED u = 0 only           ->  d.nodal['u']     (values only)
 #
-# Morley carries two kinds of dof: a value at each vertex and a normal
-# derivative at each edge midpoint. .flatten() returns BOTH (on a refined unit
-# square: 16 nodal + 16 facet = 32), so it clamps. Taking .nodal_ix leaves the
-# normal derivative free, which is simple support. This comment used to say
-# "simply supported" above the clamped call — the two differ by a boundary
-# layer and by the constant in the error, not by an error message, so nothing
-# would have told you.
-D = ib.get_dofs().flatten()          # CLAMPED
+# Choose deliberately: the two are one call apart and neither errors. Under a
+# unit load on this square, simple support gives a peak deflection about 3.4x
+# the clamped one, so picking the wrong one is a wrong answer, not a wrong
+# decimal.
+#
+# TRAP: .facet_ix is NOT the global normal-derivative dofs — it indexes within
+# the facet block (it returns 0,1,3,4,... where the global dofs are 41,42,...).
+# Constraining it silently pins unrelated dofs. Address the blocks by name,
+# d.nodal['u'] and d.facet['u_n'], which are global and say what they are.
+d = ib.get_dofs()
+D = d.flatten()                      # CLAMPED
 u = solve(*condense(K, f, D=D))
 
 print(f"Biharmonic: {{K.shape[0]}} DOFs, max(u)={{u.max():.6e}}")
