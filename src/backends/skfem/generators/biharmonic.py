@@ -41,10 +41,12 @@ f = asm(load, ib)
 # the clamped one, so picking the wrong one is a wrong answer, not a wrong
 # decimal.
 #
-# TRAP: .facet_ix is NOT the global normal-derivative dofs — it indexes within
-# the facet block (it returns 0,1,3,4,... where the global dofs are 41,42,...).
-# Constraining it silently pins unrelated dofs. Address the blocks by name,
-# d.nodal['u'] and d.facet['u_n'], which are global and say what they are.
+# TRAP: .facet_ix is NOT the global normal-derivative dofs — it numbers them
+# within the facet block, so it starts near zero while the real ones sit past
+# the whole value block. Constraining it silently pins unrelated dofs, with no
+# error. Address the blocks by name, d.nodal['u'] and d.facet['u_n'], which are
+# global and say what they are. (Check on any mesh with
+# sorted(d.facet_ix) == sorted(d.facet['u_n']) — it is False.)
 d = ib.get_dofs()
 D = d.flatten()                      # CLAMPED
 u = solve(*condense(K, f, D=D))
