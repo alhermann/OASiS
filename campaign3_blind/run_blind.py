@@ -97,7 +97,7 @@ _NGSOLVE_SKFEM_PY = "/home/alexander/Schreibtisch/open-fem-agent/.venv/bin/pytho
 _ENV_PATHS = {
     "NGSolve & scikit-fem": _NGSOLVE_SKFEM_PY,
     "FEniCSx/dolfinx": "/home/alexander/miniconda3/envs/fenics/bin/python",
-    "DUNE-fem": "/home/alexander/miniconda3/envs/dune-fem-env/bin/python",
+    "DUNE-fem": "/home/alexander/miniconda3/envs/dune-py313/bin/python",
     "Kratos Multiphysics (and gmsh)": _NGSOLVE_SKFEM_PY,
     "4C binary": "/home/alexander/4C/build/4C",
     "FEBio binary": "/home/alexander/FEBio/bin/febio4",
@@ -108,7 +108,7 @@ ENVIRON = (
     "\nENVIRONMENT: NGSolve & scikit-fem -> "
     f"{_NGSOLVE_SKFEM_PY} ; "
     "FEniCSx/dolfinx -> /home/alexander/miniconda3/envs/fenics/bin/python ; "
-    "DUNE-fem -> /home/alexander/miniconda3/envs/dune-fem-env/bin/python ; "
+    "DUNE-fem -> /home/alexander/miniconda3/envs/dune-py313/bin/python ; "
     f"Kratos Multiphysics (and gmsh) -> {_NGSOLVE_SKFEM_PY} ; "
     "deal.II -> build C++ with cmake using DEAL_II_DIR=/home/alexander/dealii/build "
     "(run with LD_LIBRARY_PATH=/opt/4C-dependencies/lib) ; "
@@ -130,8 +130,16 @@ _IMPORT_CHECKS = {
                                        "import KratosMultiphysics"),
     "FEniCSx/dolfinx": ("/home/alexander/miniconda3/envs/fenics/bin/python",
                         "import dolfinx"),
-    "DUNE-fem": ("/home/alexander/miniconda3/envs/dune-fem-env/bin/python",
-                 "import dune.fem"),
+    # `import dune.fem` IS NOT A CHECK THAT DUNE WORKS. It succeeded in
+    # dune-fem-env while the very first real use — structuredGrid, which is
+    # JIT-compiled — died on a stale cache:
+    #   undefined symbol: PyThreadState_GetUnchecked
+    # The preflight passed, the round started, and every DUNE cell would have
+    # failed for an environment reason recorded as a model failure. Exercise
+    # the JIT path, which is where DUNE actually breaks.
+    "DUNE-fem": ("/home/alexander/miniconda3/envs/dune-py313/bin/python",
+                 "from dune.grid import structuredGrid; "
+                 "structuredGrid([0,0],[1,1],[2,2])"),
 }
 
 

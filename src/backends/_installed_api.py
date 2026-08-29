@@ -15,6 +15,158 @@ Keyed by the backend registry name.
 """
 
 INSTALLED_API = {
+ # ── FEniCSx ────────────────────────────────────────────────────────────
+ # There was NO fenics entry, while it is the backend two single-code cells
+ # use. Point evaluation in dolfinx is a genuine three-step API and the
+ # recipe lived only under physics='contact' and physics='io_catalog' —
+ # neither a name an agent solving a Poisson problem would request.
+ "fenics": {
+  "version": "0.10.0 (dolfinx)",
+  "run": "/home/alexander/miniconda3/envs/fenics/bin/python <script>.py",
+  "verified_smoke_test": (
+    "import numpy as np, ufl\n"
+    "from dolfinx import fem, mesh as dm, geometry\n"
+    "from dolfinx.fem.petsc import LinearProblem\n"
+    "from mpi4py import MPI\n"
+    "msh = dm.create_unit_square(MPI.COMM_WORLD, 16, 16)\n"
+    "V = fem.functionspace(msh, ('Lagrange', 1))\n"
+    "u, v = ufl.TrialFunction(V), ufl.TestFunction(V)\n"
+    "a = ufl.dot(ufl.grad(u), ufl.grad(v)) * ufl.dx\n"
+    "L = fem.Constant(msh, 1.0) * v * ufl.dx\n"
+    "bdofs = fem.locate_dofs_topological(V, 1, dm.locate_entities_boundary(\n"
+    "    msh, 1, lambda x: np.full(x.shape[1], True)))\n"
+    "uh = LinearProblem(a, L, bcs=[fem.dirichletbc(0.0, bdofs, V)],\n"
+    "                   petsc_options_prefix='s',\n"
+    "                   petsc_options={'ksp_type':'preonly','pc_type':'lu'}).solve()\n"
+    "pts = np.array([[0.3123, 0.7311, 0.0], [0.5, 0.5, 0.0]])\n"
+    "tree = geometry.bb_tree(msh, msh.topology.dim)\n"
+    "coll = geometry.compute_colliding_cells(\n"
+    "    msh, geometry.compute_collisions_points(tree, pts), pts)\n"
+    "cells = [coll.links(i)[0] for i in range(len(pts))]\n"
+    "vals = uh.eval(pts, cells)\n"
+    "np.savetxt('out.csv', np.hstack([pts[:, :2], np.asarray(vals).reshape(-1,1)]),\n"
+    "           delimiter=',', header='x,y,u', comments='', fmt='%.15e')\n"
+    "print('center:', float(np.asarray(vals).ravel()[1]))   # -> ~0.0734\n"),
+  "gotchas": [
+    "POINT EVALUATION IS THREE CALLS, not one: geometry.bb_tree -> geometry.compute_collisions_points -> geometry.compute_colliding_cells, then Function.eval(points, cells). There is no u(x, y).",
+    "The points array needs THREE columns even in 2-D; pass z = 0.0.",
+    "compute_colliding_cells returns an adjacency list: take .links(i)[0]. A point outside the mesh has an EMPTY list, so indexing blindly raises IndexError rather than returning a wrong number.",
+    "The old name compute_collisions does NOT exist in 0.10; it is compute_collisions_points.",
+    "Writing results: numpy.savetxt(..., fmt='%.15e'). str(float) and '%.6f' throw away digits a convergence study needs.",
+    "LinearProblem in 0.10 requires petsc_options_prefix.",
+  ],
+ },
+ # ── DUNE-fem ───────────────────────────────────────────────────────────
+ # No entry existed. pointSample IS in the corpus, under a key whose own
+ # section index calls it "VTK options ... thread defaults".
+ "dune": {
+  "version": "2.12.0.2 (dune-fem)",
+  "run": "/home/alexander/miniconda3/envs/dune-py313/bin/python <script>.py",
+  "verified_smoke_test": (
+    "import numpy as np\n"
+    "from dune.grid import structuredGrid\n"
+    "from dune.fem.space import lagrange\n"
+    "from dune.fem.scheme import galerkin\n"
+    "from dune.fem.utility import pointSample\n"
+    "from dune.ufl import DirichletBC\n"
+    "from ufl import TrialFunction, TestFunction, dot, grad, dx\n"
+    "g = structuredGrid([0, 0], [1, 1], [16, 16])\n"
+    "sp = lagrange(g, order=1)\n"
+    "u, v = TrialFunction(sp), TestFunction(sp)\n"
+    "sch = galerkin([dot(grad(u), grad(v)) * dx == 1.0 * v * dx,\n"
+    "                DirichletBC(sp, 0)], solver='cg')\n"
+    "uh = sp.interpolate(0, name='u')\n"
+    "sch.solve(target=uh)\n"
+    "pts = [[0.3123, 0.7311], [0.5, 0.5]]\n"
+    "vals = [float(pointSample(uh, p)) for p in pts]\n"
+    "np.savetxt('out.csv', np.hstack([np.array(pts), np.array(vals).reshape(-1,1)]),\n"
+    "           delimiter=',', header='x,y,u', comments='', fmt='%.15e')\n"
+    "print('center:', vals[1])       # -> ~0.0739\n"),
+  "gotchas": [
+    "POINT EVALUATION: `from dune.fem.utility import pointSample; pointSample(uh, [x, y])` gives the value at an arbitrary point. lineSample and a Sampler class exist too. uh(x, y) is not it.",
+    "DUNE JIT-COMPILES C++ on first use: the first structuredGrid or solve in a fresh environment takes minutes. That is normal, not a hang.",
+    "A STALE JIT CACHE FAILS AT USE, NOT AT IMPORT. `import dune.fem` can succeed while the first structuredGrid dies with 'undefined symbol: PyThreadState_GetUnchecked'. That means the cache was built against a different Python.",
+    "Writing results: numpy.savetxt(..., fmt='%.15e').",
+  ],
+ },
+ # ── Kratos ─────────────────────────────────────────────────────────────
+ # No entry existed, and the installed Kratos ships exactly what these tasks
+ # need — shape-function interpolation at arbitrary points — mentioned
+ # nowhere in the served knowledge.
+ "kratos": {
+  "version": "10.3.0",
+  "run": "/home/alexander/Schreibtisch/open-fem-agent/.venv/bin/python <script>.py",
+  "verified_smoke_test": (
+    "import KratosMultiphysics as KM\n"
+    "m = KM.Model(); mp = m.CreateModelPart('m')\n"
+    "mp.AddNodalSolutionStepVariable(KM.TEMPERATURE)\n"
+    "for i, (x, y) in enumerate([(0,0), (1,0), (1,1), (0,1)], 1):\n"
+    "    mp.CreateNewNode(i, float(x), float(y), 0.0)\n"
+    "props = mp.CreateNewProperties(1)\n"
+    "mp.CreateNewElement('Element2D3N', 1, [1, 2, 3], props)\n"
+    "mp.CreateNewElement('Element2D3N', 2, [1, 3, 4], props)\n"
+    "for n in mp.Nodes:\n"
+    "    n.SetSolutionStepValue(KM.TEMPERATURE, 3.0 * n.X + 2.0 * n.Y)\n"
+    "loc = KM.BinBasedFastPointLocator2D(mp); loc.UpdateSearchDatabase()\n"
+    "for px, py in [[0.3123, 0.7311], [0.5, 0.5]]:\n"
+    "    found, N, el = loc.FindPointOnMesh(KM.Array3([px, py, 0.0]))\n"
+    "    val = sum(N[k] * nd.GetSolutionStepValue(KM.TEMPERATURE)\n"
+    "              for k, nd in enumerate(el.GetNodes()))\n"
+    "    print(px, py, found, val)   # exact for a linear field\n"),
+  "gotchas": [
+    "POINT EVALUATION: KM.BinBasedFastPointLocator2D(mp) (or 3D), UpdateSearchDatabase(), then FindPointOnMesh. In 10.3 it RETURNS A TUPLE (found, shape_functions, element) and does not take out-params. Multiply the shape functions by the element's nodal values: that is a real interpolation, not a nearest-node read.",
+    "Kratos also ships point_output_process, multiple_points_output_process and csv_points_output_process (all importable here); the last takes a list of (x,y,z) and writes interpolated values straight to CSV.",
+    "Element names are positional strings: 'Element2D3N' is a linear triangle. Nodes are 1-based and must exist before the element.",
+    "Writing results: numpy.savetxt(..., fmt='%.15e').",
+  ],
+ },
+ # ── FEBio ──────────────────────────────────────────────────────────────
+ # No entry existed. Its honest answer is a product limit, and saying so
+ # beats silence: an agent that knows will place nodes AT the probe points
+ # instead of hunting an API that is not there.
+ "febio": {
+  "version": "4.12.0",
+  "run": "/home/alexander/FEBio/bin/febio4 -i <deck>.feb",
+  "verified_smoke_test": (
+    "# FEBio writes results from the DECK, not from a Python API.\n"
+    "# <Output>\n"
+    "#   <logfile>\n"
+    "#     <node_data file='u.csv' format='%i,%.15g,%.15g' data='ux;uy'/>\n"
+    "#   </logfile>\n"
+    "# </Output>\n"),
+  "gotchas": [
+    "NO ARBITRARY-POINT EVALUATION. FEBio exposes NODAL output and no user-facing shape-function interpolation. If the task prescribes probe points, build the mesh so nodes SIT at those coordinates rather than interpolating afterwards.",
+    "A deck with only <plotfile> writes a binary .xplt and nothing readable. Add <logfile> with node_data or you have no numbers to submit.",
+    "The logfile format string sets precision: use %.15g.",
+    "A log accumulates one block per step: parse the LAST block.",
+    "This build has no pardiso; leave the solver at its default.",
+  ],
+ },
+ # ── SPARTA ─────────────────────────────────────────────────────────────
+ # No entry existed; the precision fix lived only inside a method the server
+ # does not expose as a tool.
+ "sparta": {
+  "version": "DSMC, spa_serial",
+  "run": "<sparta binary> -in in.<case>",
+  "verified_smoke_test": (
+    "# SPARTA is an input-script code and OUTPUT PRECISION is the trap:\n"
+    "#   dump_modify  1 format float %20.15g\n"
+    "#   stats_modify format float %20.15g\n"
+    "# A compute produces NOTHING by itself: a fix ave/time, dump or print\n"
+    "# must reference it as c_<id> for any number to be written at all.\n"),
+  "gotchas": [
+    "OUTPUT PRECISION: `dump_modify <id> format float %20.15g` and `stats_modify format float %20.15g`. The defaults are far too coarse to grade against.",
+    "A `compute` writes nothing on its own; it must be referenced as c_<id> by a fix ave/time, a dump or a print.",
+    "DSMC is STOCHASTIC: one run is a sample. Average over enough steps after the flow is established, and say which window you averaged.",
+    "THERE IS NO POINT EVALUATION, and that is the physics, not a gap: DSMC "
+    "carries no continuous field to interpolate. Output is per surface "
+    "element or per grid cell, sampled and time-averaged. If a task names "
+    "probe locations, build the surface mesh so its ELEMENTS sit at those "
+    "locations and report the element values, saying which averaging window "
+    "you used.",
+    "The full reference ships with the source at $SPARTA_ROOT/doc.",
+  ],
+ },
  "ngsolve": {
   "version": "6.2.2604",
   "run": "/home/alexander/Schreibtisch/open-fem-agent/.venv/bin/python <script>.py",
@@ -35,6 +187,7 @@ INSTALLED_API = {
     "Trial/test: `u, v = fes.TnT()`. Forms: `a += grad(u)*grad(v)*dx` then `a.Assemble()` (explicit).",
     "Solve: `gfu.vec.data = a.mat.Inverse(fes.FreeDofs(), inverse='sparsecholesky') * f.vec` — FreeDofs() enforces the Dirichlet constraint.",
     "Point eval: `gfu(mesh(0.5,0.5))` — the coords MUST go through mesh(...); `gfu(0.5,0.5)` does NOT work.",
+    "Writing results: numpy.savetxt(..., fmt='%.15e'). str(float) and '%.6f' throw away digits a convergence study needs.",
     "Integrate(cf*dx, mesh) is a SEPARATE functional, not how you assemble forms.",
   ],
  },
@@ -59,6 +212,8 @@ INSTALLED_API = {
     "MeshTri() already IS the unit square; refine with `.refined(n)` (returns a new mesh, not in-place).",
     "Use generic `Basis(mesh, ElementTriP1())` (element instance required).",
     "Decorator arities are mandatory: `@BilinearForm def f(u, v, w)` and `@LinearForm def f(v, w)` — the trailing `w` (global params) is required even if unused. Wrong arity is the #1 error.",
+    "POINT EVALUATION at arbitrary (non-node) points: `basis.probes(P) @ x`, where P is a (dim, npoints) array — probes() returns a sparse matrix that INTERPOLATES the solution vector, so the `@` is the evaluation. Note the shape: points are COLUMNS, not rows. Verified exact on a P1-representable field.",
+    "Writing results: numpy.savetxt(..., fmt='%.15e'). str(float) and '%.6f' throw away digits a convergence study needs.",
     "Integrand uses skfem.helpers (dot, grad) and returns the pointwise integrand, not an assembled value.",
     "Assemble via `form.assemble(basis)` or `asm(form, basis)` (equivalent).",
     "Dirichlet: `D = basis.get_dofs()` (no args = all boundary dofs) then `solve(*condense(A, b, D=D))` (homogeneous by default).",
@@ -84,7 +239,8 @@ INSTALLED_API = {
     "Use modern idioms: fe_values.quadrature_point_indices(), fe_values.dof_indices(), fe.n_dofs_per_cell() (data member fe.dofs_per_cell is deprecated).",
     "Functions::ZeroFunction<dim>() (namespaced; bare ZeroFunction removed). Header <deal.II/base/function.h>.",
     "Sparsity needs both <.../dynamic_sparsity_pattern.h> and <.../sparsity_pattern.h>; BCs need <.../numerics/vector_tools.h> + <.../numerics/matrix_tools.h>.",
-    "Evaluate: VectorTools::point_value(dof_handler, solution, Point<dim>(...)); solution.linfty_norm() for the max.",
+    "Evaluate: VectorTools::point_value(dof_handler, solution, Point<dim>(...)); solution.linfty_norm() for the max. This works at ARBITRARY points, not just nodes — it locates the cell and applies the shape functions. Functions::FEFieldFunction is the batch version.",
+    "Writing results from C++: `out << std::setprecision(15) << std::scientific`. The default ostream precision is 6 digits and loses what a convergence study needs.",
   ],
  },
  "fourc": {
@@ -139,6 +295,8 @@ INSTALLED_API = {
      "By DEFAULT 4C writes only a BINARY <prefix>.control + binary result files — NOT human-readable. Do NOT try to hex-decode them by hand.",
      "To get readable output, add: `IO/RUNTIME VTK OUTPUT: {INTERVAL_STEPS: 1, OUTPUT_DATA_FORMAT: ascii}` and `IO/RUNTIME VTK OUTPUT/STRUCTURE: {OUTPUT_STRUCTURE: true, DISPLACEMENT: true}` (add `STRESS_STRAIN: true` for stresses). This writes `<prefix>-vtk-files/structure-0000N-0.vtu`.",
      "Extract with pyvista (available in /home/alexander/Schreibtisch/open-fem-agent/.venv/bin/python): `import pyvista as pv, numpy as np; m = pv.read(LAST_vtu); d = np.asarray(m.point_data['displacement']); pts = m.points`. Find your node by coordinate: `i = np.argmin(np.linalg.norm(pts - target_xyz, axis=1))`, then `d[i]` is its displacement (stress/strain are cell or point arrays too).",
+     "POINT EVALUATION AT NON-NODAL POINTS — and the nearest-node line above is NOT it. Snapping to the closest node is a first-order error that will not converge at the rate a P1/Q1 field does, so it is wrong for any prescribed probe grid that is deliberately off-mesh. 4C itself cannot help: its RESULT DESCRIPTION block selects by NODE/LINE/SURFACE/VOLUME and has no coordinate selector at all (checked against the live grammar dump, `4C -p`). Interpolate from the VTU instead: `probe = pv.PolyData(target_xyz_array); vals = probe.sample(pv.read(LAST_vtu))['displacement']` — pyvista's sample() locates the cell and applies the shape functions, verified exact on a linear field.",
+     "Writing results: numpy.savetxt(..., fmt='%.15e'). str(float) and '%.6f' throw away digits a convergence study needs.",
      "GOTCHA: read the LAST timestep file (highest number, e.g. structure-00005-0.vtu), NOT structure-00000-0.vtu which is the INITIAL zero state -> reading step 0 gives displacement 0 everywhere and looks like the load did nothing.",
      "STRESS output: set `IO: {STRUCT_STRESS: 'Cauchy'}` (this is what actually enables stress) AND `IO/RUNTIME VTK OUTPUT/STRUCTURE: {..., STRESS_STRAIN: true}`. Then stress is in BOTH point_data['nodal_cauchy_stresses_xyz'] and cell_data['element_cauchy_stresses_xyz'], shape (n,6) Voigt [xx,yy,zz,xy,yz,xz] -> index 0 = sigma_xx. e.g. `pv.read(LAST_pvtu).cell_data['element_cauchy_stresses_xyz'][cell,0]`.",
      "Read the explicit last `.pvtu`/`.vtu` (e.g. sorted(glob('...structure-*.pvtu'))[-1]); pv.read('<prefix>-structure.pvd') is unreliable (its MultiBlock may expose only the t=0 zero block).",
