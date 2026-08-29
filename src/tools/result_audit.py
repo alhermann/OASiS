@@ -213,8 +213,23 @@ def _one_sequence(by_level: dict, key: tuple, _csv) -> dict[str, list[float]]:
             break
         if rows:
             levels.append(rows)
-    if len(levels) < 3:
+    if not levels:
         return {}
+    # A ZERO FIELD IS VISIBLE AT LEVEL ONE, AND THAT IS WHEN IT IS WORTH
+    # SAYING. This returned {} below three levels, so the NEAR-ZERO check —
+    # the cheapest catch in the audit and the one that names an unwired load —
+    # stayed silent exactly while the agent still had the budget to fix it.
+    # Self-convergence genuinely needs three levels; a magnitude does not need
+    # any. Emit the magnitude from whatever exists and the differences only
+    # when there are enough levels to form them.
+    if len(levels) < 3:
+        out: dict[str, list[float]] = {}
+        fields = sorted({f for lv in levels for v in lv.values() for f in v})
+        for f in fields:
+            mag = max((abs(v[f]) for v in levels[-1].values() if f in v),
+                      default=0.0)
+            out[f"magnitude_{tag}_{f}"] = [mag]
+        return out
     out: dict[str, list[float]] = {}
     fields = sorted({f for lv in levels for v in lv.values() for f in v})
     for f in fields:

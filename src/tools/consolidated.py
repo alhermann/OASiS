@@ -2121,9 +2121,25 @@ def register_consolidated_tools(mcp: FastMCP):
             backend = get_backend(solver)
             if not backend:
                 return f"Unknown solver: {solver}"
+            # FUZZY MATCH HERE TOO — the pairing was exactly inverted.
+            # prepare_simulation has a seven-stage matcher and this had none,
+            # so the tool WITH the matcher lacked the universal block and the
+            # tool WITH the block dead-ended. Measured over 98 MCP runs:
+            # knowledge(topic='physics', solver='fenics', physics='nonlinear')
+            # returned 38 characters, 16 times across 13 runs, while
+            # 'nonlinear' matches nonlinear_pde — the generator that builds
+            # exactly the equation shape those runs were asked to solve.
             k = backend.get_knowledge(physics)
             if not k:
-                return f"No knowledge for '{physics}' in {solver}"
+                _m = _fuzzy_match_physics(backend, physics)
+                if _m:
+                    k = backend.get_knowledge(_m)
+                    if k:
+                        physics = _m
+            if not k:
+                _avail = ", ".join(p.name for p in backend.supported_physics())
+                return (f"No knowledge for '{physics}' in {solver}. "
+                        f"Available: {_avail}")
             k = _strip_pitfalls(k)
             result = json.dumps(k, indent=2, default=str)
             # Append real test file references
@@ -4877,7 +4893,23 @@ def register_consolidated_tools(mcp: FastMCP):
             avail = [p.name for p in backend.supported_physics()]
             return f"No information found for '{physics}' in {solver}. Available physics: {', '.join(avail)}"
 
-        return f"# Preparation for {matched_physics} on {solver}\n\n" + "\n---\n".join(parts)
+        # THE UNIVERSAL BLOCK RIDES THIS CALL TOO.
+        #
+        # server.py tells the agent "Always do this first" about
+        # prepare_simulation, and the block was attached only to
+        # knowledge(topic='physics'). Measured over 98 MCP runs of this
+        # development campaign: 108 prepare_simulation calls, 95 resolving
+        # knowledge(topic='physics') calls, and 43 runs (44%) that received
+        # the block NEVER. It is the only text that carries the wiring table
+        # for all nine backends, the write-the-answer-first rule, and the
+        # NOT VERIFIED vs NOT A RESULT distinction — the three things the
+        # observed failures are made of.
+        #
+        # This is the same defect the comment at the knowledge() call site
+        # already records, applied to the door that was missed: a fix landed
+        # at one call site when there were two.
+        return (f"# Preparation for {matched_physics} on {solver}\n\n"
+                + "\n---\n".join(parts) + _UNIVERSAL_BLOCK)
 
     # ═══════════════════════════════════════════════════════════
     # 9. TRANSFER FIELD (keep — needed for coupling)
