@@ -274,10 +274,10 @@ _TALLY_SAMPLING = (
 _SEQUENCE_FIRST = """\
 A REFINEMENT OR PARAMETER SEQUENCE: WRITE THE ANSWER FILE BEFORE YOU REFINE IT.
 
-Measured over 128 runs of this campaign, agents stop VOLUNTARILY at a median
-of 46% of their wall budget, and a further one in eight is stopped by the
-clock mid-thought. Both leave the same wreckage: a correct level-1 result
-computed, understood, and never written anywhere a grader can read it.
+Agents stop VOLUNTARILY at a median of about half their wall budget, and a
+further one in eight is stopped by the clock mid-thought. Both leave the same
+wreckage: a correct level-1 result computed, understood, and never written
+anywhere it can be read.
 
 So invert the order. The moment level 1 produces numbers, write the complete
 deliverable to disk in its final format, with the levels you have and an

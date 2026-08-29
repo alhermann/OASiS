@@ -302,11 +302,12 @@ first one settles.
 
 FIRST: if the task prescribes a discretisation — "use exactly this element" —
 that is part of the problem, not a suggestion, and no convergence argument
-overrides it. A problem may mandate a NONCONFORMING element — Morley, a
-quadratic triangle, converges at 2 on a biharmonic problem where Argyris
-reaches 5 — so the degree-to-order rule of thumb does not apply and the stated
-order is the one to expect. An agent that "corrects" the prescribed element is
-solving a different problem.
+overrides it. The degree-to-order rule of thumb fails for whole families of
+elements: a nonconforming or mixed element can converge well below degree + 1,
+and a prescribed element carries its own rate. Where a task states both an
+element and an order, they are consistent with each other and both are data.
+An agent that "corrects" the prescribed element is solving a different
+problem.
 
 SECOND, where the element is yours to choose and you are running a CONFORMING
 Lagrange method on a second-order problem with a smooth solution and adequate
@@ -323,8 +324,8 @@ broken.
 
 The p+1 rate is NOT unconditional. It needs the elliptic-regularity /
 duality argument behind it, so a re-entrant corner, a crack, or a jumping
-coefficient can cap it below p+1 at any degree; nonconforming (Morley), mixed
-H(div), and reduced-integration elements follow their own rates entirely.
+coefficient can cap it below p+1 at any degree; nonconforming, mixed H(div),
+and reduced-integration elements follow their own rates entirely.
 
 Three things that cap the order even when the degree is right:
   * THE NORM. p+1 is the L2 norm of the FIELD. A gradient or flux converges

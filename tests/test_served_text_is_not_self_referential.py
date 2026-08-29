@@ -100,6 +100,49 @@ def test_tool_descriptions_do_not_say_it_either():
         + "\n  ".join(bad))
 
 
+def test_every_backend_payload_is_clean_not_just_the_default_one():
+    """The first pass checked four payloads and missed two live leaks.
+
+    The SPARTA backend carried its own copy of the stopping-early lesson,
+    with "Measured over 128 runs of this campaign" intact, served with SPARTA
+    physics. And the element rule named Morley — which is exactly the element
+    one evaluation cell mandates — inside a block served for ALL nine
+    backends. Checking the default payload proved nothing about the other
+    eight.
+    """
+    t = _tools()
+    bad = []
+    for solver in ("fenics", "ngsolve", "skfem", "dune", "dealii", "kratos",
+                   "fourc", "febio", "sparta"):
+        for label, out in (
+            ("knowledge/physics", _call(t["knowledge"], topic="physics",
+                                        solver=solver, physics="poisson")),
+            ("prepare_simulation", _call(t["prepare_simulation"],
+                                         solver=solver, physics="poisson")),
+        ):
+            hits = BANNED.findall(out)
+            if hits:
+                bad.append(f"{solver}/{label}: {sorted({str(h) for h in hits})}")
+    assert not bad, "\n  ".join(bad)
+
+
+def test_no_specific_element_is_named_as_an_evaluation_cell():
+    """Naming Morley told every agent that a biharmonic/Morley cell exists.
+
+    The RULE is what matters — degree+1 fails for whole element families and a
+    prescribed element carries its own rate — and it states fine without
+    naming the one the evaluation set uses.
+    """
+    t = _tools()
+    text = _call(t["knowledge"], topic="physics", solver="skfem",
+                 physics="poisson")
+    assert "NONCONFORMING" in text or "nonconforming" in text, (
+        "the element rule itself must survive")
+    assert "Morley" not in text, (
+        "the served rule still names Morley, which is an evaluation cell's "
+        "prescribed element")
+
+
 def test_the_lesson_survived_the_edit():
     """Removing provenance must not remove the knowledge."""
     t = _tools()
@@ -109,8 +152,10 @@ def test_the_lesson_survived_the_edit():
     assert "wall budget" in text and "VOLUNTARILY" in text
     # the wiring rule
     assert "INERT UNTIL IT IS WIRED IN" in text
-    # the prescribed-element rule, without naming a cell of the eval set
-    assert "NONCONFORMING" in text and "Morley" in text
+    # the prescribed-element rule, WITHOUT naming the element an evaluation
+    # cell prescribes — the rule is the knowledge, the name was the leak
+    assert "NONCONFORMING" in text or "nonconforming" in text
+    assert "Morley" not in text
 
 
 if __name__ == "__main__":
