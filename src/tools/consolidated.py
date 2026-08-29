@@ -2357,7 +2357,49 @@ def register_consolidated_tools(mcp: FastMCP):
                         all_pitfalls, physics=physics, signal=signal,
                         category=category)
                     return pitfall_index.render(narrowed, solver)
-                return json.dumps(all_pitfalls, indent=2)
+                # AN UNFILTERED DUMP IS NOT A PAYLOAD, IT IS A DENIAL OF
+                # SERVICE ON THE AGENT'S OWN CONTEXT.
+                #
+                # This returned every pitfall verbatim: 394,733 bytes for 4C,
+                # about 99k tokens — 38% of the whole 262k window in ONE tool
+                # result. Measured over 635 ledgers, the OASiS arm carries a
+                # median 82,669 tokens of context per tool call against bare's
+                # 57,193, and gets 46 tool calls per run against bare's 101.
+                # On the same 45-minute clock, that is less than half the
+                # actions, and this call is the single largest contributor.
+                #
+                # The index already exists and agents already use it. So an
+                # unfiltered request now RETURNS the index plus the entry
+                # count, and says exactly how to get the full text of what it
+                # names. Nothing is hidden and nothing is truncated mid-entry:
+                # the agent chooses what to spend its window on.
+                _n = sum(len(v) if isinstance(v, list) else 1
+                         for v in all_pitfalls.values()) \
+                    if isinstance(all_pitfalls, dict) else len(all_pitfalls)
+                _full = json.dumps(all_pitfalls, indent=2)
+                if len(_full) <= 24000:
+                    return _full
+                # index_summary, NOT render(): render returns every entry in
+                # full, which is the thing being avoided. (My first attempt
+                # called render with index=True, which is not a parameter it
+                # takes — the TypeError fell through to the full render and
+                # the payload stayed at 388,714 characters.)
+                _idx = pitfall_index.index_summary(all_pitfalls, solver)
+                return (
+                    f"{_idx}\n\n"
+                    f"[{_n} pitfall entries for {solver}, {len(_full):,} "
+                    f"characters in full — roughly {len(_full)//4:,} tokens, "
+                    f"which would be a large fraction of your context window "
+                    f"in a single reply. The index above names every entry. "
+                    f"Fetch only what you need:\n"
+                    f"  knowledge(topic='pitfalls', solver='{solver}', "
+                    f"physics='<name>')     — one physics\n"
+                    f"  knowledge(topic='pitfalls', solver='{solver}', "
+                    f"signal='<error text>') — entries matching a symptom\n"
+                    f"  knowledge(topic='pitfalls', solver='{solver}', "
+                    f"category='<category>') — one category\n"
+                    f"Any of those returns the full text of the entries it "
+                    f"selects.]")
             return f"No pitfalls found for {solver}"
 
         elif topic == "materials" and solver:

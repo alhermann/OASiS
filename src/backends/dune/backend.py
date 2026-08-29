@@ -34,12 +34,25 @@ logger = logging.getLogger("oasis.dune")
 # (used by tests).
 _DUNE_PYTHON_CACHE: dict = {}
 
+# THIS MESSAGE USED TO RECOMMEND A COMMAND TWO OTHER SERVED PASSAGES CALL
+# IMPOSSIBLE. It said `conda create -n ofa-dune -c conda-forge dune-fem`,
+# while _setup.py says that command "cannot succeed" and server.py says
+# "conda-forge has NO dune-fem package". An agent hits this text at exactly
+# the moment DUNE has failed, so it is the worst place in the codebase to
+# spend its budget on a command that cannot work.
 _DUNE_INSTALL_HINT = (
-    "dune.fem not importable in any candidate Python. "
-    "Try: conda create -n ofa-dune -c conda-forge dune-fem\n"
+    "dune.fem not importable in any candidate Python.\n"
+    "Install from PyPI, which is the working source — conda-forge has no "
+    "dune-fem package:\n"
+    "  pip install dune-fem mpi4py    (mpi4py is an undeclared dependency; "
+    "without it the first import stops)\n"
     "Or point OASiS at an existing install:\n"
     "  DUNE_PYTHON=/path/to/env/bin/python   (explicit interpreter)\n"
-    "  DUNE_CONDA_PREFIX=/path/to/env        (conda env root)")
+    "  DUNE_CONDA_PREFIX=/path/to/env        (conda env root)\n"
+    "DUNE JIT-compiles C++ on first use, so a fresh install is slow before it "
+    "is fast. A cache built against a different Python fails at USE, not at "
+    "import: `import dune.fem` succeeds and the first grid dies with "
+    "'undefined symbol'. Remove ~/.cache/dune-py to rebuild it.")
 
 
 def _reset_dune_python_cache():
