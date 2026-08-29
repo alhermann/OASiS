@@ -23,10 +23,12 @@ import sys
 from pathlib import Path
 
 import numpy as np
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
 from skfem import (Basis, FacetBasis, ElementVector, ElementTriP2, MeshTri,
                    asm, condense, solve, BilinearForm, LinearForm)
 from skfem.helpers import dot
 from skfem.models.elasticity import linear_elasticity
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
 # ── EDIT THIS BLOCK ─ every number below is an ARBITRARY PLACEHOLDER.
 #    Replace ALL of them with your problem's geometry, material and BCs.
@@ -80,6 +82,7 @@ def make_sampler(imp, fallback, ncomp=2):
 
 
 def main():
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
     lam = E_MOD * NU / ((1.0 + NU) * (1.0 - 2.0 * NU))       # plane strain
     mu = E_MOD / (2.0 * (1.0 + NU))
 
@@ -97,6 +100,7 @@ def main():
         def _mass(u, v, w):
             return dot(u, v)
         K = K + (RHO_S / DT**2) * asm(_mass, basis)
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
     imp = read_imports() if FEEDBACK else None
     sampler = make_sampler(imp, T_INIT, ncomp=2)
@@ -113,10 +117,12 @@ def main():
     # skfem passes extra kwargs through as quadrature-point arrays.
     f = asm(neumann, fb, tx=tq[..., 0], ty=tq[..., 1])
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
     # clamped ends: every dof on x = CLAMP_X
     clamped = basis.get_dofs(
         lambda x: np.isclose(x[0], CLAMP_X[0]) | np.isclose(x[0], CLAMP_X[1]))
     d = solve(*condense(K, f, D=clamped))
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
     # ── interface displacement at the interface NODES (P1 subset of P2) ─────
     nodal = basis.nodal_dofs                      # (ncomp, nvertices)

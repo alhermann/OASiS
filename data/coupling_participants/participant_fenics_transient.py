@@ -575,14 +575,34 @@ for n in range(N_STEPS):
     # interface nodes, n = 8/16/32, N_STEPS = 8, non-zero source, max error over
     # every time level, against a true flux whose size is 2 to 5:
     #     projected gradient   2.78, 1.42, 7.06e-01   orders 0.97, 1.01
-    #     reaction vs b_vol    1.96e-02, 4.98e-03, 1.25e-03   orders 1.98, 2.00
-    # IDENTICAL for THETA = 0.5 and THETA = 1.0, and identical to three digits
-    # with what the steady conduction participants get on the same meshes.
-    # Refining dt alone at n = 16, N_STEPS = 4/8/16/32, the recovered flux does
-    # not move at all (4.9833e-03 at every dt) — that is the check that b_vol
-    # carries the old-step terms: drop them and this column blows up as 1/dt.
-    # The Dirichlet side is untouched by the change (b == b_vol there): its
-    # export is bit-identical to the previous version's, checked.
+    #     reaction vs b_vol    1.96e-02, 4.98e-03, 1.25e-03
+    #
+    # READ THE SECOND ROW CORRECTLY — IT IS NOT A CONVERGENCE RESULT. On the
+    # Neumann side the free interface rows satisfy
+    # (A_free u^(n+1) - b_vol)_i = (M_Gamma g)_i IDENTICALLY, so the export is
+    # the consistent-to-nodal conversion -(M_Gamma g)/(M_Gamma 1) and its
+    # offset from -g is -(h^2/6) g''(y) for ANY correct assembly of ANY
+    # equation. This row used to carry "orders 1.98, 2.00" as if it measured
+    # the recovery's accuracy; it does not. Those three figures are the P1
+    # boundary mass matrix and are reproduced to five significant figures by a
+    # bare NumPy mass matrix with no PDE, no time stepping and no solver in it,
+    # which is also why they agree to three digits with what the steady
+    # conduction participants get on the same meshes — the same algebra, not an
+    # agreement between codes. The recovery's ORDER is measured elsewhere,
+    # steady and on the DIRICHLET side, against an analytic flux
+    # (tests/test_interface_flux_converges_to_a_known_exact_flux.py): 1.996,
+    # 1.998, 1.993 on 8/16/32/64. There is no transient measurement of it.
+    #
+    # WHAT THE ROW IS STILL GOOD FOR, and it is the reason it stays: it is
+    # IDENTICAL for THETA = 0.5 and THETA = 1.0, and refining dt alone at
+    # n = 16, N_STEPS = 4/8/16/32, the recovered flux does not move at all
+    # (4.9833e-03 at every dt). That IS a real check — that b_vol carries the
+    # old-step terms. Drop them and this column blows up as 1/dt. The
+    # projected-gradient row above is also a genuine measurement: it passes
+    # through the discretisation, and order ~1 is what a P1 gradient evaluated
+    # ON a boundary is worth. The Dirichlet side is untouched by the change
+    # (b == b_vol there): its export is bit-identical to the previous
+    # version's, checked.
     r = A_free.createVecLeft()
     A_free.mult(uh.x.petsc_vec, r)
     r.axpy(-1.0, b_vol)

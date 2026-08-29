@@ -161,10 +161,14 @@ uh = LinearProblem(a, L, bcs=bcs, petsc_options_prefix="cpl",
 # project -K dT/dx over the whole subdomain and sample it at the interface.
 # The gradient of a P1 solution is only O(h) accurate ON the boundary — the
 # superconvergence points are interior — and the boundary trace is exactly what
-# the coupling reads. Measured against a manufactured solution with a known
-# exact interface flux, the projection converges at order 1.07 while the
-# consistent flux below converges at 2.05, and in a full coupled run the graded
-# field order moves from 1.83 to 2.05 against a pass band that ends at 1.6. The
+# the coupling reads. The consistent flux below is second order against an
+# analytic interface flux: 1.996, 1.998, 1.993 on 8/16/32/64, re-measured on
+# this file by tests/test_interface_flux_converges_to_a_known_exact_flux.py.
+# (The original sweep that retired the projection reported 1.07 for it against
+# 2.05 for the reaction, and a coupled graded field order moving from 1.83 to
+# 2.05 against a pass band ending at 1.6. Those three figures are from that
+# sweep and have NOT been re-run since the projected branch was deleted; the
+# 1.996/1.998/1.993 above is the number this repo can reproduce today.) The
 # recovery, not the physics and not the partner, was setting the answer.
 #
 # THE CONSISTENT (REACTION) FLUX. From
@@ -190,13 +194,44 @@ p_, w_ = ufl.TrialFunction(V), ufl.TestFunction(V)
 # On the Dirichlet side there is no interface term at all, so b == b_vol and
 # the two cases are the same expression.
 #
-# MEASURED against a known imposed flux, q = 2 + 3 sin(4y), on 8/16/32/64/128
-# uniform triangle meshes (interior interface nodes; ends reported separately
-# because an end node is a different quantity):
-#     projected gradient   max 2.6 flat, order 0.00 — it never converges;
-#                          order 0.93 away from the ends, 0.50 in rms
-#     reaction vs b_vol    order 2.00 in max, away-from-ends AND rms
-# The old recovery did not converge in the norm the grader reads.
+# WHAT IS MEASURED, AND WHAT IS ONLY ALGEBRA. Two different fixtures, and only
+# one of them is a convergence result. Do not quote the first as one.
+#
+#  (1) ASSEMBLY IDENTITY, not convergence. Handing THIS side a flux g and
+#      asking for it back cannot measure an order: on free interface rows
+#      r = A u - b_vol IS M_Gamma g by construction, so the export is the
+#      consistent-to-nodal conversion -(M_Gamma g)/(M_Gamma 1) and its offset
+#      from -g is -(h^2/6) g''(y) for ANY correct assembly of ANY equation,
+#      with any conductivity. Measured for q = 2 + 3 sin(4y) at n = 8/16/32:
+#      1.964339e-02, 4.983320e-03, 1.249629e-03 — the same figures a bare 1-D
+#      P1 mass matrix in NumPy produces with no PDE, no solver and no material
+#      in it. This used to be quoted here as "order 2.00"; it is not evidence
+#      of an order. The fixture is kept (tests/test_interface_flux_recovery.py)
+#      because it does catch a flipped sign, a wrong weight, a mistagged facet
+#      set and a blocked-dof mix-up — a real but narrow check.
+#
+#  (2) THE ORDER, measured on the DIRICHLET side against an analytic interface
+#      flux this file is never given
+#      (tests/test_interface_flux_converges_to_a_known_exact_flux.py):
+#      T = 300 + sin(3x) cos(pi y/Ly) drives THIS script unmodified — its
+#      natural top/bottom and its constant T_OUTER are exactly right for it —
+#      and the graded quantity is q_ex = -3 K cos(3 X1) cos(pi y/Ly), a
+#      different quantity from the temperature handed in. FEniCSx, 8/16/32/64
+#      uniform triangle meshes, max error over INTERIOR interface nodes:
+#          2.889e-01  7.243e-02  1.814e-02  4.556e-03   ORDER 1.996 1.998 1.993
+#      At the two nodes where the interface meets the outer boundary it is only
+#      first order (1.529, 7.142e-01, 3.415e-01, 1.663e-01; order 1.10, 1.06,
+#      1.04) even where no end fix-up applies — the end of an interface is a
+#      different quantity and is reported apart throughout this corpus.
+#
+#  (3) THE RETIRED PROJECTED GRADIENT, in the norms it was actually measured
+#      in: order ~1 in the interior AWAY FROM THE ENDS (0.93), 0.50 in rms, and
+#      non-convergent in the max norm that includes the near-end nodes, where
+#      it stalls at 2.6 against a true flux of size 2 to 5. It was written up
+#      here as a flat "order 0.00, it never converges", which was true of one
+#      norm and was not labelled as such. Order ~1 is what a P1 gradient
+#      evaluated ON a boundary is worth, and is the honest reason to prefer the
+#      second-order reaction. Not re-measured since the branch was deleted.
 Amat = _fp.assemble_matrix(fem.form(a))              # no bcs= on purpose
 Amat.assemble()
 bvec = _fp.assemble_vector(fem.form(L_vol))          # no lifting, no set_bc

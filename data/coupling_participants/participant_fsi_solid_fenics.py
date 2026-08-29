@@ -24,10 +24,12 @@ import sys
 from pathlib import Path
 
 import numpy as np
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
 import ufl
 from dolfinx import fem, mesh as dmesh
 from dolfinx.fem.petsc import LinearProblem
 from mpi4py import MPI
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
 # ── EDIT THIS BLOCK ─ every number below is an ARBITRARY PLACEHOLDER.
 #    Replace ALL of them with your problem's geometry, material and BCs.
@@ -71,6 +73,7 @@ def sample_vec(imp, x_targets, fallback, ncomp=2):
 
 
 def main():
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
     comm = MPI.COMM_SELF
     msh = dmesh.create_rectangle(
         comm, [np.array([0.0, Y0]), np.array([LX, Y0 + HS])], [NXS, NYS],
@@ -94,17 +97,23 @@ def main():
     ft = dmesh.meshtags(msh, fdim, np.sort(iface),
                         np.full(len(iface), 4, dtype=np.int32))
     ds = ufl.Measure("ds", domain=msh, subdomain_data=ft)
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
     # traction as a P1 vector field on the interface, sampled from the import
     imp = read_imports() if FEEDBACK else None
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
     V1 = fem.functionspace(msh, ("Lagrange", 1, (gdim,)))
     t_fn = fem.Function(V1)
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
     xd = V1.tabulate_dof_coordinates()[:, :gdim]
     t_fn.x.array.reshape(-1, gdim)[:] = sample_vec(imp, xd[:, 0], T_INIT, gdim)
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
     a = ufl.inner(sig(u), eps(v)) * ufl.dx
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
     L = ufl.inner(t_fn, v) * ds(4)
 
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ begin
     clamp_facets = dmesh.locate_entities_boundary(
         msh, fdim, lambda x: np.isclose(x[0], CLAMP_X[0]) | np.isclose(x[0], CLAMP_X[1]))
     zero = fem.Function(V)
@@ -114,6 +123,7 @@ def main():
     LinearProblem(a, L, bcs=bcs, u=d, petsc_options_prefix="solid_",
                   petsc_options={"ksp_type": "preonly", "pc_type": "lu",
                                  "pc_factor_mat_solver_type": "mumps"}).solve()
+# ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
     # ── interface displacement at the interface NODES ──────────────────────
     d1 = fem.Function(V1)

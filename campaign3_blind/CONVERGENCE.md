@@ -394,6 +394,11 @@ pointed at the wrong tree reports a confident, wrong negative.
     filled the provider's context window).
     Graded: single-code bare 22.9%, OASiS 33.3% (+10.4 points, p = 0.33 —
     not significant at n = 48 pairs). Coupled 0/36 in BOTH arms.
+    [CORRECTED 2026-08-29: coupled was bare 1/36, OASiS 0/36. C7_BARE seed 2
+    was CORRECT (observed order 1.976, interface jumps 0.000 at all three
+    levels) and a non-recursive glob in the grader hid it until the
+    2026-08-27 regrade (7a3284a4). See the correction section dated
+    2026-08-29 at the end of this file.]
     SPARTA bare 4/6, OASiS 0/6.
 
     Neither zero is a physics failure, and both diagnoses produced primitives
@@ -489,7 +494,10 @@ Under that rule the round-3 headline single-code figure is 16 FEM cells x 3
 seeds: bare 22.9%, OASiS 33.3%, +10.4 points, McNemar p = 0.33 — not
 significant at n=48 pairs, which is stated rather than buried. SPARTA is
 reported separately as 2/4 vs 0/4 band-only, and coupled separately as 0/28
-in both arms.
+in both arms. [CORRECTED 2026-08-29: bare 1/28 — the C7 seed-2 CORRECT. And
+0/28 itself pooled all 14 coupled cells over seeds 2+3, mixing evidence
+grades against this section's own rule; grade-1-only it is bare 1/24,
+OASiS 0/24.]
 
   Round 4 — 27B, seeds 4 and 5, 2026-08-18. CLEAN: 128 runs, ZERO
     infrastructure faults (the one 504 casualty was re-run), 23 runs out of
@@ -505,7 +513,8 @@ in both arms.
       SPARTA (grade 3)               bare  1/4   OASiS  3/4   +50
 
     Round 3 for comparison: FEM +10.4 (bare 22.9, OASiS 33.3); coupled 0/36
-    both; SPARTA bare 4/6, OASiS 0/6.
+    both [corrected 2026-08-29: bare 1/36 — see the 2026-08-29 correction];
+    SPARTA bare 4/6, OASiS 0/6.
 
     WHAT MOVED, and it is behaviour rather than score:
       * coupled OASiS runs reaching `couple`      8/28 -> 13/27
@@ -765,6 +774,10 @@ stating in the paper rather than leaving as an unexplained bare failure.
 
     Rounds 3, 4, 5 side by side (FEM uplift): +10.4, +12.5, +12.5.
     Coupled: 0/36, 0/24, 0/16 — three rounds, both arms, no exceptions.
+    [CORRECTED 2026-08-29: there is one exception, hidden by a grader defect
+    at the time of writing — round 3 bare was 1/36. Per arm the true line is
+    bare 1/36, 0/24, 0/18 and OASiS 0/36, 0/24, 0/16. See the 2026-08-29
+    correction.]
 
     THE PROMINENCE HYPOTHESIS IS REFUTED. Round 5 existed to test whether the
     coupled zero was caused by section 3b being buried in a 53 KB payload. The
@@ -812,6 +825,9 @@ The missing cells cannot rescue the coupled result on any plausible reading —
 76 pooled coupled runs across rounds 3, 4 and 5 have produced zero successes in
 both arms — but the honest statement is 0 of 16 and 0 of 18, not 0 of 24, and
 the gap is named rather than quietly averaged away.
+[CORRECTED 2026-08-29: not zero. Recounted from the grade files after the
+7a3284a4 regrade, seeds 1-7 are bare 1/78 (the C7 seed-2 CORRECT) and
+OASiS 0/76.]
 
 Round 6 then measures the notice on a full, uncontaminated matrix: seeds 8 and
 9, all 32 cells, both arms, with the 18 cells present from the start. The metric
@@ -886,6 +902,9 @@ report the tier for what it is.
     work notice that reaches almost no runs), pooled for power only.
 
     Coupled is now 0 for FOUR consecutive rounds, both arms, 100 pooled runs.
+    [CORRECTED 2026-08-29: true only of the OASiS arm (0/100 over seeds 1-9).
+    The bare arm is 1/102 — C7_BARE seed 2, round 3, hidden by a grader
+    defect until the 2026-08-27 regrade. See the 2026-08-29 correction.]
 
     Primitives from round 6 — ZERO new knowledge gaps. The round was run for
     power and to test prominence-by-notice (renamed mid-round when measurement
@@ -957,3 +976,70 @@ report the tier for what it is.
          controller, 4C VALxFUNCT, SPARTA fix ave/time c_<id>) and wrote all
          nine into the universal block. Filing it under one backend would
          have been the fifth instance of that error.
+
+## Correction, 2026-08-29: "coupled is 0 in both arms" was false for the whole campaign
+
+The claim this file repeated in every round entry — coupled 0 in both arms,
+no exceptions — was an artefact of the instrument, found 2026-08-27
+(7a3284a4): grading/iface.py discovered interface files with a NON-recursive
+glob while submission.py beside it used rglob, so a submission whose files
+sat in a subdirectory (results/, output/, level1/) lost its interface
+evidence and was booked MALFORMED_SUBMISSION. The retraction landed in that
+commit's message and in the re-graded JSON, and in NEITHER of the two
+documents that carry the claim; this section and the bracketed corrections
+above are that retraction, written after recounting every number from
+dev_grades_27b_seed*.json directly.
+
+The regrade moved four verdicts: C7_BARE seed 2 MALFORMED_SUBMISSION ->
+CORRECT, and three MALFORMED_SUBMISSION -> COMPLETED_UNPHYSICAL. Two of the
+three (C1_BARE seed 2, C2_BARE seed 9) are verified against the pre-fix
+files in git; the third sits in seeds 4-7, whose pre-fix grade files were
+never committed, so it is known only from the commit message.
+
+The exception, in full: C7_BARE seed 2 (round 3) — a BARE run — submitted a
+complete three-level coupled solution graded CORRECT: observed order 1.976
+against theoretical 2.0 (band [0.8, 3.2]), r^2 = 1.000, monotone, interface
+jumps (jump_u_rel, jump_q_rel) 0.000 at all three levels,
+INTERFACE_SATISFIED. The agent itself did not believe it: its own summary
+declared MESH_INDEPENDENCE: NOT_CONVERGED with MAX_REL_CHANGE 1.345. The one
+coupled success of the campaign was submitted by an agent that did not claim
+it, and then hidden for ten days by our grader.
+
+Recounted 2026-08-29 from the grade files (12 grade-1 pooled coupled cells,
+C1-C12, CORRECT per arm):
+
+    round 2 (seed 1)        bare 0/12    OASiS 0/12
+    round 3 (seeds 2+3)     bare 1/24    OASiS 0/24
+    round 4 (seeds 4+5)     bare 0/24    OASiS 0/24
+    round 5 (seeds 6+7)     bare 0/18    OASiS 0/16   (18 402-casualties absent)
+    round 6 (seeds 8+9)     bare 0/24    OASiS 0/24
+    round 7 (seeds 10+11)   bare 0/24    OASiS 0/24
+    all graded seeds 1-11   bare 1/126   OASiS 0/124
+
+So the honest sentence is: the OASiS arm has never produced a gradeable
+coupled CORRECT (0/124); the bare arm has, exactly once, in round 3.
+SCORECARD.md's 2026-08-27 correction repeated the same false totals ("0/102
+bare, 0/100 OASiS") because it was written 30 minutes before the grader fix;
+corrected there the same day as here.
+
+These totals are as graded on 2026-08-27 and are NOT final: the interface
+gate was corrected again on 2026-08-29 (fbd583ef — it tested mesh
+resolution, not physics), and the grade files have not been re-generated
+under it. That commit's own measurement says C8 seed 4 re-grades CORRECT in
+BOTH arms under the corrected gate; the files in the tree still carry
+COMPLETED_UNPHYSICAL (bare) and CONFIDENTLY_WRONG (OASiS) for that cell.
+Whoever regrades next must recount this table.
+
+Two smaller false statements found while recounting, both checked against
+the ledgers in runs_quarantine/:
+
+  * The round-5 entry says the 18 seed-7 credit casualties died with "zero
+    tool calls and zero wall time — they never reached the model". Fifteen
+    did; three were killed by the 402 MID-RUN: C5_MCP (897 s, 44 calls),
+    C6_BARE (1556 s, 117 calls), C8_BARE (984 s, 31 calls).
+  * The coupling-behaviour counts quoted in the round-4/5 entries above
+    ("achieved convergence 6 -> 10", "0 in 55 tries") were measured by the
+    arm-asymmetric transcript grep retracted in SCORECARD.md on 2026-08-27
+    (42317f80) — the string it searched for can only be printed by the OASiS
+    `couple` tool. They stand above as what was believed at the time; no
+    coupling-behaviour comparison exists until a code-agnostic measure does.

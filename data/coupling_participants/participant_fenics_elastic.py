@@ -262,12 +262,32 @@ uh = LinearProblem(a, L, bcs=bcs, petsc_options_prefix="cpl",
 #                        orders -0.11, -0.15 — it does not converge, it GROWS,
 #                        against a true traction whose size is 1 to 5
 #     reaction vs b_vol  tx 1.96e-02, 4.98e-03, 1.25e-03
-#                        ty 7.40e-03, 1.87e-03, 4.68e-04   orders 1.98, 2.00
-# The x-component numbers are the same to three digits as the scalar conduction
-# participants get for q = 2 + 3 sin(4y) on the same meshes, which is what it
-# looks like when the answer is a property of the discretisation rather than of
-# an implementation. The Dirichlet side is untouched by this change (b == b_vol
-# there): its export is bit-identical to the previous version's, checked.
+#                        ty 7.40e-03, 1.87e-03, 4.68e-04
+#
+# READ THE SECOND ROW CORRECTLY — IT IS NOT A CONVERGENCE RESULT. On the
+# Neumann side the free interface rows satisfy (A u - b_vol)_i = (M_Gamma g)_i
+# IDENTICALLY, so the export is the consistent-to-nodal conversion
+# -(M_Gamma g)/(M_Gamma 1) and its offset from -g is -(h^2/6) g''(y) for ANY
+# correct assembly of ANY equation, at ANY Poisson ratio. This row used to
+# carry "orders 1.98, 2.00" as if it measured the recovery's accuracy; it does
+# not. The x-component figures matching the scalar conduction participants to
+# three digits is NOT "a property of the discretisation rather than of an
+# implementation" as this comment used to claim — it is the same P1 boundary
+# mass matrix on the same interface nodes with the same g, and a bare NumPy
+# mass matrix with no PDE, no solver and no material in it reproduces them to
+# five significant figures. The recovery's ORDER is measured elsewhere, on the
+# DIRICHLET side against an analytic flux
+# (tests/test_interface_flux_converges_to_a_known_exact_flux.py): 1.996, 1.998,
+# 1.993 on 8/16/32/64, scalar conduction. There is no VECTOR measurement
+# against an analytic traction, and none is claimed here.
+#
+# WHAT THE FIXTURE IS STILL GOOD FOR: it fails loudly on a flipped sign, a
+# wrong interface weight, a mistagged facet set, and — the standing footgun of
+# this file — a blocked-dof mapping that divides one node's component by
+# another node's weight. The projected-stress row above is a genuine
+# measurement: it passes through the discretisation. The Dirichlet side is
+# untouched by this change (b == b_vol there): its export is bit-identical to
+# the previous version's, checked.
 #
 # THE WEIGHT IS ONE SCALAR PER NODE AND THE DOFS ARE BLOCKED. V carries two
 # scalar dofs per node, at array positions 2*n and 2*n+1, while the nodal

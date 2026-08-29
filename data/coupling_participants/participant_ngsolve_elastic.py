@@ -259,11 +259,34 @@ with TaskManager():
     # On the Dirichlet side there is no interface term, so f_vol == f and the
     # two cases are one expression.
     #
-    # MEASURED (scalar conduction, the same recovery) against a known imposed
-    # flux q = 2 + 3 sin(4y) on 8/16/32/64/128 uniform triangle meshes,
-    # interior interface nodes: the projected gradient stalls at max 2.6 and
-    # NEVER converges (order 0.00; 0.93 away from the ends, 0.50 in rms); the
-    # reaction against the volume load converges at order 2.00 in all three.
+    # WHAT IS MEASURED, AND WHAT IS ONLY ALGEBRA. Handing the NEUMANN side a
+    # traction and asking for it back is an ASSEMBLY IDENTITY, not a
+    # convergence test: on free interface rows r = A u - b_vol IS M_Gamma g, so
+    # the export is -(M_Gamma g)/(M_Gamma 1) and its offset from -g is
+    # -(h^2/6) g''(y) for ANY correct assembly of ANY equation. The "order
+    # 2.00" that used to stand here was read off that fixture; it is a property
+    # of the P1 boundary mass matrix, not of this code — a bare NumPy mass
+    # matrix reproduces the same numbers with no PDE, no solver and no material
+    # in it. That fixture is kept (tests/test_interface_flux_recovery.py) for
+    # what it really tests, and for a VECTOR participant the blocked-dof
+    # mapping below is exactly the kind of defect it catches.
+    #
+    # THE ORDER is measured on the DIRICHLET side against an ANALYTIC interface
+    # flux the participant is never handed
+    # (tests/test_interface_flux_converges_to_a_known_exact_flux.py). Scalar
+    # conduction, FEniCSx, the same recovery, 8/16/32/64 uniform triangle
+    # meshes, max error over interior interface nodes:
+    #   2.889e-01  7.243e-02  1.814e-02  4.556e-03   ORDER 1.996 1.998 1.993
+    # and only first order (1.10, 1.06, 1.04) at the two nodes where the
+    # interface meets the outer boundary, handled apart below. There is no
+    # VECTOR measurement against an analytic traction, and none is claimed.
+    #
+    # THE RETIRED L2-PROJECTED GRADIENT, in the norms it was measured in: order
+    # ~1 in the interior AWAY FROM THE ENDS (0.93), 0.50 in rms, and
+    # non-convergent in the max norm that includes the near-end nodes, where it
+    # stalls at 2.6 against a true flux of size 2 to 5. It was written up as a
+    # flat "order 0.00, it never converges", which was true of one norm only.
+    # Not re-measured since the branch was deleted.
     #
     # THE WEIGHT IS ONE SCALAR PER NODE, NOT ONE PER DOF. w_i = int_Gamma phi_i
     # ds belongs to the NODE, while VectorH1 blocks the dofs BY COMPONENT; the

@@ -95,17 +95,29 @@ onto the interface is the obvious FEBio-shaped alternative. It is a stress
 recovered from the GRADIENT of a trilinear solution and evaluated ON a
 boundary, which is only O(h) accurate there (the superconvergence points are
 interior, and the boundary trace is exactly what the coupling reads). Both
-routes were run on the problem below and measured AT MID-INTERFACE, away from
-the end effects discussed there, on the four meshes:
+routes were run and measured AT MID-INTERFACE, away from the end effects
+discussed below, on the four meshes:
 
-    reaction        (this file, Dirichlet side)  1.5e-5 1.3e-5 2.8e-6 4.4e-7
-    element stress  (this file, Neumann side)    6.2e-3 3.1e-3 1.6e-3 7.8e-4
+    reaction        (Dirichlet side, and STILL this file's export)
+                                                  1.5e-5 1.3e-5 2.8e-6 4.4e-7
+    element stress  (the RETIRED Neumann export)  6.2e-3 3.1e-3 1.6e-3 7.8e-4
 
-The element-stress route is order 1.00 flat (0.98, 1.01, 1.00). The reaction
-route drops away much faster (0.23, 2.23, 2.68 — it is running into this
-build's own arithmetic floor, see below, so the last figures are a floor and
-not an order) and is ~1800x more accurate on the finest mesh. The recovery, not
-the physics and not the partner, sets the answer.
+The element-stress route is order 1.00 flat (0.98, 1.01, 1.00) at that point.
+The reaction route drops away much faster (0.23, 2.23, 2.68 — it is running
+into this build's own arithmetic floor, see below, so the last figures are a
+floor and not an order) and is ~1800x more accurate on the finest mesh. The
+recovery, not the physics and not the partner, sets the answer.
+
+READ THE SECOND ROW'S LABEL. The Neumann branch NO LONGER EXPORTS the element
+stress; it exports -Fc/w, the consistent nodal force it built and wrote into
+the deck, and merely PRINTS the element-stress traction as a second opinion
+with its discrepancy. The 6.2e-3 row above is therefore a measurement of a
+route this file retired, kept here because it is still the argument for not
+going back to it. Order 1.00 is what it gets at a single mid-interface point;
+the max norm over interior interface nodes is worse — see the note at the
+Neumann export, where it measured 1.638 / 1.440 / 1.500 on 8/16/32, order 0.19
+then -0.06, i.e. non-convergent. Both figures are from the original runs and
+neither has been re-measured here.
 
 MEASURED, ON A MANUFACTURED TWO-MATERIAL PROBLEM. Unit square split at x = 0.5,
 plane strain, a 3x SHEAR-MODULUS JUMP across the interface (mu 400 -> 1200 at
@@ -147,12 +159,18 @@ CONSERVATION, MEASURED THREE WAYS ON THE SAME RUNS.
   * The NET interface force carried by the exported traction matches the exact
     analytic net force to 3.0e-4 / 1.1e-4 / 3.4e-5 / 9.1e-6 (order 1.42 ->
     1.89, heading for 2).
-  * The two sides' INDEPENDENTLY recovered tractions cancel in the resultant to
-    6.7e-2 / 3.3e-2 / 1.6e-2 / 8.2e-3, order 1.0, against a scikit-fem partner
-    whose own recovery is the O(h) stress projection; with FEBio on the Neumann
-    side (its O(h) element-stress recovery) 1.2e-2 / 5.7e-3 / 2.8e-3 / 1.4e-3.
-    That number is NOT a coupling defect — it is the first-order recovery on
-    the far side, which is precisely what keeps the check from being vacuous.
+  * WITHDRAWN. This bullet used to report that the two sides' independently
+    recovered tractions cancel in the resultant to 6.7e-2 / 3.3e-2 / 1.6e-2 /
+    8.2e-3 (order 1.0) against a scikit-fem partner, and to 1.2e-2 / 5.7e-3 /
+    2.8e-3 / 1.4e-3 with FEBio on the Neumann side, and it explained the
+    residual imbalance as the first-order recovery on the far side. BOTH
+    configurations are gone. The first was measured against a
+    participant_skfem_elastic.py whose export was then the O(h) stress
+    projection; it now exports the consistent reaction. The second was measured
+    against THIS file's retired element-stress Neumann export; it now exports
+    -Fc/w. The numbers therefore no longer describe anything this corpus ships
+    and are not restated as if they did. They have NOT been re-measured, and no
+    replacement figure is offered here.
 
 THE NEUMANN SIDE APPLIES CONSISTENT NODAL FORCES, NOT A SURFACE-LOAD MAP.
 FEBio's <surface_load type="traction"> reads its vec3 from a SurfaceData map,
@@ -280,10 +298,23 @@ WHAT IS APPROXIMATED, HONESTLY.
     #ifdef PARDISO, and FENewtonSolver's default type is the string "pardiso"
     regardless). LINSOLVE below is therefore set to "skyline", which this build
     always has. Leaving it unset works only where pardiso was compiled in.
-  * The Neumann side's OWN traction export is the O(h) element-stress recovery
-    (see above), not the reaction — the reaction is identically zero at free
-    dofs. It is not what the Dirichlet partner consumes; it exists so the
-    interface balance check is an independent statement rather than an echo.
+  * The Neumann side cannot use the reaction: FEBio reports Rx = Ry = 0 at
+    free dofs. What it exports instead is -Fc/w, the CONSISTENT NODAL FORCE
+    this wrapper built from the partner's traction and wrote into the deck,
+    divided by the same interface weight the Dirichlet branch uses. That is a
+    measurement of what entered the load vector — a wrong facet set, a wrong
+    Jacobian or a wrong surface mass matrix all move it — but it is NOT a
+    measurement of the discretised solution: it never passes through FEBio's
+    solver, so it cannot see a fault inside FEBio's own load path, and it is
+    close to an echo of the partner's array in everything except the assembly.
+    The interface balance check against a Dirichlet partner is therefore
+    weaker on this pairing than the header used to claim, and the element
+    stress is kept as the genuinely independent second opinion — PRINTED with
+    its discrepancy, not exported, because it does not converge in the max norm
+    over interior interface nodes (see the note at that code). A previous
+    version of this bullet said the Neumann export IS the element-stress
+    recovery "so the interface balance check is an independent statement rather
+    than an echo". Both halves were false once the export changed.
 
 RELAXATION IS NOT PER COMPONENT — see the long note in
 participant_skfem_elastic.py. The driver applies ONE theta to the whole

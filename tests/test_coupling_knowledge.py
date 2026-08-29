@@ -193,17 +193,179 @@ def test_served_payload_is_the_shipped_script_minus_its_solve(name):
                 f"solver='{name}': the solve region is still served: {t[:60]}")
 
 
-@pytest.mark.parametrize("name", _script_backends())
-def test_every_served_script_elides_its_solve(name):
-    """A file with no markers is served whole. That is a gap, not a licence."""
+# ── EVERY file a served payload reaches, not a list of nine names ────────
+#
+# This section replaced a test parametrised on `_BACKEND_ORDER`. That test
+# looked at NINE files while THIRTY sat in the directory, and its own docstring
+# already said the right thing — "a file with no markers is served whole, that
+# is a gap, not a licence" — about files it never opened.
+#
+# What it missed, measured on the live tool: `knowledge(topic='coupling',
+# solver='fsi')` returned 33 kB carrying TWO COMPLETE SOLVERS verbatim, a
+# Taylor-Hood incompressible Navier-Stokes fluid with a harmonic ALE lift and a
+# scikit-fem solid, under the heading "copy verbatim, edit the marked block
+# only". `fsi` is not a backend name, so no parameter of that test ever named
+# those files and no assertion in the suite ever read them.
+#
+# A NAME LIST CANNOT NOTICE A FILE IT WAS NEVER TOLD ABOUT. So the enumeration
+# is taken from the tool instead: build every payload a caller can ask for and
+# record which participant files were actually read while doing it. Add a
+# backend, a physics topic or an alias and its scripts enter this test by being
+# served, which is the only condition that matters.
+
+_SERVED_DOORS = ([""] + _BACKEND_ORDER
+                 + ["fsi", "fluid-structure", "fluid_structure", "tsi"])
+
+
+def _open_every_door():
+    """(files reached, payloads produced) over every served coupling door.
+
+    The spy sits on `Path.read_text` rather than on `_script`, because
+    `_script` was never the only door: four helpers — the 3-D, transient, role
+    and vector blocks — read their variant file directly, and the FSI payload
+    reads two more through `_script` under names that are not backend names.
+    Recording the READ is the only way to enumerate that does not have to be
+    kept in step with the module by hand.
+    """
+    import pathlib
+    seen: list[str] = []
+    payloads: list[str] = []
+    original = pathlib.Path.read_text
+
+    def spy(self, *args, **kwargs):
+        if self.parent == _PARTICIPANT_DIR and self.name not in seen:
+            seen.append(self.name)
+        return original(self, *args, **kwargs)
+
+    pathlib.Path.read_text = spy
+    try:
+        for door in _SERVED_DOORS:
+            payloads.append(coupling_knowledge(door))
+            payloads.append(precice_knowledge(door))
+    finally:
+        pathlib.Path.read_text = original
+    return sorted(seen), payloads
+
+
+_REACHED, _SERVED_PAYLOADS = _open_every_door()
+
+
+def test_the_door_sweep_reaches_more_than_the_backend_names():
+    """A guard on the guard: if the spy stops seeing reads, every test below
+    silently parametrises on nothing and passes without checking anything."""
+    assert _REACHED, (
+        "no participant file was read while building any served payload — the "
+        "read spy in _open_every_door() has stopped working, and every marker "
+        "test below is now vacuous")
+    assert "participant_fenics.py" in _REACHED
+    assert "participant_fsi_fluid_fenics.py" in _REACHED, (
+        "the FSI door is no longer reaching its fluid participant; either the "
+        "payload changed or 'fsi' has been dropped from _SERVED_DOORS")
+    assert len(_REACHED) > len(_BACKEND_ORDER), (
+        f"the sweep found only {len(_REACHED)} files. The whole point is that "
+        f"more files are served than there are backend names — a count at or "
+        f"below {len(_BACKEND_ORDER)} means the doors are not all open")
+
+
+@pytest.mark.parametrize("fname", _REACHED)
+def test_every_served_script_elides_its_solve(fname):
+    """A file with no markers is served whole. That is a gap, not a licence.
+
+    Parametrised on the files a payload REACHES, not on backend names.
+    """
     from tools.coupling_knowledge import _SOLVE_BEGIN, _SOLVE_END
-    text = (_PARTICIPANT_DIR / f"participant_{name}.py").read_text()
+    text = (_PARTICIPANT_DIR / fname).read_text()
     assert _SOLVE_BEGIN in text, (
-        f"participant_{name}.py has no solve markers, so OASiS serves its "
-        f"whole finite element solve to the agent. Wrap the mesh/space/form/"
-        f"solve region in {_SOLVE_BEGIN!r} ... {_SOLVE_END!r}.")
+        f"{fname} is served to agents and has no solve markers, so OASiS "
+        f"hands over its whole finite element solve. Wrap the mesh/space/"
+        f"form/boundary-condition/solve regions in {_SOLVE_BEGIN!r} ... "
+        f"{_SOLVE_END!r}; use as many regions as it takes to keep the "
+        f"handshake, the sign convention and the recovery served.")
     assert text.count(_SOLVE_BEGIN) == text.count(_SOLVE_END), (
-        f"participant_{name}.py has unbalanced solve markers")
+        f"{fname} has unbalanced solve markers")
+
+
+@pytest.mark.parametrize("fname", _REACHED)
+def test_no_marked_solve_line_survives_into_any_served_payload(fname):
+    """Markers present is not the same claim as the solve being gone.
+
+    A file can carry a begin/end pair that covers three lines of nothing while
+    its weak form and its solve go out whole, and the marker test above would
+    pass. So check the property itself: the elided form of the file is what a
+    payload carries, and no substantial line from inside a marked region
+    survives into it.
+
+    Scoped to the elided SCRIPT rather than to the whole payload on purpose.
+    The prose quotes code — `settings.SetSurfaceSourceVariable(...)` and the
+    like — to explain a trap, and that is documentation of the tool's own
+    interface, not a solve being handed over.
+
+    A line that also appears OUTSIDE every marked region is skipped: several
+    participants set the same nodal value in a served branch and again inside
+    the solve, and two identical lines cannot be told apart by their text. The
+    check is "this line exists nowhere but inside the solve, and it came out
+    anyway", which is the leak.
+    """
+    from tools.coupling_knowledge import _SOLVE_BEGIN, _SOLVE_END, _elide_solve
+    text = (_PARTICIPANT_DIR / fname).read_text()
+    blob = _elide_solve(text)
+    assert blob in "\n".join(_SERVED_PAYLOADS), (
+        f"{fname}: what the elision produces is not what any payload carries — "
+        f"the served path and the tested file have diverged")
+
+    regions, outside, i = [], [], 0
+    while True:
+        a = text.find(_SOLVE_BEGIN, i)
+        if a < 0:
+            outside.append(text[i:])
+            break
+        b = text.find(_SOLVE_END, a)
+        assert b > a, f"{fname}: unterminated solve marker"
+        outside.append(text[i:a])
+        regions.append(text[a:b])
+        i = b + len(_SOLVE_END)
+    kept = {l.strip() for l in "".join(outside).splitlines()}
+
+    checked = 0
+    for region in regions:
+        for line in region.splitlines():
+            t = line.strip()
+            if len(t) > 25 and not t.startswith("#") and t not in kept:
+                checked += 1
+                assert t not in blob, (
+                    f"{fname}: a line inside a marked solve region is still "
+                    f"served: {t[:70]}")
+    assert checked, (
+        f"{fname}: its marked regions contain no substantial code line that is "
+        f"not also served elsewhere, so the markers are decoration and the "
+        f"solve is going out anyway")
+
+
+def test_every_shipped_participant_carries_markers_before_a_door_opens_on_it():
+    """The directory-wide invariant, which the reachable set cannot state.
+
+    A participant that nothing serves TODAY is one payload away from being
+    served whole: that is exactly how the FSI pair got out. Requiring the
+    markers on every shipped participant means a new door can be opened on any
+    of them without re-deciding what is interface and what is finite elements.
+
+    `fsi_reference_newtonkrylov.py` is deliberately out of scope: it is not a
+    participant, it is the reference driver that RUNS them, and it is named in
+    prose rather than served as text.
+    """
+    from tools.coupling_knowledge import _SOLVE_BEGIN, _SOLVE_END
+    missing = []
+    for p in sorted(_PARTICIPANT_DIR.glob("participant_*.py")):
+        text = p.read_text()
+        if _SOLVE_BEGIN not in text:
+            missing.append(p.name)
+        else:
+            assert text.count(_SOLVE_BEGIN) == text.count(_SOLVE_END), (
+                f"{p.name} has unbalanced solve markers")
+    assert not missing, (
+        f"these shipped participants have no solve markers, so any payload "
+        f"that starts serving them serves a working finite element solve: "
+        f"{missing}")
 
 
 # ── nothing machine-specific may be served ───────────────────────────────
