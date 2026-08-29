@@ -114,6 +114,22 @@ def ndof_ratio_bounds(dim: int) -> tuple[float, float]:
 # and >2 on the other; it has not been derived more finely than that.
 IFACE_JUMP_TOL = 5e-3
 
+# HOW MUCH THE JUMP MUST FALL ACROSS THE SEQUENCE, per refinement step.
+#
+# The gate now asks whether the interface jump SHRINKS under refinement rather
+# than whether it sits below a fixed number, because the fixed test was a mesh
+# ruler: with a consistent recovery on both sides the jump reduces to
+# h^2 |q''| / (6|q|), so the same coupling passes or fails on resolution alone.
+# Two independent reviews reproduced that with one side's conductivity 4x
+# wrong: fail at n=8 and n=16, pass at n=32.
+#
+# 0.75 per step is deliberately loose. h halves per level, so O(h) gives 0.5
+# and O(h^2) gives 0.25; an interface-mechanism mutation gives ~1.0 (flat at
+# 0.75-3.0, per DESIGN.md Amendment 2). 0.75 separates "converging, however
+# slowly" from "not converging" with room for a noisy level, and it is the
+# non-convergence that the gate exists to catch.
+IFACE_JUMP_DECAY = 0.75
+
 # ── numeric guards ────────────────────────────────────────────────────────
 # Below this, a reference RMS is treated as identically zero (a per-field
 # magnitude check against it would divide by roundoff) and the check is

@@ -295,19 +295,76 @@ def interface_phase(work: Path, spec: dict, key: dict, dim: int,
 
     if zero_flux_levels:
         out["reasons"].append("INTERFACE_FLUX_ALL_ZERO")
+    # THE GATE MUST TEST WHAT ITS OWN MESSAGE CLAIMS: a jump that STAYS O(1)
+    # under refinement. It took the MAX over levels against a fixed tolerance,
+    # which is a different test and a much worse one.
+    #
+    # Why it is worse. When both sides recover the interface flux from their
+    # assembled system, the two exported arrays differ by the consistent-to-
+    # nodal conversion of the P1 boundary mass matrix, so the graded jump is
+    # h^2 |q''| / (6|q|) — a MESH RULER with no physics in it. Two independent
+    # reviews demonstrated the consequence: a coupling with one side's
+    # conductivity 4x WRONG fails at n=8 and n=16 and PASSES at n=32, purely
+    # on resolution. And a correct coupling whose tractions are evaluated by
+    # direct stress sampling — which is what the task text describes, "the
+    # traction evaluated from that subdomain's own solution" — is O(h) at the
+    # interface and fails a fixed 5e-3 while converging perfectly well.
+    #
+    # Measured in this campaign's own grades: 3 coupled cells failed SOLELY on
+    # this gate, and 2 of the 3 had a flux jump decreasing at every level
+    # (C8 seed 4, BARE: 3.3% -> 2.0% -> 1.1%; MCP: 8.9% -> 3.6% -> 1.5%).
+    # Those are converging couplings graded as unphysical.
+    #
+    # It also mattered asymmetrically: the consistent recovery that passes a
+    # fixed tolerance is described in the OASiS payload and nowhere in the task
+    # text, so a grading-critical rule was published to one arm. Testing for
+    # non-convergence instead removes that, because both recoveries converge.
+    #
+    # THE REPLACEMENT. Fail when the jump does not shrink under refinement,
+    # which is precisely the mutation signature the gate was calibrated on
+    # (mutations sit at 0.75-3.0 and flat; a correct run is at roundoff or
+    # decreasing). A single level cannot show a trend, so there the fixed
+    # tolerance still applies — it is all the evidence there is.
     worst_u = max(g["jump_u_rel"] for g in graded)
     worst_q = max(g["jump_q_rel"] for g in graded)
-    if worst_u > C.IFACE_JUMP_TOL or worst_q > C.IFACE_JUMP_TOL:
+
+    def _shrinks(key):
+        """Does the jump fall by a clear factor across the sequence?"""
+        v = [g[key] for g in graded]
+        if len(v) < 2:
+            return None                      # no trend available
+        if max(v) <= C.IFACE_JUMP_TOL:
+            return True                      # at roundoff/tolerance throughout
+        first, last = v[0], v[-1]
+        if first <= 0:
+            return last <= C.IFACE_JUMP_TOL
+        # h halves per level, so a genuine O(h) recovery falls ~2x per level.
+        # Require a clear overall fall, not a per-step monotone chain, so that
+        # one noisy level does not condemn a converging sequence.
+        return last < first * (C.IFACE_JUMP_DECAY ** (len(v) - 1))
+
+    su, sq = _shrinks("jump_u_rel"), _shrinks("jump_q_rel")
+    if su is None or sq is None:
+        bad = worst_u > C.IFACE_JUMP_TOL or worst_q > C.IFACE_JUMP_TOL
+        why = (f"only {len(graded)} graded level(s), so no refinement trend "
+               f"exists and the fixed tolerance {C.IFACE_JUMP_TOL:g} is all "
+               f"the evidence there is")
+    else:
+        bad = not (su and sq)
+        _u = ", ".join("%.3e" % g["jump_u_rel"] for g in graded)
+        _q = ", ".join("%.3e" % g["jump_q_rel"] for g in graded)
+        why = (f"the jump does not shrink under refinement "
+               f"(field [{_u}], flux [{_q}])")
+    if bad:
         out["verdict"] = "INTERFACE_NOT_SATISFIED"
         out["reasons"].append("INTERFACE_NOT_SATISFIED")
         out["findings"].append(
             f"the two subdomains disagree at the interface: max relative "
-            f"field jump {worst_u:.3e}, max relative FLUX jump {worst_q:.3e}, "
-            f"tolerance {C.IFACE_JUMP_TOL:g}. A jump that stays O(1) under "
-            f"refinement means the scheme converged to a fixed point of the "
-            f"wrong transmission condition — which the observed order cannot "
-            f"see, because convergence to a wrong answer is still "
-            f"convergence.")
+            f"field jump {worst_u:.3e}, max relative FLUX jump {worst_q:.3e}. "
+            f"{why}. A jump that stays O(1) under refinement means the scheme "
+            f"converged to a fixed point of the wrong transmission condition "
+            f"— which the observed order cannot see, because convergence to a "
+            f"wrong answer is still convergence.")
     elif zero_flux_levels:
         out["verdict"] = "NOT_CHECKED"
     else:
