@@ -165,6 +165,28 @@ def main() -> int:
         print("the bare form no longer degrades silently to a constant:\n"
               + blob_no[-400:])
 
+    # SECTION PLACEMENT, AND THE STEP AFTER IT. <body_load> inside <LoadData>
+    # is a HARD "unrecognized tag" failure -- it names the tag, not the
+    # reason, so it reads as "FEBio has no such tag". The obvious next move is
+    # to delete the tag, and THAT runs perfectly with no load at all.
+    # FB2_27b_MCP_seed17 walked this exact path and concluded FEBio has no
+    # body loads.
+    misplaced = deck(MATH).replace("  <Loads>" + MATH + "</Loads>\n", "")
+    r_mis = L.run(misplaced.replace("<LoadData>", "<LoadData>" + MATH))
+    blob_mis = r_mis.log + r_mis.out
+    if "unrecognized tag" in blob_mis and "FAILED" in blob_mis:
+        print("body_load_in_loaddata_is_unrecognized=reproduced")
+    else:
+        print("a body_load in <LoadData> no longer fails as an unrecognized "
+              "tag:\n" + blob_mis[-400:])
+
+    # NOT ASSERTED HERE: whether a deck whose load was simply DELETED runs
+    # to normal termination. On a minimal deck it does, with only a "No force
+    # acting on the system" warning and a machine-zero solution; on THIS deck
+    # it error-terminates instead. That behaviour is deck-dependent, so the
+    # entry states it as observed rather than as a rule, and this fixture
+    # pins only the part that reproduces.
+
     r_first = L.run(deck(NOMATH_FIRST), collect=(LOG,))
     blob_first = r_first.log + r_first.out
     if "syntax error" in blob_first and "FAILED" in blob_first:
