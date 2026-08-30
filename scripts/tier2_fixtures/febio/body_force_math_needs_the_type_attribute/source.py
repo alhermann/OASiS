@@ -187,6 +187,30 @@ def main() -> int:
     # entry states it as observed rather than as a rule, and this fixture
     # pins only the part that reproduces.
 
+    # PYTHON ** IS NOT FEBio SYNTAX. Every problem statement, sympy and numpy
+    # write powers as x**2; the parser wants x^2. Pasting a stated source term
+    # verbatim gives "Token expected (position N)" naming a character offset,
+    # never the operator, so it reads as "the expression is too long".
+    # FB2_27b_MCP_seed19 hit exactly this after the section and type fixes.
+    POW_PY = ('<body_load type="body force"><force type="math">'
+              '0, 0, -1*X**2</force></body_load>')
+    POW_OK = ('<body_load type="body force"><force type="math">'
+              '0, 0, -1*X^2</force></body_load>')
+    LONG = ('<body_load type="body force"><force type="math">0, 0, '
+            '-1*X*X*X*X*Y + 2*X*X*X - 3*X*X*Y*Y + 4*X*Y - 5*Y*Y*Y'
+            '</force></body_load>')
+    b_py = (lambda r: r.log + r.out)(L.run(deck(POW_PY)))
+    b_ok = (lambda r: r.log + r.out)(L.run(deck(POW_OK)))
+    b_long = (lambda r: r.log + r.out)(L.run(deck(LONG)))
+    if "Token expected" in b_py:
+        print("python_double_star_is_a_parse_error=reproduced")
+    else:
+        print("** no longer fails to parse:\n" + b_py[-300:])
+    if "N O R M A L" in b_ok and "N O R M A L" in b_long:
+        print("caret_and_long_polynomial_both_parse=reproduced")
+    else:
+        print("caret or long polynomial stopped parsing:\n" + b_ok[-300:])
+
     r_first = L.run(deck(NOMATH_FIRST), collect=(LOG,))
     blob_first = r_first.log + r_first.out
     if "syntax error" in blob_first and "FAILED" in blob_first:
