@@ -110,7 +110,73 @@ def _elide_solve(text: str) -> str:
         i = b + len(_SOLVE_END)
         if i < len(text) and text[i] == "\n":
             i += 1
-    return "".join(out)
+    return _append_reconstruction_contract("".join(out), text)
+
+
+def _reconstruction_contract(served: str, original: str) -> list:
+    """Names the elided solve defined that the surviving code still uses.
+
+    Cutting the solve out is the point; leaving the agent to GUESS what the
+    hole was supposed to define is not. The surviving code indexes `iface_dofs`
+    and assembles `a`, so those names must come back — but nothing told the
+    agent which ones, or how many. Measured on the served skfem participant, 22
+    names are used and never defined, and the payload does not name one of them
+    as the reader's responsibility. The measured consequence: 73% of the
+    coupled OASiS runs that gave up never got both sides to exchange data once,
+    dying in a write-run-error-rewrite loop on the participant script.
+
+    Derived from the same markers that do the elision, so it cannot go stale.
+    It leaks no physics: it is the list of variable names the code below the
+    hole already mentions, which the agent can read off the script anyway --
+    just not without reverse-engineering it first.
+    """
+    import ast
+    import re
+
+    def _names(src, ctx):
+        try:
+            tree = ast.parse(src)
+        except SyntaxError:
+            if ctx is ast.Store:
+                return set(re.findall(r"^\s*([A-Za-z_]\w*)\s*=", src, re.M))
+            return set(re.findall(r"\b([A-Za-z_]\w*)\b", src))
+        return {n.id for n in ast.walk(tree)
+                if isinstance(n, ast.Name) and isinstance(n.ctx, ctx)}
+
+    cut = []
+    i = 0
+    while True:
+        a = original.find(_SOLVE_BEGIN, i)
+        if a < 0:
+            break
+        b = original.find(_SOLVE_END, a)
+        if b < 0:
+            cut.append(original[a:])
+            break
+        cut.append(original[a:b])
+        i = b + len(_SOLVE_END)
+    if not cut:
+        return []
+    defined = _names("\n".join(cut), ast.Store)
+    needed = _names(served, ast.Load)
+    return sorted(n for n in defined & needed if not n.startswith("_"))
+
+
+def _append_reconstruction_contract(served: str, original: str) -> str:
+    names = _reconstruction_contract(served, original)
+    if not names:
+        return served
+    return served + (
+        "\n# ── WHAT YOUR SOLVE MUST LEAVE BEHIND ─────────────────────────\n"
+        "# The code above and below the elided block uses these names. Your\n"
+        "# block has to define every one of them, or the rest will not run:\n"
+        "#\n"
+        + "".join(f"#     {n}\n" for n in names) +
+        "#\n"
+        "# That is the whole contract. Read the surviving lines to see the\n"
+        "# shape each one has to have -- they are already indexed, assembled\n"
+        "# or written out there. OASiS does not serve the solve itself, but\n"
+        "# it will not make you guess which variables the hole was filling.\n")
 
 # ══════════════════════════════════════════════════════════════════════════
 # CORE — served by knowledge(topic='coupling') with no solver
