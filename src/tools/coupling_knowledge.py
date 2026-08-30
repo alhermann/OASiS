@@ -966,6 +966,49 @@ end nodes are in it. Both choices change the number more than the recovery
 method does.
 '''
 
+_PROBES = """
+EVALUATING YOUR SOLUTION AT THE PROBE POINTS
+────────────────────────────────────────────
+Every cell is graded at a FIXED grid of points that does not move with your
+mesh, so the points sit INSIDE elements, not on nodes. Reading nodal values
+will not do it, and this step is needed once per side per level -- it is the
+last thing between a converged coupling and a scored submission, and it is
+where runs that had already solved the problem have run out of time.
+
+The call, per backend, verified 2026-08-30 on the installed versions against a
+field that is exactly representable (u = 3x + 2y), reproducing it to machine
+precision:
+
+  scikit-fem            max error 8.9e-16
+      P = np.array([xs, ys])            # shape (2, N) -- NOT (N, 2)
+      values = basis.probes(P) @ sol
+
+  FEniCSx / dolfinx 0.10.0              max error 4.4e-16
+      pts = np.array([[x, y, 0.0], ...])          # THREE columns, always
+      tree  = geometry.bb_tree(domain, domain.topology.dim)
+      cand  = geometry.compute_collisions_points(tree, pts)
+      coll  = geometry.compute_colliding_cells(domain, cand, pts)
+      cells = [coll.links(i)[0] for i in range(len(pts))]
+      values = uh.eval(pts, cells).reshape(-1)
+
+  NGSolve                               max error 4.4e-16
+      values = [gfu(mesh(px, py)) for px, py in pts]
+
+Three things that cost time if you meet them the hard way. scikit-fem wants
+the points TRANSPOSED relative to the obvious layout. dolfinx wants three
+coordinate columns even in 2-D, and `compute_colliding_cells` returns an
+adjacency list, so you must take `.links(i)[0]` per point rather than
+indexing it. NGSolve's `mesh(px, py)` returns a mesh point that the
+GridFunction is then called on -- it is not `gfu(px, py)`.
+
+A point that no cell covers does not raise: dolfinx returns an empty link
+list, and an interpolant asked outside its mesh will happily extrapolate. If
+your subdomain does not contain the whole probe grid -- and in a coupled cell
+it does not, each side owns part of it -- select the points inside YOUR extent
+before evaluating, and write only those rows.
+"""
+
+
 _SIDES = (_SIDES_TABLE.replace("## WHICH SIDE", "## 6. WHICH SIDE", 1)
           + "\n" + _VECTOR)
 
@@ -2031,6 +2074,7 @@ def coupling_core() -> str:
         "of benchmark problems on a hard-coded unit square and cannot express your "
         "problem; do not start there.\n\n"
         + _CONTRACT + "\n" + _DRIVER_BEHAVIOUR + "\n" + _SIGNS + "\n"
+        + _PROBES + "\n"
         + _SIDES + "\n" + _FAILURES + "\n" + _index(_BACKEND_ORDER)
     )
 
