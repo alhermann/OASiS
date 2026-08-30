@@ -712,7 +712,28 @@ That is what OASiS's conservation check tests. Export both sides with the same
 sign and a CORRECT coupling fails it: you get `Interface flux NOT balanced` and
 a NOT VERIFIED verdict on a coupling that converged perfectly well.
 
-In one line: **apply the same number, export opposite numbers.**
+In one line: **apply the partner's number unchanged; compute your own outward
+flux from your own system, and it will come out with the opposite sign.**
+
+THAT SENTENCE USED TO READ "apply the same number, export opposite numbers",
+and it is worth saying why it changed. "Export opposite numbers" describes the
+RESULT — the two sides' outward normals point opposite ways, so two correctly
+computed fluxes carry opposite signs. It is not an instruction to negate your
+partner's array, and at least one run read it that way: it exported
+q_B = -q_A at every one of 44 interface points, q_A = -1.525074442746e+00
+against q_B = +1.525074442746e+00, summing to exactly 0.000e+00.
+
+DOING THAT DESTROYS THE ONLY QUANTITY THE COUPLING IS JUDGED ON. Two systems
+assembled from different meshes and different material data do not cancel to
+the last bit, ever. So a bit-exact zero jump is not a perfect coupling; it is
+one array with a sign flip, and the gate reads it as no evidence of two solves
+at all. A genuine converged pair leaves a small mismatch, roughly the size of
+your interface tolerance, and THAT mismatch is the evidence.
+
+The run that did this had a real iteration history behind it — it had driven
+an honest Dirichlet-Neumann loop and then manufactured the one number that
+proves it. Recover your flux from your own assembled system (r = A u - b_vol
+on the free interface rows, q = -r/w) and export that.
 
 WHAT A CORRECT RECOVERY LOOKS LIKE WHEN YOU MEASURE IT — do not "fix" this.
 With the consistent (reaction) recovery on a manufactured problem, expect:

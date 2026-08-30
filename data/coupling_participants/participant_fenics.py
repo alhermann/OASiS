@@ -263,6 +263,28 @@ T = uh.x.array[iface_dofs]
 print(f"[fenics {SIDE}] interface n={len(T)} "
       f"T=[{T.min():.6g},{T.max():.6g}] q=[{Q.min():.6g},{Q.max():.6g}]")
 
+# EACH SIDE COMPUTES ITS OWN FLUX. NEVER WRITE THE PARTNER'S NEGATED.
+#
+# At convergence the two fluxes are equal and opposite, and that is a RESULT,
+# not a recipe. Setting q_B = -q_A makes it true by construction, and then the
+# only quantity the coupling is judged on carries no information: the two sides
+# agree because they are one array with a sign flip.
+#
+# It is detected exactly. Two independently assembled systems do not cancel to
+# the last bit, so the grader treats a bit-exact zero jump as no evidence of
+# two solves at all. A real converged pair leaves a small residual mismatch —
+# about the size of your interface tolerance — and that mismatch is what shows
+# the coupling happened.
+#
+# Seen in a live run: q_A = -1.525074442746e+00 against q_B = +1.525074442746e+00
+# at every one of 44 interface points, summing to exactly 0.000e+00, from an
+# agent whose iteration history was otherwise genuine. It had driven a real
+# Dirichlet-Neumann loop and then faked the one number that proves it.
+#
+# So: recover Q from THIS side's own assembled system, as the block above does
+# (r = A u - b_vol on the free interface rows, Q = -r/w). Export that. If your
+# partner's numbers are what you are writing, you have not measured anything.
+#
 # exports.json LAST: the driver takes its existence as proof of success.
 Path("exports.json").write_text(json.dumps({
     "field_name": "temperature",
