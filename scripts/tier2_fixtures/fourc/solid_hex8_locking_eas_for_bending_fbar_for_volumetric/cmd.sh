@@ -14,10 +14,10 @@
 #   BAD_TECH     TECH: eas           -> enum, not a free-form word
 . "$(dirname "$0")/../_lib/preamble.sh"
 
-deck() {  # $1 = extra element-line text, $2 = NUE, $3 = output file
-python3 - "$1" "$2" "$3" <<'PY'
+deck() {  # $1 = extra element-line text, $2 = NUE, $3 = output file, $4 = KINEM
+python3 - "$1" "$2" "$3" "${4:-nonlinear}" <<'PY'
 import sys
-tech, nue, out = sys.argv[1], sys.argv[2], sys.argv[3]
+tech, nue, out, kinem = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 nx, ny, nz = 10, 1, 1
 Lx, Ly, Lz = 10.0, 1.0, 0.5
 nid, coords = {}, []
@@ -36,7 +36,7 @@ for k in range(nz):
             q = [nid[(i, j, k)], nid[(i+1, j, k)], nid[(i+1, j+1, k)], nid[(i, j+1, k)],
                  nid[(i, j, k+1)], nid[(i+1, j, k+1)], nid[(i+1, j+1, k+1)], nid[(i, j+1, k+1)]]
             eles.append(f'  - "{e} SOLID HEX8 {" ".join(str(x) for x in q)} '
-                        f'MAT 1 KINEM nonlinear{tech}"')
+                        f'MAT 1 KINEM {kinem}{tech}"')
 clamp = [nid[(0, j, k)] for k in range(nz+1) for j in range(ny+1)]
 tip = [nid[(nx, j, k)] for k in range(nz+1) for j in range(ny+1)]
 open(out, "w").write(f"""PROBLEM TYPE:
@@ -98,6 +98,13 @@ deck " TECH fbar"        0.3   "$TMP/fbar.4C.yaml"
 deck ""                  0.499 "$TMP/nu.4C.yaml"
 deck " TECH fbar"        0.499 "$TMP/nufbar.4C.yaml"
 deck " TECH eas"         0.3   "$TMP/badtech.4C.yaml"
+# THE ARM THE CLAIM NEEDED AND NEVER HAD.  The entry used to say eas_* "leaves
+# the volumetric part untouched" and carried a "confirmed by execution" stamp,
+# while the six arms above never ran EAS at high NUE at all.  These three do,
+# including FC2's own configuration (KINEM linear at NUE 0.4999).
+deck " TECH eas_full"    0.499  "$TMP/nueas.4C.yaml"
+deck " TECH eas_full"    0.4999 "$TMP/lineas.4C.yaml"   linear
+deck ""                  0.4999 "$TMP/linplain.4C.yaml" linear
 
 probe EAS_FULL     "$TMP/eas.4C.yaml"
 probe PLAIN        "$TMP/plain.4C.yaml"
@@ -105,9 +112,12 @@ probe FBAR         "$TMP/fbar.4C.yaml"
 probe NU0499_PLAIN "$TMP/nu.4C.yaml"
 probe NU0499_FBAR  "$TMP/nufbar.4C.yaml"
 probe BAD_TECH     "$TMP/badtech.4C.yaml"
+probe NU0499_EAS      "$TMP/nueas.4C.yaml"
+probe NU04999_LIN_EAS "$TMP/lineas.4C.yaml"
+probe NU04999_LIN_PLN "$TMP/linplain.4C.yaml"
 
 grep -m1 -F "processor 0 finished normally" "$TMP/EAS_FULL.log"
-for a in PLAIN FBAR NU0499_PLAIN NU0499_FBAR; do
+for a in PLAIN FBAR NU0499_PLAIN NU0499_FBAR NU0499_EAS NU04999_LIN_EAS NU04999_LIN_PLN; do
   printf '%s ' "$a"
   grep -m1 -oE "is WRONG --> actresult=[^,]*" "$TMP/$a.log"
 done
