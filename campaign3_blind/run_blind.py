@@ -288,16 +288,47 @@ class TrajLiveLog(BaseCallbackHandler):
     def __init__(self, path):
         self._f = open(path, "a", buffering=1, encoding="utf-8", errors="replace")
 
+    # A SILENT 600-CHARACTER CUT MAKES THIS LOG LIE ABOUT WHAT WAS SERVED.
+    #
+    # The cut is right — a full trajectory with every payload would be tens of
+    # megabytes per run — but it was invisible, and the log is the only record
+    # of what the agent was told. A prepare_simulation payload of 30,099
+    # characters was written as ~600, so grepping the trajectory for a phrase
+    # OASiS definitely served returns nothing and reads as "the agent never
+    # saw it".
+    #
+    # That is not hypothetical: on 2026-08-30 I reported that a served
+    # primitive "was never consulted" by FB2_27b_MCP_seed15 because its
+    # distinctive strings were absent from this file. The run had in fact
+    # called prepare_simulation(febio, viscoelasticity) and been served the
+    # whole thing. The conclusion was drawn from the truncation, not from the
+    # run.
+    #
+    # So the marker now states what was dropped. A reader who greps and finds
+    # nothing can see whether they were reading a complete record or a stub,
+    # and `served_bytes` gives the size to check against the tool's own output.
+    _CUT = 600
+
+    def _clip(self, text: str) -> str:
+        if len(text) <= self._CUT:
+            return text
+        return (f"{text[:self._CUT]}"
+                f"\n  [... TRUNCATED BY THE LOGGER: {len(text)} chars served, "
+                f"{self._CUT} recorded. Absence of a phrase below this point "
+                f"is NOT evidence it was not served.]")
+
     def on_tool_start(self, serialized, input_str, **kw):
         try:
             self._f.write(f"TOOL_CALL {(serialized or {}).get('name')} | "
-                          f"{str(input_str)[:600]}\n")
+                          f"{self._clip(str(input_str))}\n")
         except Exception:
             pass
 
     def on_tool_end(self, output, **kw):
         try:
-            self._f.write(f"TOOL_RESULT {str(output)[:600]}\n")
+            text = str(output)
+            self._f.write(f"TOOL_RESULT served_bytes={len(text)} "
+                          f"{self._clip(text)}\n")
         except Exception:
             pass
 

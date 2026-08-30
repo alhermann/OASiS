@@ -71,7 +71,9 @@ def vault(tmp_path):
     sh.write_text(SHIELD)
     sh.chmod(0o755)
     keys.chmod(0o000)
-    return keys
+    yield keys
+    # pytest cannot remove a chmod-000 directory; leave the tree deletable
+    keys.chmod(0o755)
 
 
 def _start_victim(vault: Path) -> subprocess.Popen:
