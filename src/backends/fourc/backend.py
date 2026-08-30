@@ -160,6 +160,39 @@ def _get_generators():
 # MULTIPLIER on it. Filed as a cross-cutting entry because it is true of every
 # 4C physics, and because filing a universal fact under one physics row is a
 # mistake this project has now made three times.
+# Filed cross-cutting for the same reason as _FUNCT_WIRING: it is true of every
+# 4C physics, and it answers the question that has now cost whole runs.
+_GRAMMAR_DUMP = """\
+NEVER GUESS A 4C SECTION NAME. THE BINARY WILL LIST THEM ALL, IN UNDER A
+SECOND.
+
+    4C -p > grammar.txt          # 68,931 lines here, 0.76 s
+    grep -oE "DESIGN VOL [A-Z ]*CONDITIONS" grammar.txt | sort -u
+
+That is the whole technique, and it answers section names, key names, defaults
+and enum values for any problem type on THIS build -- which is the only build
+whose answer matters. Documentation and forum posts describe other versions.
+
+It is worth saying because the alternative is expensive. One run spent its
+budget and gave up with: "The 4C binary requires a specific section name for
+volume source conditions that I could not determine after extensive
+debugging." The answer was two greps away:
+
+    DESIGN VOL NEUMANN CONDITIONS          mechanical body force
+    DESIGN VOL THERMO NEUMANN CONDITIONS   heat source
+    DESIGN VOL TRANSPORT NEUMANN CONDITIONS
+    DESIGN VOL PORO NEUMANN CONDITIONS
+
+and the matching DIRICH / INITIAL FIELD / LOCSYS variants. Note the pattern:
+the physics word sits between VOL and the condition type, so a THERMO problem
+does not use the plain mechanical section, and a deck that names the wrong one
+is rejected rather than silently ignored.
+
+When a section is rejected, dump the grammar and grep for the words you expect
+rather than trying spellings. Trying spellings is how a 45-minute budget
+disappears.
+"""
+
 _FUNCT_WIRING = """\
 A `FUNCT` YOU DEFINE DOES NOTHING UNTIL A CONDITION POINTS AT IT, AND `VAL`
 SCALES IT.
@@ -524,14 +557,17 @@ class FourcBackend(SolverBackend):
                     merged[k] = v
             merged = dict(merged)
             merged["funct_wiring"] = _FUNCT_WIRING
+            merged["grammar_dump"] = _GRAMMAR_DUMP
             return merged
         if data_entry:
             data_entry = dict(data_entry)
             data_entry["funct_wiring"] = _FUNCT_WIRING
+            data_entry["grammar_dump"] = _GRAMMAR_DUMP
             return data_entry
         if gen_entry:
             gen_entry = dict(gen_entry)
             gen_entry["funct_wiring"] = _FUNCT_WIRING
+            gen_entry["grammar_dump"] = _GRAMMAR_DUMP
             return gen_entry
         return {"error": f"no knowledge for {physics!r} in fourc"}
 
