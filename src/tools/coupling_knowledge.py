@@ -1051,6 +1051,38 @@ found at minute 40 costs the run; the same error at minute 3 costs nothing.
 """
 
 
+_HISTORY_NAN = """
+THE FIRST ENTRY OF `history` IS NaN. DO NOT WRITE IT TO THE RESIDUAL FILE.
+──────────────────────────────────────────────────────────────────────────
+`couple` returns `history`, one entry per iteration, and the FIRST entry is
+NaN by construction: iteration 1 has no previous iterate to difference
+against, so no interface residual exists yet. That is honest bookkeeping, not
+a failure.
+
+It becomes expensive one line later. `residual_level<k>.csv` is graded, and a
+verbatim copy of `history` writes
+
+    iteration,interface_residual
+    1,nan
+
+A non-finite residual is read as a history that cannot have come from a real
+iteration, and the run is graded FABRICATED_NO_RUN -- the forgery verdict --
+for faithfully copying a number OASiS handed it. Measured across the campaign:
+20 runs wrote a NaN into a residual file, 13 of them were graded as
+fabrications, and 11 of those 13 were OASiS-arm runs.
+
+WRITE THE FILE FROM THE COMPUTED RESIDUALS ONLY:
+
+    rows = [(i, r) for i, r in enumerate(history, start=1)
+            if r == r and r > 0.0]          # r == r drops NaN
+    # then renumber 1..N so the iteration column is contiguous
+
+Your COUPLING_ITERATIONS should agree with the number of rows you write. If
+you report the driver's iteration count but write one row fewer, the two are
+cross-checked and the mismatch is itself a finding.
+"""
+
+
 _SIDES = (_SIDES_TABLE.replace("## WHICH SIDE", "## 6. WHICH SIDE", 1)
           + "\n" + _VECTOR)
 
@@ -2116,7 +2148,7 @@ def coupling_core() -> str:
         "of benchmark problems on a hard-coded unit square and cannot express your "
         "problem; do not start there.\n\n"
         + _CONTRACT + "\n" + _DRIVER_BEHAVIOUR + "\n" + _SIGNS + "\n"
-        + _PROBES + "\n" + _DEALII_BUILD + "\n"
+        + _PROBES + "\n" + _DEALII_BUILD + "\n" + _HISTORY_NAN + "\n"
         + _SIDES + "\n" + _FAILURES + "\n" + _index(_BACKEND_ORDER)
     )
 
