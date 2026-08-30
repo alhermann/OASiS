@@ -270,6 +270,42 @@ def _find_reference_test_files(solver: str, physics: str) -> str:
 # backend.get_knowledge(), so this is the one place a cross-backend rule
 # cannot be missed.
 _UNIVERSAL = """
+EVALUATING YOUR SOLUTION AT THE GRADED PROBE POINTS
+───────────────────────────────────────────────────
+Every cell is graded at a FIXED set of points that does not move with your
+mesh, so the points sit INSIDE elements, not on nodes.
+
+READING THE NEAREST NODE'S VALUE CAPS YOUR MEASURED ORDER AT 1, whatever your
+solver did. It is the most common scoring defect in this campaign -- 144 runs
+did it, and their observed orders cluster at 0 and 1. Nearest-node lookup is a
+piecewise-CONSTANT reconstruction with O(h) error, which swamps the O(h^2) or
+O(h^3) error of the solve, so you measure the reconstruction. Measured on an
+exactly-known field with NO solver involved, over N = 8, 16, 32, 64:
+
+    nearest node      err 1.99e-01 -> 2.41e-02   order 1.12, 1.00, 0.93
+    shape functions   err 2.08e-02 -> 3.61e-04   order 1.80, 2.03, 2.01
+
+Same trap: scipy.griddata(method="nearest"), pyvista interpolate(n_points=1),
+any scattered-data interpolation of nodal values. And pyvista's
+mesh.sample(cloud) is backwards -- use pv.PolyData(points).sample(mesh).
+
+The call, per backend, verified on the installed versions to machine
+precision against u = 3x + 2y:
+
+    scikit-fem   values = basis.probes(P) @ sol        # P shaped (2, N)
+    FEniCSx      tree  = geometry.bb_tree(domain, domain.topology.dim)
+                 cand  = geometry.compute_collisions_points(tree, pts)
+                 coll  = geometry.compute_colliding_cells(domain, cand, pts)
+                 cells = [coll.links(i)[0] for i in range(len(pts))]
+                 values = uh.eval(pts, cells).reshape(-1)   # pts: 3 columns
+    NGSolve      values = [gfu(mesh(px, py)) for px, py in pts]
+    VTK/VTU      values = pv.PolyData(pts).sample(mesh).point_data[name]
+
+SELF-CHECK, ONE MINUTE, BEFORE REPORTING AN ORDER. Push a known analytic field
+through your OWN extraction path -- set it at the nodes, extract at the probe
+points, fit the order. If that path does not converge at the rate you are
+about to claim, the extraction is the defect, not the solver.
+
 ## BEFORE YOU REFINE ANYTHING: WRITE THE ANSWER FILE
 
 Agents stop VOLUNTARILY at a median of about half their wall budget, and

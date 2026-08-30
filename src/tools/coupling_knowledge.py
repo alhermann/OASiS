@@ -970,7 +970,31 @@ _PROBES = """
 EVALUATING YOUR SOLUTION AT THE PROBE POINTS
 ────────────────────────────────────────────
 Every cell is graded at a FIXED grid of points that does not move with your
-mesh, so the points sit INSIDE elements, not on nodes. Reading nodal values
+mesh, so the points sit INSIDE elements, not on nodes.
+
+READING THE NEAREST NODE'S VALUE CAPS YOUR MEASURED ORDER AT 1, WHATEVER YOUR
+SOLVER DID. This is the single most common scoring defect in this campaign:
+144 runs did it, and their observed orders cluster at 0 and 1. Nearest-node
+lookup is a piecewise-CONSTANT reconstruction with O(h) error, so it dominates
+the O(h^2) or O(h^3) error of the solve and you measure the reconstruction
+instead. Measured on an exactly-known field with NO solver involved, probing a
+fixed cloud on N = 8, 16, 32, 64:
+
+    nearest node        error 1.99e-01 -> 2.41e-02   observed order 1.12, 1.00, 0.93
+    shape functions     error 2.08e-02 -> 3.61e-04   observed order 1.80, 2.03, 2.01
+
+The values look plausible either way. Only the ORDER exposes it, and by then
+the run is scored. The same trap catches scipy.griddata(method="nearest"),
+pyvista's kernel `interpolate(..., n_points=1)`, and any scattered-data
+interpolation of nodal values -- all are O(h) reconstructions. Note also that
+pyvista's `mesh.sample(cloud)` is BACKWARDS; you want
+`pv.PolyData(points).sample(mesh)`.
+
+SELF-CHECK, ONE MINUTE, BEFORE YOU REPORT AN ORDER. Push a known smooth
+analytic field through your OWN extraction path: set it at the mesh nodes,
+extract at the probe points, and fit the order against the analytic values. If
+that path does not itself converge at the rate you are about to claim, the
+extraction is your defect and not the solver. Reading nodal values
 will not do it, and this step is needed once per side per level -- it is the
 last thing between a converged coupling and a scored submission, and it is
 where runs that had already solved the problem have run out of time.
