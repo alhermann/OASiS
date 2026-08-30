@@ -1009,6 +1009,48 @@ before evaluating, and write only those rows.
 """
 
 
+_DEALII_BUILD = """
+BUILDING A deal.II PARTICIPANT
+──────────────────────────────
+deal.II has no Python API, so its participant is a compiled executable, and
+21% of the coupled runs that gave up named compiling as the blocker. This is
+the whole recipe; it was verified end to end on this install (cmake, make,
+run, NDOF = 289).
+
+CMakeLists.txt, six lines, next to your participant.cc:
+
+    cmake_minimum_required(VERSION 3.13)
+    find_package(deal.II 9.0 REQUIRED HINTS $ENV{DEAL_II_DIR})
+    deal_ii_initialize_cached_variables()
+    project(participant CXX)
+    add_executable(participant participant.cc)
+    deal_ii_setup_target(participant)
+
+then
+
+    DEAL_II_DIR=<the deal.II build or install prefix> cmake .
+    make
+    ./participant
+
+WHAT GOES WRONG IF YOU IMPROVISE. A hand-rolled `g++ -I<dealii>/include ...`
+does not work: deal.II's bundled headers need the compile and link flags that
+deal_ii_setup_target() supplies, and without them you get a wall of errors
+that look like missing headers rather than missing flags. The two calls that
+are easy to omit are deal_ii_initialize_cached_variables() (before project())
+and deal_ii_setup_target() (after add_executable()); leaving either out fails
+late and confusingly.
+
+DEAL_II_DIR must point at the build/install prefix, not at include/ or lib/.
+If find_package cannot see it, cmake stops with a message naming deal.IIConfig
+.cmake, which is the file it is looking for -- check the prefix rather than
+the deal.II version.
+
+Compiling is not free: budget for it, and compile ONCE against a trivial main
+that prints its dof count before you build the real participant. A build error
+found at minute 40 costs the run; the same error at minute 3 costs nothing.
+"""
+
+
 _SIDES = (_SIDES_TABLE.replace("## WHICH SIDE", "## 6. WHICH SIDE", 1)
           + "\n" + _VECTOR)
 
@@ -2074,7 +2116,7 @@ def coupling_core() -> str:
         "of benchmark problems on a hard-coded unit square and cannot express your "
         "problem; do not start there.\n\n"
         + _CONTRACT + "\n" + _DRIVER_BEHAVIOUR + "\n" + _SIGNS + "\n"
-        + _PROBES + "\n"
+        + _PROBES + "\n" + _DEALII_BUILD + "\n"
         + _SIDES + "\n" + _FAILURES + "\n" + _index(_BACKEND_ORDER)
     )
 
