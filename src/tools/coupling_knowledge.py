@@ -1774,9 +1774,20 @@ _LAUNCH_PY = '''\
 submit_critic_review(solver="couple",
                      coupling_args='{{"participants": "<the same JSON string>",
                                      "max_iter": 60, "tol": 1e-8,
-                                     "accelerator": "aitken", "theta": 0.5}}',
+                                     "accelerator": "aitken", "theta": 0.5,
+                                     "monolithic": "",
+                                     "probe": true}}',
                      findings="<what the critic checked and concluded>")
 ```
+
+   EVERY argument that `couple` hashes must appear here, INCLUDING the two
+   with defaults. The digest covers participants, max_iter, tol, accelerator,
+   theta, monolithic AND probe. This example used to omit the last two, so an
+   agent that copied it verbatim — changing nothing — got back "a critic
+   review exists for this solver but NOT for this setup: the input changed
+   after it was reviewed". Nothing had changed; the recipe was short. If you
+   see that message and you did not edit anything, this is why: add the
+   arguments you left at their defaults.
 
 6. Then couple. The `coupling_args` above must match these arguments exactly,
    or the review does not bind and the result comes back NOT VERIFIED:

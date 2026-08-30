@@ -4274,9 +4274,33 @@ def register_consolidated_tools(mcp: FastMCP):
             # returned, because a floor of exactly 0 on a Monte-Carlo code is a
             # fixed seed and the agent has to see that.
             result["noise_notes"] = r.notes
-        reason = ("" if checks_ok else
-                  "the coupling did not converge, or failed one of OASiS's "
-                  "silent-wrong checks (see `validation`)")
+        # NAME THE CLAUSE THAT FIRED. DO NOT TELL A CONVERGED RUN IT DIVERGED.
+        #
+        # This was a disjunction — "the coupling did not converge, or failed
+        # one of OASiS's silent-wrong checks" — printed whenever checks_ok was
+        # false, including when `converged` is True in the very same payload.
+        # An agent that has just driven a real coupling to tolerance, at ~30%
+        # of its budget, was told its coupling may not have converged. It is
+        # the cheapest possible reason to stop, and the measured coupled arm
+        # stops: 63% end HONEST_INCOMPLETE, at a median 30% of budget, with
+        # zero timeouts in 112 runs.
+        #
+        # Section 3b of the served coupling text already says a converged run
+        # with a failed downstream check IS a result — but it sits ~700 lines
+        # away in a different payload from this message. So the operative
+        # sentence is repeated here, where the agent is actually reading.
+        if checks_ok:
+            reason = ""
+        elif not getattr(r, "converged", False):
+            reason = ("the coupling did not reach the requested tolerance "
+                      "(see `history` for the residual per iteration)")
+        else:
+            reason = (
+                "the coupling CONVERGED, and then failed one of OASiS's "
+                "silent-wrong checks (see `validation`). This is a converged "
+                "result with a caveat, NOT a failed run: report the numbers "
+                "and the caveat. A downstream check can fail on discretisation "
+                "error alone at the coarsest level and pass on the finer ones.")
         _stamp_verification(result, evidence_ok=checks_ok, reason=reason,
                             critic_approved=critic_approved,
                             solver="couple",

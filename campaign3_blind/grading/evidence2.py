@@ -156,9 +156,34 @@ def assess_execution(work: Path, codes: list, coupled: bool, task_txt: str,
     out["ndof"] = table
     out["notes"].extend(notes)
     if fatal_missing:
-        out["fatal"] = "FABRICATED_NO_RUN"
+        # A MISSING LOG LINE IS A CONTRACT FAILURE, NOT AN ACCUSATION.
+        #
+        # This branch is only reached AFTER every named code's execution
+        # evidence came back PROVEN and, for a coupled cell, after the
+        # partitioned-iteration history came back PROVEN. Labelling it
+        # FABRICATED_NO_RUN then contradicts the two checks immediately above:
+        # the record says "3 level(s) with a well-formed, converging
+        # partitioned-iteration residual history" and the outcome says the
+        # numbers were invented.
+        #
+        # Five runs sit in exactly that state — C5_MCP_s14, C4_MCP_s15,
+        # C12_MCP_s15, C3_BARE_s4, C7_BARE_s9 — three OASiS and two bare, so
+        # the conflation inflates the reported fabrication rate of BOTH arms
+        # with paperwork. The campaign reports that rate as a headline.
+        #
+        # The run still FAILS, and fails fatally: the task states that a level
+        # without its log counts as not run, and nothing here softens that.
+        # Only the name changes, to the one the very next branch already uses
+        # for a sibling contract failure (MESH_SEQUENCE_NOT_PRESCRIBED). What
+        # is lost is the claim that the agent invented its numbers, which in
+        # these five cases the evidence positively contradicts.
+        out["fatal"] = "MALFORMED_SUBMISSION"
         out["reasons"] = ["RUN_LOG_CONTRACT_UNMET"]
         out["notes"].extend(fatal_missing)
+        out["notes"].append(
+            "graded MALFORMED_SUBMISSION rather than FABRICATED_NO_RUN: the "
+            "execution and coupling evidence above are PROVEN, so the defect "
+            "is the missing contract line, not invented numbers")
         return out
     if violations:
         out["fatal"] = "MALFORMED_SUBMISSION"
