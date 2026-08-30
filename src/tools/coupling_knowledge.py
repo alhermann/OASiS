@@ -1117,6 +1117,40 @@ tidy invented one. Write the rows you have.
 """
 
 
+_NGSOLVE_DOFS = """
+NGSolve: THE THREE CALLS A PARTICIPANT NEEDS, AND THE ONE THAT DOES NOT EXIST
+─────────────────────────────────────────────────────────────────────────────
+Measured across this campaign's runs, NGSolve dof access is the largest
+remaining cluster of API errors -- `GetDofNrs(): incompatible function
+arguments` and `'BaseVector' object has no attribute 'Size'` between them
+account for a dozen failures, each costing the run several minutes of
+guessing. Verified 2026-08-30 on NGSolve 6.2.2604:
+
+    gfu.vec.size                     the vector length      (lowercase, a
+                                                             PROPERTY)
+    gfu.vec.Size()                   AttributeError         <- does not exist
+    fes.ndof                         the space's dof count
+    fes.FreeDofs()                   a BitArray; count with
+                                     sum(1 for b in fes.FreeDofs() if b)
+    fes.GetDofs(mesh.Boundaries("right"))
+                                     a BitArray over ALL dofs, True on that
+                                     named boundary -- this is how you get the
+                                     interface dofs
+    fes.GetDofNrs(NodeId(VERTEX, k)) the dofs on one node, as a tuple
+
+Two things that cost time. `.Size()` with a capital S is the C++ spelling and
+is not bound in Python; the property is `.size`. And GetDofs returns a
+BitArray, not indices, so turn it into indices yourself:
+
+    bits = fes.GetDofs(mesh.Boundaries("right"))
+    iface_dofs = [i for i, b in enumerate(bits) if b]
+
+Name your boundaries when you build the geometry (`AddRectangle(...,
+bcs=["bot","right","top","left"])`) -- without names there is nothing for
+Boundaries() to select and you are back to comparing coordinates by hand.
+"""
+
+
 _SIDES = (_SIDES_TABLE.replace("## WHICH SIDE", "## 6. WHICH SIDE", 1)
           + "\n" + _VECTOR)
 
@@ -2182,7 +2216,7 @@ def coupling_core() -> str:
         "of benchmark problems on a hard-coded unit square and cannot express your "
         "problem; do not start there.\n\n"
         + _CONTRACT + "\n" + _DRIVER_BEHAVIOUR + "\n" + _SIGNS + "\n"
-        + _PROBES + "\n" + _DEALII_BUILD + "\n" + _HISTORY_NAN + "\n" + _RESIDUAL_IS_A_RECORD + "\n"
+        + _PROBES + "\n" + _DEALII_BUILD + "\n" + _HISTORY_NAN + "\n" + _RESIDUAL_IS_A_RECORD + "\n" + _NGSOLVE_DOFS + "\n"
         + _SIDES + "\n" + _FAILURES + "\n" + _index(_BACKEND_ORDER)
     )
 
