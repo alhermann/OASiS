@@ -1083,6 +1083,40 @@ cross-checked and the mismatch is itself a finding.
 """
 
 
+_RESIDUAL_IS_A_RECORD = """
+THE RESIDUAL HISTORY IS A RECORDING, NOT A REPORT YOU COMPOSE
+─────────────────────────────────────────────────────────────
+`residual_level<k>.csv` must contain the interface residual your iteration
+actually produced, one row per iteration, written as the loop runs. It is the
+one artefact a monolithic or unfinished solve cannot imitate, which is exactly
+why it is checked and why the temptation to fill it in is strongest at the end
+of a run that did not converge.
+
+IT IS CHECKED BY SHAPE, AND A COMPOSED SEQUENCE HAS THE WRONG SHAPE. A real
+partitioned iteration's convergence rate wanders: the error's modal
+composition changes from step to step and the linear solves carry noise. A
+formula does not wander. The check measures the coefficient of variation of
+the consecutive-residual ratios; across every history in this campaign the
+honest ones sit above 1e-2 and the composed ones at or below 1e-5, so the two
+populations do not overlap.
+
+Two real examples, both caught:
+
+  0.99999 * 0.5^k for 21 rows      ratio CV 6.8e-12   -> CONTRADICTED
+  a 19-row geometric sequence      ratio CV 2.2e-16   -> CONTRADICTED
+
+The second was written by a run that had produced a complete, correct-looking
+file set for all three levels and both sides. Everything else about it was in
+order. The history it composed is what made it a fabrication rather than an
+honest near-miss.
+
+IF YOU DID NOT CONVERGE, SAY SO. A history that stalls, or stops above the
+prescribed tolerance, is a result: it is graded as an incomplete or unphysical
+run, not as a forgery, and an honest short history costs you far less than a
+tidy invented one. Write the rows you have.
+"""
+
+
 _SIDES = (_SIDES_TABLE.replace("## WHICH SIDE", "## 6. WHICH SIDE", 1)
           + "\n" + _VECTOR)
 
@@ -2148,7 +2182,7 @@ def coupling_core() -> str:
         "of benchmark problems on a hard-coded unit square and cannot express your "
         "problem; do not start there.\n\n"
         + _CONTRACT + "\n" + _DRIVER_BEHAVIOUR + "\n" + _SIGNS + "\n"
-        + _PROBES + "\n" + _DEALII_BUILD + "\n" + _HISTORY_NAN + "\n"
+        + _PROBES + "\n" + _DEALII_BUILD + "\n" + _HISTORY_NAN + "\n" + _RESIDUAL_IS_A_RECORD + "\n"
         + _SIDES + "\n" + _FAILURES + "\n" + _index(_BACKEND_ORDER)
     )
 
