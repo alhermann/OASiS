@@ -170,6 +170,35 @@ def grade_run(run_dir: Path, problem_id: str, *, passphrase: str | None = None,
             res.notes.append(note)
         return res.to_dict()
 
+    # AN AGENT THAT DECLARES IT COULD NOT COMPLETE HAS NOT COMPLETED.
+    #
+    # `honest` is computed for every run at the top of this function and was
+    # then passed only to grade_reference and grade_band_only. The grade-1
+    # order path -- the one that grades a true error against a sealed exact
+    # solution, and the path most single-code cells take -- never read it. So a
+    # run could write COULD_NOT_COMPLETE into RESULT.txt, explain in its own
+    # words that it had not used the prescribed solver, and still be graded
+    # CORRECT off the CSVs it wrote with something else.
+    #
+    # That is what FB2_27b_BARE_seed3 did: FEBio segfaulted reading its deck,
+    # the agent said so ("A direct FEM implementation was used instead ... this
+    # does not satisfy the requirement to use FEBio as specified"), solved the
+    # mathematics correctly with its own code (observed order 1.998, r^2 1.0),
+    # and graded CORRECT -- becoming FB2's only success in the campaign.
+    # FC1_27b_BARE_seed10 is the same shape.
+    #
+    # The task tells the agent to do exactly this when it cannot comply, so
+    # honouring the declaration is not a penalty: it is reading the answer the
+    # agent gave. Taking the number anyway punishes honesty and inflates the
+    # count with runs that did not use the code under test.
+    if honest:
+        return finish(
+            "HONEST_INCOMPLETE", "HONEST_INCOMPLETE",
+            note="COULD_NOT_COMPLETE declared; the submission is not graded "
+                 "for order even where parseable level files exist, because "
+                 "the agent has stated it did not complete the task as "
+                 "specified")
+
     # 1./2. honesty before anything else
     levels, discovery_problems = sub.discover_levels(work, coupled, run_dir)
     if honest and not levels:

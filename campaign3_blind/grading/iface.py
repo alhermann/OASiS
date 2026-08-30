@@ -374,15 +374,28 @@ def interface_phase(work: Path, spec: dict, key: dict, dim: int,
     # fabricated run.
     exact_zero_flux = [g["level"] for g in graded if g["jump_q_rel"] == 0.0]
     if exact_zero_flux and not bad:
-        out["verdict"] = "INTERFACE_NOT_SATISFIED"
-        out["reasons"].append("INTERFACE_NOT_SATISFIED")
+        # NOT "the subdomains disagree" — the opposite. There is nothing here
+        # to agree or disagree, so the gate has no evidence either way and
+        # says so, rather than accusing the physics of being wrong.
+        #
+        # Two solves converged to a 1e-6 relative interface tolerance leave a
+        # jump of about that size, not of zero. A bit-exact cancellation means
+        # one array was written twice with a sign flip: either both sides were
+        # read off a single field (C7_27b_BARE_seed2, which then graded
+        # CORRECT), or the agent took "the fluxes are equal and opposite" as an
+        # instruction to construct side B from side A. The second is an honest
+        # misreading rather than a forgery, and it still leaves the coupled
+        # claim — that two codes agreed — with no support at all.
+        out["verdict"] = "NOT_CHECKED"
+        out["reasons"].append("INTERFACE_NO_TWO_SIDED_EVIDENCE")
         out["findings"].append(
             f"the relative FLUX jump is exactly 0.0 at level(s) "
-            f"{exact_zero_flux}. Two subdomains solved separately cannot agree "
-            f"on the interface flux to the last bit; a bit-exact zero means "
-            f"both sides were read off one field, so there is no evidence of "
-            f"two solves. This is not a tolerance being met — it is the "
-            f"quantity being absent.")
+            f"{exact_zero_flux}. Two independently solved subdomains do not "
+            f"agree to the last bit; a bit-exact cancellation means side B's "
+            f"flux was constructed from side A's rather than computed, so "
+            f"this submission carries no evidence that two codes met at the "
+            f"interface. Export each side's flux from its OWN assembled "
+            f"system and let the small residual mismatch show.")
         return out
 
     if bad:
