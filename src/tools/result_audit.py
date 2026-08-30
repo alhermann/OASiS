@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import json
 import math
+import hashlib
 import re
 from pathlib import Path
 
@@ -345,6 +346,105 @@ def residual_findings(work: Path) -> list[dict]:
     return out
 
 
+def contract_findings(work: Path) -> list[dict]:
+    """Submission defects the grader fails on that this audit never checked.
+
+    The audit existed to catch what sinks a submission, and 27 of 36
+    single-code runs called it — but it looked only at the convergence
+    sequences. Two contract failures it was blind to killed real runs on cells
+    that had worked before:
+
+      SK1: RUN_LOG_CONTRACT_UNMET   — no run_level<k>.log carrying `NDOF = <n>`
+      NG1: UNASSIGNED_SUBDOMAIN_FILES — solution_level1.csv submitted twice,
+                                        in two places, with different contents
+
+    Both are cheap to detect from the agent's own files, and both are fatal
+    when the grader sees them. Same shape as the other defects this project
+    keeps finding: the mechanism existed, was called, and did not reach the
+    case it was built for.
+    """
+    out: list[dict] = []
+
+    # 1. every level that has a solution file needs a run log carrying NDOF
+    sols = sorted(work.rglob("solution_level*.csv"))
+    levels = set()
+    for f in sols:
+        m = re.search(r"solution_level(\d+)", f.name)
+        if m:
+            levels.add(int(m.group(1)))
+    if levels:
+        ndof_re = re.compile(r"^\s*NDOF\s*=\s*\d{2,}\s*$", re.M)
+        missing = []
+        for k in sorted(levels):
+            logs = list(work.rglob(f"run_level{k}*.log"))
+            if not any(ndof_re.search(p.read_text(errors="ignore"))
+                       for p in logs):
+                missing.append(k)
+        if missing:
+            out.append({"sequence": "run-log contract", "values": [],
+                        "finding": (
+                f"NO `NDOF = <integer>` LINE for level(s) {missing}. The task "
+                f"requires run_level<k>.log per level (per side, if coupled) "
+                f"carrying that exact line, and states that a level without it "
+                f"counts as NOT RUN. Write it from the solver's own dof count.")})
+
+    # 2. the same deliverable must not be submitted twice with different content
+    by_name: dict[str, set] = {}
+    for f in work.rglob("*.csv"):
+        if not re.match(r"(solution|interface|residual)_level", f.name):
+            continue
+        try:
+            digest = hashlib.sha256(f.read_bytes()).hexdigest()
+        except OSError:
+            continue
+        by_name.setdefault(f.name, set()).add(digest)
+    clashes = sorted(n for n, d in by_name.items() if len(d) > 1)
+    if clashes:
+        out.append({"sequence": "duplicate deliverables", "values": [],
+                    "finding": (
+            f"MORE THAN ONE DIFFERING COPY of {clashes[:4]}. The grader cannot "
+            f"tell which one you meant and rejects the submission. Keep exactly "
+            f"one copy of each deliverable; delete scratch copies in "
+            f"subdirectories before you submit.")})
+    # 3. an incomplete or self-contradicting level set
+    #
+    # SK1 submitted solution_level1.csv and nothing else, with an empty
+    # RESULT.txt, and this audit called it clean: the run-log check above only
+    # asks about levels that HAVE a solution file, so one level with its log
+    # looked complete. The submission was one level of four.
+    res = work / "RESULT.txt"
+    text = res.read_text(errors="ignore") if res.is_file() else ""
+    if levels:
+        span = max(levels)
+        gaps = [k for k in range(1, span + 1) if k not in levels]
+        if gaps:
+            out.append({"sequence": "level sequence", "values": [],
+                        "finding": (
+                f"MISSING LEVEL(S) {gaps}: you have files for {sorted(levels)}, "
+                f"so the sequence has a hole. A refinement study is graded "
+                f"across the whole prescribed sequence.")})
+        m = re.search(r"^\s*LEVELS\s*=\s*(\d+)", text, re.M)
+        if m and int(m.group(1)) != len(levels):
+            out.append({"sequence": "levels claimed", "values": [],
+                        "finding": (
+                f"RESULT.txt says LEVELS = {m.group(1)} but {len(levels)} "
+                f"level(s) of solution files are present. The two are compared; "
+                f"make them agree.")})
+        if len(levels) < 3:
+            out.append({"sequence": "level count", "values": [],
+                        "finding": (
+                f"ONLY {len(levels)} LEVEL(S) SUBMITTED. Every task in this "
+                f"family prescribes a mesh sequence of at least three; an "
+                f"observed order cannot be fitted from fewer, so a short "
+                f"submission cannot score however good the levels are.")})
+    if not text.strip():
+        out.append({"sequence": "RESULT.txt", "values": [],
+                    "finding": (
+            "RESULT.txt IS MISSING OR EMPTY. It is the submission; without it "
+            "the files beside it are not read as an answer.")})
+    return out
+
+
 def audit(work_dir: str, claimed_order: float | None = None) -> dict:
     """The three questions, answered from the agent's own files."""
     work = Path(work_dir)
@@ -453,6 +553,7 @@ def audit(work_dir: str, claimed_order: float | None = None) -> dict:
                 "mesh-dependent bug (wrong BC on the finer mesh, probe points "
                 "outside the domain, a tolerance floor).")
             findings.append(entry)
+    findings.extend(contract_findings(Path(work_dir)))
     return {
         "sequences_found": len(seqs),
         "findings": findings,
