@@ -412,8 +412,14 @@ def contract_findings(work: Path) -> list[dict]:
     # RESULT.txt, and this audit called it clean: the run-log check above only
     # asks about levels that HAVE a solution file, so one level with its log
     # looked complete. The submission was one level of four.
-    res = work / "RESULT.txt"
-    text = res.read_text(errors="ignore") if res.is_file() else ""
+    # RESULT.txt is not always at the top level; the grader finds it anywhere.
+    cands = [work / "RESULT.txt", *sorted(work.rglob("RESULT.txt"))]
+    text = ""
+    for c in cands:
+        if c.is_file():
+            text = c.read_text(errors="ignore")
+            if text.strip():
+                break
     if levels:
         span = max(levels)
         gaps = [k for k in range(1, span + 1) if k not in levels]
@@ -442,6 +448,54 @@ def contract_findings(work: Path) -> list[dict]:
                     "finding": (
             "RESULT.txt IS MISSING OR EMPTY. It is the submission; without it "
             "the files beside it are not read as an answer.")})
+    # 4. a hand-rolled sampler with the wrong shape-function normalisation
+    #
+    # Two cells in this campaign were lost to a sampler, not a solver. FC2's
+    # extractor wrote the QUAD4 factor 0.25 into a HEX8 shape function instead
+    # of 0.125, so sum(N) = 2 and the submission was 2*u(x/2, y/2) -- a fixed
+    # wrong field, converged to at order -0.035. FC1's read the nearest node's
+    # value, an O(h) reconstruction that caps the measured order at 1.
+    #
+    # Both are visible in the agent's own scripts, without any key.
+    for script in sorted(work.rglob("*.py")):
+        try:
+            src = script.read_text(errors="ignore")
+        except OSError:
+            continue
+        if re.search(r"hex8|HEX8|8\s*,?\s*#\s*nodes|zeta", src) and \
+                re.search(r"0\.25\s*\*\s*\(1\s*[-+]\s*xi", src):
+            out.append({"sequence": script.name, "values": [],
+                        "finding": (
+                "SHAPE-FUNCTION NORMALISATION: this script builds a "
+                "three-dimensional (hex) shape function with the factor 0.25, "
+                "which is the QUAD4 value. For HEX8 it is 0.125, and with 0.25 "
+                "the functions sum to 2 rather than 1 -- every sampled value is "
+                "doubled AND, if the same N is used to invert the geometry, the "
+                "point located is halved. Check sum(N) == 1 at any point.")})
+        # `np.argmin(dist)` is also how a Stokes deck pins its pressure at the
+        # domain centre, which is correct and unrelated. Require the argmin to
+        # sit in a script that WRITES the graded CSV, and to be looking up a
+        # field value, before calling it a sampling defect.
+        writes_probe_csv = re.search(r"solution_level|probe", src, re.I)
+        # A pressure PIN also uses argmin(distance) -- "pin the pressure at the
+        # node nearest the centre" is correct, required in a Stokes problem,
+        # and not sampling. Require the index to be used to READ A FIELD, and
+        # exclude the pin idiom by name.
+        looks_up_value = re.search(
+            r"\[\s*(closest_id|nearest_idx|closest|nearest)\s*\]", src, re.I)
+        is_pressure_pin = re.search(r"pin_p|pin_pressure|pressure_pin|pin_dof",
+                                    src, re.I)
+        if writes_probe_csv and looks_up_value and not is_pressure_pin and \
+                re.search(r"argmin\(.*dist|closest_id|nearest[_ ]node", src, re.I) and \
+                not re.search(r"probes\(|compute_colliding_cells|\.sample\(", src):
+            out.append({"sequence": script.name, "values": [],
+                        "finding": (
+                "NEAREST-NODE SAMPLING: this script reads the value at the "
+                "closest node instead of interpolating inside the element. That "
+                "is a piecewise-constant reconstruction with O(h) error, and it "
+                "CAPS your measured convergence order at 1 however good the "
+                "solve is. Measured: nearest-node gives order 1.12, 1.00, 0.93 "
+                "on a field where shape functions give 1.80, 2.03, 2.01.")})
     return out
 
 

@@ -301,6 +301,34 @@ precision against u = 3x + 2y:
     NGSolve      values = [gfu(mesh(px, py)) for px, py in pts]
     VTK/VTU      values = pv.PolyData(pts).sample(mesh).point_data[name]
 
+VERIFY THE SAMPLER AGAINST THE IDENTITY MAP FIRST. An MMS submission is TWO
+independent programs -- the deck and the sampler -- and the solver's own
+convergence checks cover only the first. Nothing in a blind run checks the
+second, so check it yourself, with the one field whose answer you know without
+any key: the COORDINATES.
+
+    sample the field u(x,y) = x at your probe points
+    -> it must return the probe points' x, to machine precision
+
+If it does not, the sampler is broken and every physical number it reports is
+broken. This costs one line and needs no reference solution, which is what a
+blind evaluation demands. It catches the whole family: a wrong shape-function
+normalisation, a wrong node ordering in the connectivity, wrong natural
+coordinates, the wrong element selected, a z-layer mix-up.
+
+MEASURED, on a real submission: an extractor wrote the QUAD4 factor 0.25 into
+a HEX8 shape function instead of 0.125, so sum(N) = 2 everywhere. The same
+doubled N was used inside the Newton inversion of the geometry, so the point
+located was (x/2, y/2). The submitted field was exactly 2*u(x/2, y/2): a FIXED
+wrong function, converged to beautifully, at order -0.035 -- refinement cannot
+help because the map is mesh-independent. The deck was correct and its own
+solution converged at order 1.98. Fixing that one character in the extractor,
+with the solver output untouched, turns the run from unphysical into correct.
+
+The identity check would have caught it instantly: sampling x would have
+returned 2*(x/2) = x for the value but from the wrong element, and sampling
+sum(N) returns 2.
+
 SELF-CHECK, ONE MINUTE, BEFORE REPORTING AN ORDER. Push a known analytic field
 through your OWN extraction path -- set it at the nodes, extract at the probe
 points, fit the order. If that path does not converge at the rate you are
