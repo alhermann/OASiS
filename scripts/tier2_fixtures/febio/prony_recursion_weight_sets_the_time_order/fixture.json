@@ -1,0 +1,35 @@
+{
+  "_comment": "Tier-2 for febio::viscoelasticity#5 — the weight on the driving increment in the Prony exponential recursion is what sets the time order, and the three common choices are indistinguishable to look at. W = 1 (kernel at the step end) is FIRST order; W = exp(-dt/2tau) (Simo-Hughes midpoint) and W = (1+exp(-dt/tau))/2 (trapezoid) are SECOND order, with the midpoint about 5.6x more accurate at equal step. Measured against the closed-form integral of exp(-(t-s)/tau)*cos(s) with tau = 0.3 over t in [0,1] at 8..256 steps. All three converge and none raises anything, so a first-order recursion reads as a working solve — it just halves the error where the study wanted a quarter. The HELD_SPREAD lines pin the reconciliation with pitfall #4, which reports that a relaxation deck's plateau is insensitive to the step count: once the load stops moving the driving increment is zero and the weight multiplies nothing, so all three weights agree to 1.6e-08 and better. A step-insensitive plateau is therefore NOT evidence that the time discretisation is second order. Pure Python, no solver required, so this runs on any host. Verified by execution 2026-08-30.",
+  "backend": "febio",
+  "physics": "viscoelasticity",
+  "pitfall_index": 5,
+  "mode": "python",
+  "timeout_seconds": 120,
+  "expect_in_output": [
+    "ORDER_ENDPOINT=1.00",
+    "ORDER_MIDPOINT=2.00",
+    "ORDER_TRAPEZOID=2.00",
+    "TRAPEZOID_OVER_MIDPOINT=5.6",
+    "HELD_SPREAD_40=1.65e-08",
+    "HELD_SPREAD_640=8.24e-10"
+  ],
+  "forbid_in_output": [
+    "Traceback",
+    "ORDER_ENDPOINT=2.00",
+    "ORDER_MIDPOINT=1.00"
+  ],
+  "_mutation": [
+    {
+      "note": "remove the pathology: give the endpoint arm the midpoint weight. Its measured slope becomes 2.00, the first-order signature disappears and the forbidden ORDER_ENDPOINT=2.00 appears, so the fixture must go red. This is the control for the claim's load-bearing half — that W = 1 is first order.",
+      "file": "source.py",
+      "from": "    \"endpoint\":  lambda dt: 1.0,",
+      "to": "    \"endpoint\":  lambda dt: exp(-dt / (2.0 * TAU)),"
+    },
+    {
+      "note": "remove the reconciliation: drive the HELD arm with a load that keeps moving. The weights stop agreeing and the tiny HELD_SPREAD values disappear, so the fixture must go red. Without this arm the entry could claim the plateau argument without having tested it.",
+      "file": "source.py",
+      "from": "    held = lambda s: min(s / 0.05, 1.0)",
+      "to": "    held = lambda s: sin(s)"
+    }
+  ]
+}
