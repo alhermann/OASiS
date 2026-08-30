@@ -59,6 +59,49 @@ def shield(action: str) -> str:
     return (r.stdout + r.stderr).strip()
 
 
+def arm_reseal_on_signals() -> None:
+    """Reseal on SIGTERM/SIGINT/SIGHUP, not only on the way out of `try`.
+
+    The module docstring promised that "a crash or a KeyboardInterrupt cannot
+    leave them readable", and the mechanism was a `finally` block. A finally
+    block does not run when the process is killed: Python's default SIGTERM
+    disposition terminates immediately. That is the same shape as the four
+    other defects this campaign has found -- a mechanism exists, is
+    instrumented, and does not reach the case it was built for.
+
+    It reached that case on 2026-08-30. A regrade of seeds 2-11 was launched
+    under a two-minute harness limit, the limit killed it with SIGTERM
+    mid-grade, the finally block never ran, and the vault was found
+    drwxr-xr-x. Nothing could read it -- the round had finished and no agent
+    process existed -- but the custody claim was false for about two minutes,
+    and it was false without anyone being told.
+
+    Handlers reseal and then re-raise the default disposition, so the exit
+    status still reports a killed process rather than a clean one.
+    """
+    import signal
+
+    def _handler(signum, _frame):
+        try:
+            shield("seal")
+            state = seal_state(keys_dir())
+            print(f"\n  signal {signum}: {shield_note(state)}", flush=True)
+        finally:
+            signal.signal(signum, signal.SIG_DFL)
+            os.kill(os.getpid(), signum)
+
+    for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        try:
+            signal.signal(sig, _handler)
+        except (ValueError, OSError):
+            pass          # not on the main thread, or not supported here
+
+
+def shield_note(state: str) -> str:
+    return (f"RESEALED {state}" if state == "d---------"
+            else f"FAILED TO RESEAL, keys are {state} — seal them by hand")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--seeds", nargs="+", type=int, required=True)
@@ -91,6 +134,8 @@ def main() -> int:
             pw = sys.stdin.readline().rstrip("\n")
             if not pw:
                 print("no passphrase on stdin"); return 2
+
+    arm_reseal_on_signals()
 
     import grade_blind_v2 as G
     runs = HERE / "runs"
