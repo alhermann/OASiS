@@ -186,3 +186,71 @@ class TestAgainstTheRealBinary(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTheDeckSyntaxPrimitivesAreServed(unittest.TestCase):
+    """Two blockers found by running the OASiS arm's own failing C2 deck, each
+    verified by execution and each of which alone kills the run.
+
+    LAYER 1 -- the topology block was written as bare quoted strings rather than
+    a YAML sequence, so 4C died during input parsing with
+
+        ERROR: could not find ':' colon after key
+        53:17: "NODE 7 DLINE 1"  (size=16)
+
+    BEFORE printing its own banner. Measured: without line-buffered output the
+    whole run produced 8 lines -- the X11 cookie warning and MPI boilerplate --
+    and with `stdbuf -oL` it produced 43 lines including that message. The bare
+    arm's deck, in the same directory with the same binary, exits 0 and reports
+    "finished normally"; the only difference in that section is the `- `.
+
+    LAYER 2 -- with the topology repaired, the deck reached the source term and
+    4C rejected `-12*x**3*y/5` from
+    4C_utils_symbolic_expression.cpp. The task states its source term in Python
+    notation, so an agent that copies it hits this on every 4C cell. `^` parses.
+    The identical trap was measured in FEBio's math loads earlier
+    (`-1*X**2` -> "Token expected (position 6)"; `-1*X^2` accepted), which is
+    why the rule is stated generally rather than as a 4C quirk.
+    """
+
+    def test_the_double_star_trap_is_served(self):
+        import tools.knowledge as K
+        self.assertIn("`**` IS NOT EXPONENTIATION", K._UNIVERSAL)
+        self.assertIn("USE `^`", K._UNIVERSAL)
+
+    def test_it_names_both_solvers_that_reject_it(self):
+        """Stated for one code it reads as a quirk; for two it is a rule."""
+        import tools.knowledge as K
+        i = K._UNIVERSAL.index("`**` IS NOT EXPONENTIATION")
+        block = K._UNIVERSAL[i:i + 1200]
+        self.assertIn("SYMBOLIC_FUNCTION_OF_SPACE_TIME", block)
+        self.assertIn("FEBio", block)
+        self.assertIn("Token expected", block)
+
+    def test_it_says_to_rewrite_the_whole_expression(self):
+        """One surviving `**` fails the parse just as completely."""
+        import tools.knowledge as K
+        self.assertIn("not the first term", K._UNIVERSAL)
+
+    def test_the_yaml_sequence_rule_is_served_with_both_forms(self):
+        import tools.knowledge as K
+        self.assertIn('- "NODE 1 DLINE 1"', K._UNIVERSAL)
+        self.assertIn("could not find ':' colon after key", K._UNIVERSAL)
+
+    def test_it_warns_the_abort_precedes_the_banner(self):
+        """This is what made the agents conclude the binary was broken."""
+        import tools.knowledge as K
+        self.assertIn("BEFORE PRINTING ITS OWN BANNER", K._UNIVERSAL)
+        self.assertIn("broken binary", K._UNIVERSAL)
+
+    def test_the_diagnostic_extractor_finds_a_yaml_parse_error(self):
+        """The extractor initially knew only `PROC n ERROR` and missed exactly
+        this failure -- the case it was written for."""
+        log = ("Invalid MIT-MAGIC-COOKIE-1 key\n"
+               "ERROR: could not find ':' colon after key\n"
+               "53:17: \"NODE 7 DLINE 1\"  (size=16)\n"
+               + "MPI_ABORT was invoked on rank 0\n" * 40)
+        got = _fourc_diagnostic(log, "")
+        self.assertIn("could not find", got)
+        self.assertIn("53:17", got)
+        self.assertIn("NODE 7 DLINE 1", got)

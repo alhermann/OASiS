@@ -32,10 +32,24 @@ FOURC_ROOT = Path(os.environ["FOURC_ROOT"]) if os.environ.get("FOURC_ROOT") else
 _FOURC_IDENT_CACHE: dict[str, tuple[bool, str]] = {}
 
 
+# EVERY MARKER HERE WAS TAKEN FROM A REAL 4C FAILURE ON THIS MACHINE.
+#
+# The first version of this regex knew only `PROC n ERROR` and friends, and so
+# it MISSED the very failure that motivated it: 4C's YAML parse error, which is
+# a bare `ERROR:` at line start followed by a line:col location,
+#
+#     ERROR: could not find ':' colon after key
+#     53:17: "NODE 7 DLINE 1"  (size=16)
+#
+# i.e. the fix did not reach the case it was built for. Caught only by running
+# the failing deck and feeding its real log through this function.
 _FOURC_ERROR_RE = re.compile(
-    r"^.*?(?:PROC\s+\d+\s+ERROR|Could not match this input|"
-    r"terminate called after throwing|Caught exception|"
-    r"\bFOUR_C_THROW\b|Segmentation fault|dserror)",
+    r"^.*?(?:PROC\s+\d+\s+ERROR"
+    r"|^ERROR:"                      # YAML/input parse errors
+    r"|^\d+:\d+:\s"                 # the line:col that follows one
+    r"|Could not match this input"
+    r"|terminate called after throwing|Caught exception"
+    r"|\bFOUR_C_THROW\b|Segmentation fault|dserror)",
     re.M | re.I)
 
 # Lines 4C prints on EVERY run, successful ones included, so they never explain

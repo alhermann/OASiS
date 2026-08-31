@@ -305,6 +305,39 @@ another agent. What they saw was this:
     trivial self-test (`-p`, `--help`) and report THAT result: if the self-test
     passes, the defect is in your input.
 
+A SOLVER'S INPUT LANGUAGE IS NOT PYTHON
+───────────────────────────────────────
+The task states its source term and boundary data in Python notation, e.g.
+`f = 36*x**3*y - 54*x**2*y**2 + ...`. Copying that verbatim into a solver's
+expression field fails, and the two failures below were both measured here.
+
+  * `**` IS NOT EXPONENTIATION in these expression parsers. USE `^`.
+    - 4C `SYMBOLIC_FUNCTION_OF_SPACE_TIME`: `-12*x**3*y/5` gives
+        PROC 0 ERROR ... 4C_utils_symbolic_expression.cpp
+        Error while parsing: -12*x**3*y/5 + ...
+      and the identical expression with `^` parses. Measured: converting `**`
+      to `^` moved a failing deck past this error entirely.
+    - FEBio `type="math"` loads: `-1*X**2` gives `Token expected (position 6)`;
+      `-1*X^2` is accepted.
+    Rewrite the whole expression, not the first term: one surviving `**` fails
+    the parse just as completely.
+
+  * A 4C LEGACY BLOCK THAT LISTS STRINGS IS A YAML SEQUENCE. Each entry needs
+    a `- `:
+        DLINE-NODE TOPOLOGY:
+          - "NODE 1 DLINE 1"
+          - "NODE 7 DLINE 1"
+    Writing the strings bare, as
+        DLINE-NODE TOPOLOGY:
+        "NODE 1 DLINE 1"
+    makes YAML read them as mapping keys and 4C dies during input parsing with
+        ERROR: could not find ':' colon after key
+        53:17: "NODE 7 DLINE 1"
+    BEFORE PRINTING ITS OWN BANNER. Without line-buffered output that abort
+    shows only `MPI_ABORT was invoked on rank 0` and nothing else, which reads
+    as a broken binary and is not one. The same rule applies to NODE COORDS and
+    every `*_ELEMENTS` block.
+
 CAPTURING YOUR SOLVER'S OWN OUTPUT (asked for by every task's run-log clause)
 ────────────────────────────────────────────────────────────────────────────
 The run log must carry the text YOUR SOLVER printed, not a line you wrote about
