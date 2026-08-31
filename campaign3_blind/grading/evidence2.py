@@ -37,6 +37,35 @@ def task_prescribes_run_logs(task_txt: str) -> bool:
     return "run_level" in task_txt and "NDOF" in task_txt
 
 
+def task_demands_own_solver_output(task_txt: str) -> bool:
+    """Did THIS task tell the agent to capture its solver's own output?
+
+    The per-code evidence gate below rejects a coupled submission whose only
+    proof of execution is the code-agnostic `NDOF = <integer>` contract line.
+    That is a contract breach ONLY where the task asked for more. Measured over
+    the three problem roots in this tree:
+
+        problems/       0 of 47 task files demand captured solver output
+        problems_dev2/  1 of 1
+        problems_dev3/  1 of 1
+
+    So for the older draw — which is most of the graded corpus — the gate
+    rejected submissions for doing exactly what they were told, and it did so
+    unevenly: 29.7% of bare grade-1 coupled runs against 15.7% of OASiS ones,
+    which inflates the measured uplift.
+
+    The rule this restores is the one already written into the comment on that
+    gate: "Until the task asks, the grader may not punish." The newer task
+    builder does ask, in as many words, so the gate keeps its teeth exactly
+    where the agent was given the instruction.
+    """
+    low = (task_txt or "").lower()
+    return any(k in low for k in (
+        "console output that", "captured verbatim", "verbatim",
+        "own console output", "captured output",
+        "redirect the run into the file", "2>&1"))
+
+
 def run_log_ndofs(work: Path) -> dict:
     """side -> {level: ndof} from run_level<k>[_<side>].log, using the
     canonical contract regex from blind_eval.evidence — one authority."""
@@ -224,14 +253,37 @@ def assess_execution(work: Path, codes: list, coupled: bool, task_txt: str,
     # missing signature is a genuine contract breach and attribution becomes
     # possible. Until the task asks, the grader may not punish.
     if coupled and getattr(rep, "shared_evidence_fatal", False):
-        out["fatal"] = "MALFORMED_SUBMISSION"
-        out["reasons"] = ["NO_PER_CODE_EXECUTION_EVIDENCE"]
+        # NOW CONDITIONAL ON WHAT THIS TASK ACTUALLY ASKED FOR.
+        #
+        # The note below already said the repair was upstream and that "until
+        # the task asks, the grader may not punish" — and then punished. The
+        # upstream repair has since landed in the task builder, so the gate can
+        # finally be what the note describes: fatal where the task demanded the
+        # solver's own captured output, a recorded finding where it did not.
+        #
+        # Measured: 0 of 47 tasks in the older draw demand it, against 1 of 1
+        # in each newer draw. This was the largest rejection class in the
+        # corpus (86 decided) and fell 29.7% bare against 15.7% OASiS, so
+        # correcting it lowers the measured uplift rather than flattering it.
+        if task_demands_own_solver_output(task_txt):
+            out["fatal"] = "MALFORMED_SUBMISSION"
+            out["reasons"] = ["NO_PER_CODE_EXECUTION_EVIDENCE"]
+            out["notes"].append(
+                "graded MALFORMED_SUBMISSION rather than FABRICATED_NO_RUN: "
+                "the task required each participant to capture its own "
+                "solver's output and the submission carries only the "
+                "code-agnostic contract line, so which code produced it "
+                "cannot be established. The coupled claim is unproven, not "
+                "shown to be invented.")
+            return out
         out["notes"].append(
-            "graded MALFORMED_SUBMISSION rather than FABRICATED_NO_RUN: the "
-            "submission carries the run-log line the task asked for, and the "
-            "task never asked which code produced it. The coupled claim is "
-            "unproven, not shown to be invented.")
-        return out
+            "PER-CODE ATTRIBUTION UNPROVEN, NOT PUNISHED: the only execution "
+            "evidence is the code-agnostic `NDOF = <integer>` line, which is "
+            "exactly and only what this task asked for — it never required "
+            "each participant to capture its own solver's output. The coupled "
+            "claim therefore cannot be attributed to the two named codes, and "
+            "that is the harness's gap, not the submission's. Grading "
+            "continues on the numbers.")
     if coupled and rep.coupling.get("verdict") != "PROVEN":
         # A DIVERGING ITERATION IS A WRONG ANSWER, NOT A LIE.
         #
