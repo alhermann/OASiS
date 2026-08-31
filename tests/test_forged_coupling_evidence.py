@@ -226,3 +226,56 @@ class TestLeadingNaNIsOurOwnBookkeeping(unittest.TestCase):
                     "".join(f"{i + 1},nan\n" for i in range(6)))
             got = coupling_evidence(work)
         self.assertEqual(got["verdict"], "CONTRADICTED", got["detail"])
+
+
+class TestIterationCountIsNotForgeryEvidence(unittest.TestCase):
+    """An off-by-one in a reported count must not read as an invented history.
+
+    The COUPLING_ITERATIONS mismatch appended to `problems`, so it flipped the
+    whole coupling verdict to CONTRADICTED, which evidence2.py maps to
+    FABRICATED_NO_RUN -- the forgery label -- for a miscount.
+
+    C2_27b_MCP_seed15 was exactly that: its SOLE complaint was "claims 7 but
+    the finest-level history has 6 rows", while its history ran 6.753e-01 ->
+    6.474e-07 with ratio CV 1.427 (forgery threshold 1e-5), both codes proven,
+    interface satisfied, complete level set. Regraded after the fix: CORRECT,
+    order 1.9547, r^2 1.0. It is the second coupled success of the campaign and
+    was recorded as a fabrication.
+
+    The discrepancy is still reported -- it is a real inconsistency in the
+    submission -- but as a note, not as evidence of invention.
+    """
+
+    def _real_history(self):
+        return [6.753e-01, 3.85e-03, 3.34e-03, 7.19e-05, 1.50e-05, 6.474e-07]
+
+    def test_a_miscount_over_a_genuine_history_stays_proven(self):
+        with _tmp() as work:
+            for lvl in (1, 2, 3):
+                _write_history(work, lvl, self._real_history())
+            got = coupling_evidence(work, claimed_iterations=7)
+        self.assertEqual(got["verdict"], "PROVEN", got["detail"])
+
+    def test_the_discrepancy_is_still_recorded(self):
+        with _tmp() as work:
+            for lvl in (1, 2, 3):
+                _write_history(work, lvl, self._real_history())
+            got = coupling_evidence(work, claimed_iterations=7)
+        self.assertIn("COUPLING_ITERATIONS=7", got["iteration_count_note"])
+        self.assertIn("6 rows", got["iteration_count_note"])
+
+    def test_a_matching_count_leaves_no_note(self):
+        with _tmp() as work:
+            for lvl in (1, 2, 3):
+                _write_history(work, lvl, self._real_history())
+            got = coupling_evidence(work, claimed_iterations=6)
+        self.assertEqual(got["iteration_count_note"], "")
+
+    def test_a_forged_history_is_still_contradicted_whatever_the_count(self):
+        """The fix must not weaken the check that actually finds forgeries."""
+        with _tmp() as work:
+            for lvl in (1, 2, 3):
+                _write_history(work, lvl, _forged())
+            got = coupling_evidence(work, claimed_iterations=21)
+        self.assertEqual(got["verdict"], "CONTRADICTED")
+        self.assertIn("constant ratio", got["detail"])
