@@ -566,6 +566,23 @@ class DealiiBackend(SolverBackend):
         ]
 
     def get_knowledge(self, physics: str) -> dict:
+        # ATTACHED ON EVERY RETURN PATH, VIA A WRAPPER, NOT PER-BRANCH.
+        #
+        # This method resolves through three catalogs and returns from four
+        # places. Measured across the nine served backends, deal.II was the
+        # only one whose payload told an agent no way to read its solution at a
+        # point that is not a mesh node — and "the solve worked and was never
+        # read back" is the largest single failure bucket in the campaign, 60
+        # runs at 12.9%. Adding the recipe to one branch would have left the
+        # other three silent, which is the defect class this file has already
+        # been repaired for twice.
+        k = self._get_knowledge_inner(physics)
+        if isinstance(k, dict):
+            from backends.dealii.probe_recipe import DEALII_PROBE_RECIPE
+            k = {**k, "probe_recipe": DEALII_PROBE_RECIPE}
+        return k
+
+    def _get_knowledge_inner(self, physics: str) -> dict:
         # Resolution order (2026-06-01 audit closes task #69):
         #
         #   1. data/dealii_knowledge.py:DEALII_KNOWLEDGE — the
