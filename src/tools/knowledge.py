@@ -338,6 +338,48 @@ expression field fails, and the two failures below were both measured here.
     as a broken binary and is not one. The same rule applies to NODE COORDS and
     every `*_ELEMENTS` block.
 
+YOUR ERROR IS NOT FALLING UNDER REFINEMENT — DIAGNOSE IT IN THIS ORDER
+─────────────────────────────────────────────────────────────────────
+Measured across this campaign's single-code runs, the MEDIAN observed order of
+a run that scored wrong was 0.00 in BOTH arms: the error did not shrink at all
+between meshes. And 74-77% of those runs had already reported
+MESH_INDEPENDENCE = NOT_CONVERGED, so the agent KNEW. Knowing is not the hard
+part; isolating the cause is. Work through these, cheapest first. None of them
+needs a reference answer.
+
+  1. IS YOUR EVALUATOR ITSELF SECOND ORDER? Feed it a function you know.
+     Pick any smooth function -- u*(x,y) = x(1-x)y(1-y) will do -- sample it at
+     your MESH NODES, run those samples through the SAME code that produces your
+     probe values, and compare against u* evaluated at the probe points.
+     Refine and watch the error. Measured on a 44x44 probe grid over N = 8, 16,
+     32:
+         nearest-node lookup   5.39e-3 -> 2.66e-3 -> 1.34e-3   order ~1.0
+         linear/shape function 1.09e-3 -> 2.73e-4 -> 6.85e-5   order ~2.0
+     YOUR EVALUATOR'S OWN ORDER BOUNDS THE ORDER YOU CAN REPORT. If this test
+     gives 1, your probing is the defect and no improvement to the solve can
+     fix it. This costs one script and no solver run.
+
+  2. DO YOUR BOUNDARY VALUES COME BACK? If the problem prescribes u = 0 on the
+     outer boundary, evaluate your solution at probe points nearest that
+     boundary. Values that are not small say the boundary condition was applied
+     somewhere other than where you think, or the probe coordinates are in a
+     different frame from the mesh (offset, scaled, or transposed).
+
+  3. DID THE MESH ACTUALLY CHANGE? The degree-of-freedom count must GROW by
+     about 2**dim per level. If it is constant you solved one mesh and submitted
+     it repeatedly -- measured at 4-8% of runs -- and the error is then
+     identical at every level, which reads as order 0.
+
+  4. ONLY THEN SUSPECT THE PHYSICS. A source term sign, a material value, or a
+     boundary datum that is wrong gives a solution that converges CLEANLY to the
+     wrong function: the error stops falling because it is dominated by a term
+     refinement cannot remove. Re-derive the source term from your own strong
+     form and check one interior point by hand.
+
+REPORT WHAT YOU MEASURED EITHER WAY. A run that says NOT_CONVERGED and gives its
+largest relative change is worth more than one that claims convergence it cannot
+show, and it is scored on its numbers, not on its confidence.
+
 WHERE THE DELIVERABLE HAS TO END UP
 ──────────────────────────────────
 OASiS's run tools write their results into a TIMESTAMPED directory of their own,
@@ -597,6 +639,91 @@ tightened tolerance) that the solve never actually USED. Check the wiring, not
 the ingredient.
 """
 
+
+
+# ── THE CORE THAT MUST REACH EVERY knowledge() CALL ────────────────────────────
+# MEASURED, and this is why this constant exists. `_UNIVERSAL` was appended on
+# exactly ONE of the 31 return paths of tools.consolidated.knowledge() — the
+# topic="physics" path. Across the campaign's 995 measured knowledge calls from
+# 193 OASiS-arm runs, topic="pitfalls" was 66.3% and topic="physics" only 11.5%,
+# so 75.6% OF OASiS-ARM RUNS RECEIVED NONE OF IT. Every universal rule added
+# during development — the deliverable's location, the input-language warning,
+# the do-not-declare-the-solver-broken rule, the refinement ladder — reached at
+# most a quarter of the runs it was written for.
+#
+# Why a COMPACT core and not the whole 20k block everywhere: it is appended to
+# every call, and repetition consumes the same 262144-token window the history
+# lives in. Why not "serve the full block once per session": the runner executes
+# several run_one() calls in ONE process and nothing in the tool process
+# identifies the current run, so a module-level flag would serve run 1 and
+# starve runs 2..N — order-dependent, and asymmetric between arms and cells.
+# A fixed core on every path is deterministic and arm-symmetric.
+_UNIVERSAL_CORE = """
+
+────────────────────────────────────────────────────────────────────────────────
+FOUR RULES THAT APPLY WHATEVER YOU ASKED FOR
+────────────────────────────────────────────────────────────────────────────────
+
+1. THE DELIVERABLE GOES IN THE DIRECTORY YOU WERE GIVEN. Write your results
+   file, your scripts and your solver output under the working directory named
+   in your task, not in a temporary directory, not in the tool's installation
+   tree, and not in $HOME. Work that cannot be found is scored as absent.
+
+2. A SOLVER'S INPUT LANGUAGE IS NOT PYTHON. In decks and expression strings,
+   powers are `^` and not `**` (`-1*X^2`, never `-1*X**2`), and `pi`, `sin`
+   and `exp` may not exist. A wrong operator is often SILENT: the numeric
+   prefix is taken and the rest discarded, so the run succeeds with the wrong
+   load. Rewrite every term of a source you copied out of the task text.
+
+3. DO NOT CONCLUDE A SOLVER IS BROKEN. Almost every "broken solver" in this
+   campaign was a missing capture or an unread log. Redirect BOTH streams
+   (`cmd > out.log 2>&1`), read the log rather than the exit code — several
+   codes print their fatal error and still exit 0, and several print success
+   letter-spaced so a grep for the contiguous word never matches — and re-run
+   with the backend's verbose flag before reporting a failure.
+
+4. IF YOUR ERROR IS NOT FALLING UNDER REFINEMENT, diagnose in this order. The
+   median observed order among this campaign's wrong runs was 0.00 — the error
+   did not shrink at all — and 74-77% of them already knew they had not
+   converged. Cheapest test first; none needs a reference answer:
+     a. IS YOUR EVALUATOR SECOND ORDER? Push a function you KNOW (say
+        x(1-x)y(1-y)) through the SAME code that produces your probe values
+        and refine. Measured on a 44x44 probe grid at N = 8, 16, 32:
+            nearest-node lookup    5.39e-3 -> 2.66e-3 -> 1.34e-3   order ~1.0
+            linear/shape function  1.09e-3 -> 2.73e-4 -> 6.85e-5   order ~2.0
+        Your evaluator's own order BOUNDS the order you can report, and no
+        improvement to the solve can lift it. One script, no solver run.
+     b. DO THE BOUNDARY VALUES COME BACK? Probe nearest a boundary where the
+        value is prescribed. Values that are not right there mean the condition
+        landed elsewhere, or your probe coordinates are in a different frame.
+     c. DID THE MESH CHANGE? The degree-of-freedom count must GROW per level.
+        Constant means one mesh was solved and submitted repeatedly.
+     d. ONLY THEN THE PHYSICS. A wrong sign or material converges CLEANLY to
+        the wrong function. Re-derive the source from your own strong form.
+
+   Report what you measured either way: a run that states NOT_CONVERGED with
+   its largest relative change scores better than one claiming a convergence
+   it cannot show.
+
+5. IF YOUR SOLVER IS A BINARY, ITS INPUT FILE IS THE RUN INTERFACE and you
+   cannot guess it. For 4C, FEBio and SPARTA the full deck grammar — every
+   required section, in order, with the silent failure modes — is served by
+       knowledge(topic="physics", solver=<name>, physics=<name>)
+   and by NO other topic. Ask for it before deciding a deck cannot be written.
+   Two measured corrections, because runs have concluded the opposite and
+   stopped:
+     * 4C DOES ACCEPT PER-NODE DIRICHLET VALUES. `DESIGN LINE DIRICH
+       CONDITIONS` takes one scalar per line, which is why a per-node list
+       there aborts in "Read/generate conditions" — but `DESIGN POINT DIRICH
+       CONDITIONS` with a `DNODE-NODE TOPOLOGY` block sets a different value at
+       every named node, which is exactly what a Dirichlet-Neumann interface
+       needs. A run that reports this as a 4C limitation is wrong.
+     * FEBio DOES ACCEPT A POSITION-DEPENDENT BODY FORCE, as a `<body_load>`
+       component carrying `type="math"`. Without that attribute the expression
+       is silently truncated to its numeric prefix.
+
+Full detail, per backend: knowledge(topic="physics", solver=..., physics=...)
+"""
 
 def register_knowledge_tools(mcp: FastMCP):
 

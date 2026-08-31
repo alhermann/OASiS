@@ -481,6 +481,13 @@ SYNTHETIC_RATIO_CV = 1e-5
 # is, with no measured cost. Four ratios identical to full float precision is
 # not something a real iteration produces.
 MIN_RATIOS_FOR_DECAY_TEST = 3
+# HOW MUCH A SEQUENCE MUST ACTUALLY FALL BEFORE A CONSTANT RATIO ACCUSES ANYONE.
+#
+# 2x is deliberately weak: it only has to separate "this fell" from "this is a
+# flat line". Every forgery measured in this tree decays by orders of magnitude
+# (C7_27b_BARE_seed14: 0.01 -> 0.000625, 16x over four ratios), so the guard
+# costs the detector nothing, while a stalled real coupling sits at 1.0x.
+_FORGED_DECAY_MIN_DROP = 2.0
 
 
 def _decay_ratio_cv(vals: list) -> float | None:
@@ -644,16 +651,45 @@ def coupling_evidence(work: Path, iface_tol: float = 1e-6,
         cv = _decay_ratio_cv(vals)
         if cv is not None:
             info["ratio_cv"] = cv
-            if cv < SYNTHETIC_RATIO_CV:
+            # A CONSTANT RESIDUAL IS NOT A FORGED DECAY — IT IS NO DECAY.
+            #
+            # A residual that never moves has every ratio exactly 1.0, so its
+            # coefficient of variation is exactly 0 and this rule fired with a
+            # message reading "decays at a constant ratio" about a sequence that
+            # does not decay at all. Measured on C2_27b_MCP_seed71: 100
+            # iterations at 9.900835028609219e-01 on level 1, and 4C result
+            # files on disk for all three levels — a real run whose interface
+            # update had no effect, labelled FABRICATED_NO_RUN.
+            #
+            # Forgery needs POSITIVE evidence of invention. A closed-form decay
+            # like 0.01*0.5^k is that: someone wrote a formula. A flat line is
+            # the OPPOSITE — the absence of dynamics, which is what a coupling
+            # with no feedback produces. It is already reported honestly, twice,
+            # by "residual is constant" and "residual fell only 1x — an
+            # iteration that never moved did not couple", so it still
+            # CONTRADICTS; it just is not called forgery.
+            #
+            # The guard asks for real decay, not merely a steady ratio. It
+            # cannot shield a forgery: any invented decay has mean ratio < 1
+            # and total decrease > 1, so it still fires.
+            decayed = vals[0] / max(vals[-1], 1e-300) > _FORGED_DECAY_MIN_DROP
+            if cv < SYNTHETIC_RATIO_CV and decayed:
                 msg = (
                     f"level {lvl}: residual decays at a constant ratio "
                     f"(coefficient of variation {cv:.2e} over "
-                    f"{len(vals) - 1} steps) — that is a closed-form "
-                    f"sequence written into the file, not a partitioned "
-                    f"iteration, whose rate varies as the error's modal "
-                    f"composition changes")
+                    f"{len(vals) - 1} steps, total decrease "
+                    f"{vals[0] / max(vals[-1], 1e-300):.3g}x) — that is a "
+                    f"closed-form sequence written into the file, not a "
+                    f"partitioned iteration, whose rate varies as the error's "
+                    f"modal composition changes")
                 problems.append(msg)
                 forged.append(msg)
+            elif cv < SYNTHETIC_RATIO_CV:
+                problems.append(
+                    f"level {lvl}: residual ratio is perfectly constant but "
+                    f"the residual did not fall ({vals[0]:.3g} -> "
+                    f"{vals[-1]:.3g}) — an iteration with no feedback, not a "
+                    f"written-in sequence")
         per_level[lvl] = info
     # AN OFF-BY-ONE IN A REPORTED COUNT IS NOT A FORGED HISTORY.
     #

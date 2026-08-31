@@ -2105,7 +2105,9 @@ def _unsaved_work_notice(work_dir, out_files) -> str | None:
 # "verified 9/9 backends" through get_physics_knowledge, a tool the live
 # server does not expose. Agents call `knowledge` 2909 times in the campaign
 # transcripts and get_physics_knowledge zero times.
+import functools as _functools                                  # noqa: E402
 from .knowledge import _UNIVERSAL as _UNIVERSAL_BLOCK          # noqa: E402
+from .knowledge import _UNIVERSAL_CORE as _UNIVERSAL_CORE      # noqa: E402
 
 
 def register_consolidated_tools(mcp: FastMCP):
@@ -2118,10 +2120,9 @@ def register_consolidated_tools(mcp: FastMCP):
     # 1. KNOWLEDGE (replaces 13 separate knowledge tools)
     # ═══════════════════════════════════════════════════════════
 
-    @mcp.tool()
-    def knowledge(topic: str, solver: str = "", physics: str = "",
-                  signal: str = "", category: str = "",
-                  index: bool = False) -> str:
+    def _knowledge_body(topic: str, solver: str = "", physics: str = "",
+                        signal: str = "", category: str = "",
+                        index: bool = False) -> str:
         """Get knowledge about solvers, physics, materials, coupling,
         post-mortems, or input formats.
 
@@ -2749,6 +2750,34 @@ def register_consolidated_tools(mcp: FastMCP):
                 "whether a claim depends on how it was compiled, use "
                 "topic='install' (solver=... optional)."
             )
+
+
+    # EVERY return of _knowledge_body GETS THE CORE RULES — not just the one.
+    #
+    # `_UNIVERSAL_BLOCK` was appended on 1 of that function's 31 return paths
+    # (topic="physics"). Measured over the campaign's 995 knowledge calls from
+    # 193 OASiS-arm runs: topic="pitfalls" 66.3%, topic="physics" 11.5% — so
+    # 75.6% of OASiS-arm runs received NONE of the universal guidance, and every
+    # rule added during development reached at most a quarter of its audience.
+    #
+    # Wrapping is deliberate: appending at each return would fix today's 30 paths
+    # and leak again at the next one added. functools.wraps carries the docstring
+    # to @mcp.tool(), which reads it at decoration time, so there stays ONE copy.
+    # assigned=("__doc__",) AND NOT THE DEFAULT. functools.wraps copies
+    # __name__ too, and FastMCP names the tool from __name__ at decoration
+    # time, so the default registered this as `_knowledge_body` — renaming the
+    # single most-used tool out from under every agent. Caught by the test that
+    # asks what the agent ends up with rather than what the code does.
+    @mcp.tool()
+    @_functools.wraps(_knowledge_body, assigned=("__doc__",), updated=())
+    def knowledge(topic: str, solver: str = "", physics: str = "",
+                  signal: str = "", category: str = "",
+                  index: bool = False) -> str:
+        out = _knowledge_body(topic, solver, physics, signal, category, index)
+        if not isinstance(out, str):
+            return out
+        # the physics path already carries the full block; never send both
+        return out if _UNIVERSAL_BLOCK in out else out + _UNIVERSAL_CORE
 
     # ═══════════════════════════════════════════════════════════
     # 2. DISCOVER (replaces 6 discovery tools)
