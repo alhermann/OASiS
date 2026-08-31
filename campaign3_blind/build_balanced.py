@@ -301,10 +301,25 @@ class Geom:
 
     def iface_probe(self):
         """The interface probe rule, with the end-exclusion band applied to
-        whichever axes the interface actually spans."""
-        M = PROBE_M[self.dim]
-        a, b = V._iface_band(0, 1)
-        w = b - a
+        whichever axes the interface actually spans.
+
+        THE THIRD COPY OF THIS TEXT, AND THE ONE THAT ACTUALLY FEEDS C1..C12.
+        There were three: `iface_probe_rule` in build_coupled_v2 (zero callers,
+        now deleted), `_straight_iface_probe` there (used by the v2 specs), and
+        this one. I fixed the first, found it dead, fixed the second, and only
+        caught that C2 still emitted the old grid by reading the task text a
+        drawn instance actually contains. That is the whole argument for testing
+        what the AGENT ends up with.
+
+        Coordinates now come from V.iface_probe_indices, the single authority,
+        so a fourth divergence is not possible without changing that function.
+        See it for why the interface points must be a SUBSET of the solution
+        probe grid: the fabricated-flux cross-check needs field samples AT an
+        interface coordinate, and under the old independent spacing the two sets
+        shared none -- solution probes at odd multiples of 1/88, interface
+        probes at (45+2i)/176.
+        """
+        M, js = V.iface_probe_indices(self.dim, V._iface_band(0, 1))
         free = [i for i in range(self.dim) if i != self.axis]
         pt = [""] * self.dim
         pt[self.axis] = f"{XI}"
@@ -312,15 +327,18 @@ class Geom:
                 "interface meets the outer boundary the split problem has a "
                 "Dirichlet-Neumann corner, the recovered flux there does not "
                 "converge under refinement, and those points are therefore not "
-                "graded")
+                "graded. They are exactly the solution probe coordinates lying "
+                "in the graded band, so the same values appear in your "
+                "solution_level<k>_<side>.csv rows")
         if self.dim == 2:
-            pt[free[0]] = f"{a} + (i+0.5)*{w}/{M}"
-            return (f"the {M} points (x, y) = ({pt[0]}, {pt[1]}) for "
-                    f"i = 0, 1, ..., {M - 1}. " + tail)
-        pt[free[0]] = f"{a} + (i+0.5)*{w}/{M}"
-        pt[free[1]] = f"{a} + (j+0.5)*{w}/{M}"
-        return (f"the {M * M} points (x, y, z) = ({pt[0]}, {pt[1]}, {pt[2]}) "
-                f"for i, j = 0, 1, ..., {M - 1}, ordered with j varying "
+            pt[free[0]] = f"(j+0.5)/{M}"
+            return (f"the {len(js)} points (x, y) = ({pt[0]}, {pt[1]}) for "
+                    f"j = {js[0]}, {js[0] + 1}, ..., {js[-1]}. " + tail)
+        pt[free[0]] = f"(j+0.5)/{M}"
+        pt[free[1]] = f"(k+0.5)/{M}"
+        return (f"the {len(js) * len(js)} points (x, y, z) = "
+                f"({pt[0]}, {pt[1]}, {pt[2]}) for j, k = {js[0]}, "
+                f"{js[0] + 1}, ..., {js[-1]}, ordered with k varying "
                 f"fastest. " + tail)
 
 
@@ -603,6 +621,12 @@ def instance_C4(d):
         {"A": uA, "B": uB}, {"A": fA, "B": fB}, co
 
 
+# C5's two legs are graded on different bands, so each needs its own index
+# list from the shared authority.
+_C5_L1 = V.iface_probe_indices(2, (0.125, 0.375))[1]
+_C5_L2 = V.iface_probe_indices(2, (0.625, 0.875))[1]
+
+
 def instance_C5(d):
     """scikit-fem + FEniCSx -- the NOTCHED construction, carried over from D5.
 
@@ -671,15 +695,23 @@ def instance_C5(d):
         interface_tol="1e-6 relative", flux_word="flux",
         iface_header="x, y, u, qn",
         qn_name="qn", qn_desc="conductive flux qn = -(k grad u) . n_out",
+        # FOURTH COPY of the interface-probe text, for C5's BENT interface.
+        # Routed through V.iface_probe_indices like the other live ones, so the
+        # coordinates are solution-probe coordinates and the fabricated-flux
+        # cross-check can run on this cell too. Each leg carries its own band.
         probe_iface=(
-            f"{M} points on each leg, covering the INTERIOR of that leg only. "
-            f"Leg 1 is (x, y) = (1/2, 1/8 + (i+0.5)*(1/4)/{M}) and leg 2 is "
-            f"(x, y) = (5/8 + (i+0.5)*(1/4)/{M}, 1/2), for "
-            f"i = 0, 1, ..., {M - 1}. Write leg 1 first, then leg 2, "
-            f"{2 * M} rows in total. The ends of each leg are excluded: one end "
-            f"of each meets the outer boundary and the other meets the corner "
-            f"where the two legs join, and the recovered flux does not converge "
-            f"at either"),
+            f"{len(_C5_L1)} points on each leg, covering the INTERIOR of that "
+            f"leg only. Leg 1 is (x, y) = (1/2, (j+0.5)/{M}) for "
+            f"j = {_C5_L1[0]}, {_C5_L1[0] + 1}, ..., {_C5_L1[-1]}, and leg 2 "
+            f"is (x, y) = ((j+0.5)/{M}, 1/2) for j = {_C5_L2[0]}, "
+            f"{_C5_L2[0] + 1}, ..., {_C5_L2[-1]}. Write leg 1 first, then leg "
+            f"2, {len(_C5_L1) + len(_C5_L2)} rows in total. The ends of each "
+            f"leg are excluded: one end of each meets the outer boundary and "
+            f"the other meets the corner where the two legs join, and the "
+            f"recovered flux does not converge at either. These are exactly "
+            f"the solution probe coordinates lying in each leg's graded band, "
+            f"so the same values appear in your solution_level<k>_<side>.csv "
+            f"rows"),
         mesh_N=MESH_N, theoretical_order=2.0, tol=0.4, band=[0.8, 3.2],
         extent_a=[(0.0, 1.0), (0.0, 1.0)],
         probe_a_exclude=[[(0.5, 1.0), (0.0, 0.5)], [(0.75, 1.0), (0.75, 1.0)]],

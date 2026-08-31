@@ -55,6 +55,41 @@ sys.path.insert(0, str(HERE.parent / "src"))
 # that rejects everything.
 import grade_blind_v2 as G                                       # noqa: E402
 from grading import loading as _loading                          # noqa: E402
+import build_coupled_v2 as _V                                    # noqa: E402
+
+
+# LINES MEASURED FROM REAL RUNS OF EACH CODE, one per backend. The contract
+# asks the agent to capture the solver's own console output, so a harness that
+# checks "would a correct submission be accepted?" has to produce it. Invented
+# English would not do: the per-code signature table deliberately rejects the
+# phrasings an agent writes about its own hand-rolled solver, which is exactly
+# what `code = <name>` was.
+_OWN = {
+    "fenics":  "[2026-08-31 12:12:57.402] [info] Cell type: 0 dofmap: {nd}x3\n",
+    "fenicsx": "[2026-08-31 12:12:57.402] [info] Cell type: 0 dofmap: {nd}x3\n",
+    "dolfinx": "[2026-08-31 12:12:57.402] [info] Cell type: 0 dofmap: {nd}x3\n",
+    "ngsolve": "assemble VOL element {nd}/{nd}\n",
+    "dealii":  "DEAL:cg::Starting value 3.027e-02\n"
+               "DEAL:cg::Convergence step 47 value 4.129e-13\n",
+    "skfem":   "INFO:skfem.utils:Solving linear system, shape=({nd}, {nd}).\n",
+    "dune":    "Fem::CG preconditioning=none\nFem::CG it: 0 : residual 1.0e-01\n",
+    "kratos":  "ModelPartIO:   [Reading Nodes    : {nd} nodes read]\n",
+    "4C":      "Finalised step 1 / 1 | time 1.000e+00 | dt 1.000e+00 "
+               "| nlniter 4 | wct 4.21e-02\n",
+    "fourc":   "Finalised step 1 / 1 | time 1.000e+00 | dt 1.000e+00 "
+               "| nlniter 4 | wct 4.21e-02\n",
+    "febio":   "\tNr of equations ........................... : {nd}\n"
+               " N O R M A L   T E R M I N A T I O N\n",
+    "sparta":  "Created {nd} child grid cells\n"
+               "Loop time of 0.018019 on 1 procs for 100 steps with "
+               "17328 particles\n",
+}
+
+
+def _own_output(code: str, nd: int) -> str:
+    """The named code's own output line. Unknown code -> nothing, and the
+    evidence gate will then say so rather than this harness pretending."""
+    return _OWN.get(str(code).lower(), "").format(nd=nd)
 
 # v1 exposed these as module constants; v2 resolves them through loading, which
 # honours OASIS_BLIND_KEYS and is encryption-aware.
@@ -244,21 +279,44 @@ def build_submission(pid: str, key: dict, spec: dict, work: Path,
             code = codes[0 if side == "A" else (1 if len(codes) > 1 else 0)]
             logname = (f"run_level{lvl}_{side}.log" if coupled
                        else f"run_level{lvl}.log")
+            nd = 1200 * (2 ** dim) ** (lvl - 1)
+            # THE CONTRACT NOW ASKS FOR THE SOLVER'S OWN CAPTURED OUTPUT, so a
+            # "correct submission" that carries only the canonical line is no
+            # longer correct -- on a coupled cell it cannot show that two
+            # DIFFERENT codes ran, because one file cannot be two codes'
+            # output. `code = <name>` is prose the agent types; it never was
+            # evidence. _own_output emits a line measured from a real run of
+            # that code.
             (work / logname).write_text(
-                (f"code = {code}\nside = {side}\n" if coupled
-                 else f"code = {code}\n")
-                + f"NDOF = {1200 * (2 ** dim) ** (lvl - 1)}\n")
+                (f"side = {side}\n" if coupled else "")
+                + _own_output(code, nd)
+                + f"NDOF = {nd}\n")
         # A partitioned-iteration residual history: at least three iterations,
         # positive, falling by more than 10x, ending at or below the prescribed
         # interface tolerance. A monolithic solve has none at all.
         if not coupled:
             continue
+        # A HONEST HISTORY IS NEITHER A CLOSED FORM NOR THE SAME AT EVERY LEVEL.
+        #
+        # This wrote r *= 0.25 -- a constant ratio, coefficient of variation
+        # exactly 0 -- and wrote the identical sequence at every mesh level. Both
+        # are now forgery signals, and rightly: a closed-form sequence is a
+        # formula rather than a measurement, and a partitioned iteration's
+        # residual depends on the discretisation, so three different meshes
+        # cannot give the same numbers to the last bit. So this harness's
+        # "correct submission" graded FABRICATED_NO_RUN /
+        # SYNTHETIC_RESIDUAL_HISTORY -- it was modelling an honest run as a
+        # textbook forgery.
+        #
+        # The rate now wanders deterministically and differs per level, the way
+        # a real Dirichlet-Neumann iteration does as the error's modal
+        # composition changes.
         with open(work / f"residual_level{lvl}.csv", "w") as fh:
             fh.write("iteration,interface_residual\n")
-            r, i = 1.0, 1
+            r, i = 1.0 + 0.11 * lvl, 1
             while r > tol * 0.5:
                 fh.write(f"{i},{r:.6e}\n")
-                r *= 0.25
+                r *= 0.18 + 0.07 * ((i * 7 + lvl * 3) % 5)
                 i += 1
             fh.write(f"{i},{r:.6e}\n")
             info["iters"] = i
@@ -284,7 +342,11 @@ def build_submission(pid: str, key: dict, spec: dict, work: Path,
                           for l in range(1, len(key["mesh_N"]) + 1)),
                 key.get("theoretical_order", 2.0)))
         return info
-    M = 44 if dim == 2 else 21
+    # THE FIFTH COPY OF THE INTERFACE GRID. `M = 44 if dim == 2 else 21` with
+    # band-relative spacing is what this harness built, and the task text now
+    # states 22 points at solution-probe coordinates -- so the harness's
+    # "correct" submission was rejected for having the wrong probe set. The
+    # coordinates come from the shared authority now.
     legs = spec.get("iface_legs")
     if not legs and spec.get("interface_axis") in ("x", "y", "z"):
         legs = [{"axis": {"x": 0, "y": 1, "z": 2}[spec["interface_axis"]],
@@ -293,24 +355,22 @@ def build_submission(pid: str, key: dict, spec: dict, work: Path,
     ipts = []                     # (point, leg axis) pairs
     if legs and dim == 2:
         for leg in legs:
-            a, b = leg["band"]
-            w_ = b - a
-            for i in range(M):
+            M, js = _V.iface_probe_indices(2, leg["band"])
+            for j in js:
                 pt = [0.0, 0.0]
                 pt[leg["axis"]] = float(leg["value"])
-                pt[1 - leg["axis"]] = a + (i + 0.5) * w_ / M
+                pt[1 - leg["axis"]] = (j + 0.5) / M
                 ipts.append((pt, leg["axis"]))
     elif legs and dim == 3:
         leg = legs[0]
-        a, b = leg["band"]
-        w_ = b - a
+        M, js = _V.iface_probe_indices(3, leg["band"])
         free = [i for i in range(3) if i != leg["axis"]]
-        for i in range(M):
-            for j in range(M):
+        for j in js:
+            for k in js:
                 pt = [0.0, 0.0, 0.0]
                 pt[leg["axis"]] = float(leg["value"])
-                pt[free[0]] = a + (i + 0.5) * w_ / M
-                pt[free[1]] = a + (j + 0.5) * w_ / M
+                pt[free[0]] = (j + 0.5) / M
+                pt[free[1]] = (k + 0.5) / M
                 ipts.append((pt, leg["axis"]))
     if ipts:
         header = spec.get("iface_header") or ", ".join(

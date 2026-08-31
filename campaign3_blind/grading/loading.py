@@ -96,7 +96,25 @@ def keys_dir(override: Path | str | None = None) -> Path:
 
 
 def problems_dir(override: Path | str | None = None) -> Path:
-    return Path(override) if override else PROBLEMS
+    """Where the question sheets come from.
+
+    OASIS_BLIND_PROBLEMS IS HONOURED, AND WAS NOT. Keys have always been
+    relocatable through OASIS_BLIND_KEYS; problems were hardcoded. That
+    asymmetry produced a silent false pass: checking a freshly drawn instance
+    with `OASIS_BLIND_PROBLEMS=problems_dev3 OASIS_BLIND_KEYS=.../keys_dev3
+    check_grader_accepts.py C2` read the NEW key against the OLD task text, and
+    reported "1/1 instances would accept a correct submission" — a green result
+    from mismatched inputs. The give-away was the reported interface count, 44,
+    against the 22 the new task states.
+
+    A fresh draw into its own root is the documented way to avoid overwriting a
+    spent instance (build_balanced --problems-root), so the grader has to be
+    able to read one.
+    """
+    if override:
+        return Path(override)
+    env = os.environ.get("OASIS_BLIND_PROBLEMS")
+    return Path(env) if env else PROBLEMS
 
 
 # ── the public spec: mandatory, never defaulted ───────────────────────────

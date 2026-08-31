@@ -174,7 +174,20 @@ def iface_probe_indices(dim: int, span, extent: float = 1.0):
     """
     M = PROBE_M[dim]
     lo, hi = float(span[0]), float(span[1])
-    return M, [j for j in range(M) if lo <= (j + 0.5) * extent / M <= hi]
+    js = [j for j in range(M) if lo <= (j + 0.5) * extent / M <= hi]
+    # THE GUARD BELONGS HERE, IN THE AUTHORITY.
+    #
+    # It was written into iface_probe_rule, which then turned out to have zero
+    # callers and was deleted -- taking the guard with it. A band too narrow to
+    # hold three solution-probe coordinates would then have quietly produced a
+    # one- or two-point interface statistic, which is not a statistic.
+    if len(js) < 3:
+        raise RuntimeError(
+            f"the graded band {span} at M={M} (extent {extent:g}) contains only "
+            f"{len(js)} solution-probe coordinate(s); an interface statistic "
+            f"over fewer than three points is meaningless. Widen the band or "
+            f"raise M.")
+    return M, js
 
 
 def _exclusion_text(spec) -> str:

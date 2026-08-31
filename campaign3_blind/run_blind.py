@@ -440,6 +440,18 @@ def _quarantine_stray_scratch() -> list:
     return moved
 
 
+def _problems_root() -> Path:
+    """The question sheets, from the same place the grader takes them.
+
+    Mirrors campaign3_blind/grading/loading.problems_dir(): OASIS_BLIND_PROBLEMS
+    if set, else campaign3_blind/problems. Two independent notions of "where the
+    task text lives" is how a runner ends up serving one contract while the
+    grader enforces another.
+    """
+    env = os.environ.get("OASIS_BLIND_PROBLEMS")
+    return Path(env) if env else (HERE / "problems")
+
+
 def preflight_or_die(problems: list) -> None:
     """Every custody control, executed, before a single paid run starts.
 
@@ -574,7 +586,16 @@ def run_one(pid: str, model: str, cond: str, seed: int, timeout_s: int) -> dict:
 
     work = run_dir / "work"
     work.mkdir(parents=True, exist_ok=True)
-    task = (HERE / "problems" / pid / "task.txt").read_text(encoding="utf-8")
+    # THE RUNNER MUST READ THE SAME PROBLEMS ROOT THE GRADER READS.
+    #
+    # This was hardcoded to HERE/"problems" while the grader's loading.py
+    # resolves OASIS_BLIND_PROBLEMS. A fresh draw goes into its own root
+    # (build_balanced --problems-root, so a spent instance is never
+    # overwritten), so a hardcoded runner serves the OLD task text and the
+    # grader grades against the NEW key -- agent and grader disagreeing about
+    # what was asked, which is the exact class of defect this harness has hit
+    # repeatedly.
+    task = (_problems_root() / pid / "task.txt").read_text(encoding="utf-8")
     # STATE THE BUDGET. Round 1: 13 of 14 coupled OASiS runs stopped
     # VOLUNTARILY at a mean of 37% of the wall budget (floor 11.8%, 24 calls,
     # zero solver runs), and 47 statements across those transcripts invoke
@@ -795,7 +816,7 @@ def main():
     if a.phase == "evaluation":
         import phase as _phase
         try:
-            _phase.assert_evaluation_is_clean(HERE / "problems")
+            _phase.assert_evaluation_is_clean(_problems_root())
         except _phase.EvaluationNotCleanError as exc:
             sys.exit(f"REFUSING TO RUN AN EVALUATION: {exc}")
         overlap = sorted(set(a.problems) & set(_phase.DEVELOPMENT))
