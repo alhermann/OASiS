@@ -79,10 +79,45 @@ class TestTheServedPayload(unittest.TestCase):
             f"rising residual as its own error.")
 
     def test_the_block_is_at_the_front_not_buried(self):
-        """It is the first thing the agent reads, or it is optional."""
+        """It is among the first things the agent reads, or it is optional.
+
+        The bound is the LENGTH OF THE MUST-READ BLOCK, not a fixed number: the
+        block grew when the residual-history contract was added ahead of the
+        divergence table, which pushed the swap remedy from 1,004 to 2,537
+        characters in. Both are still inside the block. A fixed 2,500 would fail
+        for the right reason and the wrong cause.
+        """
+        from tools.consolidated import _COUPLING_MUST_READ
         self.assertLess(
-            self.served.index("SWAP WHICH SIDE IS DIRICHLET"), 2500,
-            "the must-read block is no longer near the top of the payload")
+            self.served.index("SWAP WHICH SIDE IS DIRICHLET"),
+            len(_COUPLING_MUST_READ),
+            "the swap remedy is no longer inside the must-read block, so it is "
+            "subject to truncation again")
+
+    def test_the_graded_artefact_is_named_before_anything_else(self):
+        """MEASURED GAP: `residual_level` appeared NOWHERE in the 24,589-char
+        served coupling payload, while the coupled task requires
+        residual_level<k>.csv as its evidence of a partitioned iteration. All
+        three OASiS runs of C2 hand-rolled the loop, and the one that ran 4C for
+        real wrote 1.0, 0.5, 0.25, ... into that file -- graded a fabrication.
+        The knowledge explained the handshake and the exports schema and never
+        named the artefact the grader wants."""
+        i = self.served.find("residual_level<k>.csv")
+        self.assertGreaterEqual(i, 0, "the graded artefact is still unnamed")
+        self.assertLess(i, 600, f"named only at char {i}")
+
+    def test_it_says_couple_produces_that_history(self):
+        self.assertIn("couple(participants", self.served)
+        j = self.served.index("couple(participants")
+        self.assertLess(j, 1200, f"the call appears only at char {j}")
+
+    def test_it_states_that_a_closed_form_history_is_detected(self):
+        """Stating the grading rule is what the mission permits and what the
+        gate grades against; withholding it produced a fabrication instead."""
+        for phrase in ("DETECTED and graded as fabrication",
+                       "constant ratio is a formula",
+                       "SAME numbers at two mesh levels"):
+            self.assertIn(phrase, self.served, f"missing: {phrase}")
 
     def test_the_truncation_hint_still_says_more_exists(self):
         self.assertIn("TRUNCATED HERE", self.served)

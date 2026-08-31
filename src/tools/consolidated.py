@@ -5845,6 +5845,32 @@ _COUPLING_HEAD_LIMIT = 24000
 # so the default max_iter = 50 is ALREADY SHORT at rho = 2, and the default
 # accelerator diverges on exactly the severe-contrast cells this campaign uses.
 _COUPLING_MUST_READ = """\
+THE GRADED ARTEFACT IS THE ITERATION HISTORY, AND `couple` IS WHAT PRODUCES IT.
+
+The coupled task asks you to write `residual_level<k>.csv` — one row per
+partitioned-iteration step, per mesh level. That file IS the evidence that two
+codes iterated against each other; nothing else in the submission can show it.
+
+    couple(participants='[{"name": "A", "command": "<run side A>",
+                           "work_dir": "<ABSOLUTE path>", "imports_from": ["B"]},
+                          {"name": "B", "command": "<run side B>",
+                           "work_dir": "<ABSOLUTE path>", "imports_from": ["A"]}]',
+           max_iter=100, tol=1e-6)
+
+returns `history` — the per-iteration interface residual. Write those numbers
+into residual_level<k>.csv. Get ONE participant writing exports.json standalone
+first, then the second, then call couple: that order costs the fewest attempts.
+
+IF YOU DRIVE THE LOOP YOURSELF, IT MUST ACTUALLY ITERATE. A closed-form
+sequence written into that file — 1.0, 0.5, 0.25, 0.125, … or any r*q^k — is
+DETECTED and graded as fabrication, not as a result. Two checks, both stated
+here because the gate grades against them: the per-step ratio of a real
+Dirichlet-Neumann iteration varies as the error's modal composition changes, so
+a constant ratio is a formula; and the history depends on the discretisation, so
+the SAME numbers at two mesh levels cannot both be measurements. A run that
+honestly reports a diverging or stalling iteration scores better than one that
+reports a clean invented one.
+
 BEFORE ANYTHING ELSE — HOW MANY ITERATIONS TO BUDGET, AND WHEN THIS DIVERGES.
 
 rho = the interface conductance (or stiffness) of the DIRICHLET-side subdomain
@@ -5876,12 +5902,20 @@ def _front_load_coupling(payload: str, solver: str = "") -> str:
         return payload
     budget = _COUPLING_HEAD_LIMIT - len(_COUPLING_MUST_READ)
     head = _COUPLING_MUST_READ + payload[:budget]
-    # cut on a section boundary so no instruction is truncated mid-sentence
-    for marker in ("\n────", "\n\n#", "\n\n", "\n"):
-        cut = head.rfind(marker)
-        if cut > _COUPLING_HEAD_LIMIT // 2:
-            head = head[:cut]
-            break
+    # Cut on a section boundary so no instruction is truncated mid-sentence --
+    # but take the LONGEST safe cut, not the first marker type that qualifies.
+    #
+    # This tried the markers in order and broke on the first whose LAST
+    # occurrence sat past half the limit. Section separators are sparse, so
+    # `\n────` typically last occurs well before the budget ends: measured, the
+    # head collapsed from 24,000 to 14,585 characters and the served payload
+    # from ~24,600 to 17,329. A third of the agent's coupling budget was being
+    # discarded to avoid a mid-sentence cut that a later `\n\n` would have
+    # avoided just as well.
+    cuts = [head.rfind(m) for m in ("\n────", "\n\n#", "\n\n", "\n")]
+    cut = max([c for c in cuts if c > _COUPLING_HEAD_LIMIT // 2], default=-1)
+    if cut > 0:
+        head = head[:cut]
     rest = len(payload) - (len(head) - len(_COUPLING_MUST_READ))
     hint = (f"\n\n{'─' * 70}\n"
             f"THIS PAYLOAD IS TRUNCATED HERE. {rest:,} further characters "
