@@ -83,6 +83,56 @@ with `DVOL-NODE TOPOLOGY`. Using the VOL form on a 2-D problem is trap (d)
 below. Omit this section and you solve f = 0 -- the run succeeds and the
 answer is wrong, which is the worst failure mode available.
 
+PER-NODE DIRICHLET DATA IS EXACT, AND NEEDS NO FITTED FUNCTION.
+A Dirichlet-side participant receives a DISCRETE interface profile, one value per
+interface node. `DESIGN LINE DIRICH CONDITIONS` takes ONE scalar VAL (times an
+optional FUNCT), so it cannot carry that profile -- but one POINT condition PER
+NODE can, and it is exact:
+
+  DESIGN POINT DIRICH CONDITIONS:
+    - E: 1
+      NUMDOF: 1
+      ONOFF: [1]
+      VAL: [0.00016283346722727]        # this node's imported value
+      FUNCT: [0]
+    - E: 2
+      NUMDOF: 1
+      ONOFF: [1]
+      VAL: [0.00030035999458698]
+      FUNCT: [0]
+  DNODE-NODE TOPOLOGY:
+    - "NODE 17 DNODE 1"
+    - "NODE 34 DNODE 2"
+
+One `E` id per interface node, one topology line mapping that node to it. The
+values above are verbatim from a real submission that ran to completion.
+
+DO NOT least-squares-fit the profile into a SYMBOLIC_FUNCTION_OF_SPACE_TIME
+unless there is no alternative. A fit converges to a slightly DIFFERENT
+boundary-value problem, so the refinement study measures the fit rather than the
+method and the error does not fall at the expected rate. Measured: one agent
+concluded "4C cannot impose per-node Dirichlet values" and wrote
+COULD_NOT_COMPLETE, while another used point conditions and produced a complete
+three-level submission from the same binary.
+
+WHICH PROBLEM TYPE YOU PICK DECIDES WHETHER YOU CAN READ YOUR OWN ANSWER.
+Measured on this build:
+  * `PROBLEMTYPE: "Thermo"` with a `THERMAL DYNAMIC` section and
+        IO:
+          VERBOSITY: "Standard"
+        IO/RUNTIME VTK OUTPUT:
+          OUTPUT_DATA_FORMAT: ascii
+    writes <prefix>-vtk-files/thermo-<step>-<rank>.vtu -- ASCII VTU, readable
+    with meshio, which is what you need to evaluate the field at probe points.
+  * `PROBLEMTYPE: "Scalar_Transport"` with the SAME IO block writes NO VTU on
+    this build: only <prefix>.control and <prefix>.result.scatra.s1, the latter
+    binary. `4C -p` offers IO/RUNTIME VTK OUTPUT/{BEAMS,FLUID,STRUCTURE} and no
+    scatra subsection, and SCALAR TRANSPORT DYNAMIC's `OUTPUTSCALARS` emits
+    totals and means, not fields.
+Choose the route by what you must DELIVER, not only by what the physics is
+called: a conduction problem whose field you have to probe is easier to read
+back through Thermo.
+
 FOUR MEASURED WAYS THIS DIES, all of them silently:
 (a) THE LEGACY BLOCKS ARE YAML SEQUENCES. `NODE COORDS`, `TRANSPORT
     ELEMENTS` and `D*-NODE TOPOLOGY` entries each need `- ` and quotes.
