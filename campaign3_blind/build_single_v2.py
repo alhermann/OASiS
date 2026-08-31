@@ -176,6 +176,23 @@ cross-checks against the mesh. A level without (b) counts as not run at all. A
 log that carries no output the NAMED code itself produced cannot be credited to
 that code, however plausible its numbers are.
 
+VERBOSITY IS NOT FREE. Four of the codes print nothing useful at their default
+settings, so capturing (a) requires one extra line. These were measured on this
+machine; use the one for your code:
+  * FEniCSx / dolfinx  — silent by default. Before creating the mesh:
+        import dolfinx; dolfinx.log.set_log_level(dolfinx.log.LogLevel.INFO)
+    (the DOLFINX_LOGLEVEL environment variable is NOT honoured)
+  * deal.II            — needs BOTH:
+        deallog.depth_console(2);
+        SolverControl ctl(max_it, tol, /*log_history=*/true, /*log_result=*/true);
+    depth_console alone prints nothing.
+  * NGSolve            — ngsolve.ngsglobals.msg_level = 3
+    (or use ngsolve.solvers.CG(..., printrates=True), which works at the default)
+  * DUNE-fem           — pass parameters={"linear.verbose": True} to galerkin(...)
+  * scikit-fem         — logging.basicConfig(level=logging.INFO), or print(basis).
+    Its log goes to STDERR, so you must redirect with 2>&1 or it is lost.
+  * Kratos, 4C, FEBio, SPARTA — nothing to set; they print at default settings.
+
 Then write the single summary file `RESULT.txt` containing exactly these lines:
     LEVELS = <number of mesh levels you solved>
     FILES = <comma-separated list of the CSV files you wrote>

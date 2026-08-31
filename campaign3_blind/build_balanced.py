@@ -199,6 +199,23 @@ two DIFFERENT codes. The assessment reads (a) to establish which code ran on
 each side and (b) as the number it cross-checks against the mesh; a side whose
 log carries no output from its own named code cannot be credited to that code,
 however plausible its numbers are.
+
+    VERBOSITY IS NOT FREE. Some codes print nothing useful by default, so (a)
+    needs one extra line. Measured; use the one for your side's code:
+      * FEniCSx / dolfinx  silent by default. Before creating the mesh:
+            import dolfinx
+            dolfinx.log.set_log_level(dolfinx.log.LogLevel.INFO)
+        (the DOLFINX_LOGLEVEL environment variable is NOT honoured)
+      * deal.II            needs BOTH deallog.depth_console(2); AND
+            SolverControl ctl(max_it, tol, true /*log_history*/,
+                              true /*log_result*/);
+        depth_console alone prints nothing.
+      * NGSolve            ngsolve.ngsglobals.msg_level = 3   (or
+        ngsolve.solvers.CG(..., printrates=True), which works at the default)
+      * DUNE-fem           parameters={"linear.verbose": True} on galerkin(...)
+      * scikit-fem         logging.basicConfig(level=logging.INFO), or
+        print(basis). Its log goes to STDERR: redirect with 2>&1 or lose it.
+      * Kratos, 4C, FEBio, SPARTA   nothing to set; they print by default.
 """
 
 

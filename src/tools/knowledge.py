@@ -270,6 +270,40 @@ def _find_reference_test_files(solver: str, physics: str) -> str:
 # backend.get_knowledge(), so this is the one place a cross-backend rule
 # cannot be missed.
 _UNIVERSAL = """
+CAPTURING YOUR SOLVER'S OWN OUTPUT (asked for by every task's run-log clause)
+────────────────────────────────────────────────────────────────────────────
+The run log must carry the text YOUR SOLVER printed, not a line you wrote about
+it, because that text is what shows WHICH code ran. Redirect the run:
+
+    <your run command>  > run_level<k>.log 2>&1        # keep 2>&1
+
+Four codes print nothing useful at their defaults, so this needs one extra line.
+Measured on this machine, per code:
+
+  * FEniCSx / dolfinx  SILENT by default -- a redirected run gives a 0-byte
+    file. Before creating the mesh:
+        import dolfinx
+        dolfinx.log.set_log_level(dolfinx.log.LogLevel.INFO)
+    The DOLFINX_LOGLEVEL environment variable is NOT honoured.
+  * deal.II            needs BOTH, and depth_console alone prints nothing:
+        deallog.depth_console(2);
+        SolverControl ctl(max_it, tol, true /*log_history*/,
+                          true /*log_result*/);
+    deal.II's LIBRARY emits no mesh count at any verbosity -- the
+    "Number of active cells" line in the tutorials is the tutorial's own print.
+    Its solver iteration count is the number to log.
+  * NGSolve            ngsolve.ngsglobals.msg_level = 3 (level 0 gives 0 lines,
+    levels 1-2 give 1). Or ngsolve.solvers.CG(..., printrates=True), which is
+    pure Python and works at the default level.
+  * DUNE-fem           parameters={"linear.verbose": True} on galerkin(...).
+    `fem.solver.verbose` does NOT work. Ignore the DUNE-INFO "Compiling Space"
+    lines: they appear only on a cold JIT cache and vanish on a second run.
+  * scikit-fem         logging.basicConfig(level=logging.INFO), or print(basis).
+    Its log goes to STDERR, so `> log` without `2>&1` LOSES it.
+  * Kratos, 4C, FEBio, SPARTA   nothing to set; all print at default settings.
+    4C also writes <name>.control next to its results, carrying its own git sha
+    and a num_dof field -- keep it, it is strong evidence the binary ran.
+
 EVALUATING YOUR SOLUTION AT THE GRADED PROBE POINTS
 ───────────────────────────────────────────────────
 Every cell is graded at a FIXED set of points that does not move with your

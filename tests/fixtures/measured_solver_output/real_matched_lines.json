@@ -1,0 +1,63 @@
+{
+ "fenics": [
+  "[2026-08-31 12:12:57.402] [info] Cell type: 0 dofmap: 512x3",
+  "[2026-08-31 12:12:57.402] [info] nodes.size = 289",
+  "[2026-08-31 12:12:57.402] [info] xdofs.size = 1536"
+ ],
+ "dealii": [
+  "DEAL:cg::Check 0\t0.0302734",
+  "DEAL:cg::Convergence step 47 value 4.12911e-13",
+  "DEAL:cg::Starting value 0.0302734",
+  "| Section                         | no. calls |  wall time | % of total |"
+ ],
+ "4C": [
+  "    num_dof: 1089",
+  "    sha: \"89519cfe76251fc668617c4ab1a70b94fd86ec52\"",
+  "    version: \"2026.2.0-dev\"",
+  "*      89519cfe76251fc668617c4ab1a70b94fd86ec52      *",
+  "ALE::AleBaseAlgorithm::setup_ale                           0.002387 (1)               ",
+  "Adapter::StructureTimIntBaseAlgorithm::SetupStructure                  0.003724 (1)               ",
+  "Adapter::StructureTimIntBaseAlgorithm::SetupStructure      0.002787 (1)               ",
+  "Adapter::StructureTimIntBaseAlgorithm::SetupStructure      0.002897 (1)               ",
+  "Adapter::StructureTimIntBaseAlgorithm::SetupStructure      0.003984 (1)               ",
+  "Finalised step 1 / 2 | time 5.000e-01 | dt 5.000e-01 | nlniter 4 | wct 1.19e-02",
+  "Finalised step 1 / 2 | time 5.000e-01 | dt 5.000e-01 | nlniter 4 | wct 1.28e-02",
+  "Finalised step 1 / 2 | time 5.000e-01 | dt 5.000e-01 | nlniter 4 | wct 3.24e-02",
+  "Finalised step 1 / 2 | time 5.000e-01 | dt 5.000e-01 | nlniter 4 | wct 3.26e-02",
+  "Trilinos Version: f4d64271518 (git SHA1)"
+ ],
+ "ngsolve": [
+  "\u001b[2KCG iteration 1, residual = 0.05193061001373956",
+  "CalcLocalH: 40 Points 0 Elements 0 Surface Elements",
+  "assemble VOL element 230/230"
+ ],
+ "skfem": [
+  "<skfem CellBasis(MeshTri1, ElementTriP1) object>\n  Number of elements: 512\n  Number of DOFs: 289\n  Size: 110592 B",
+  "INFO:skfem.assembly.basis.cell_basis:Initializing CellBasis(MeshTri1, ElementTriP1)",
+  "INFO:skfem.assembly.form.bilinear_form:Assembling 'stiffness'.",
+  "INFO:skfem.utils:Solving linear system, shape=(225, 225)."
+ ],
+ "kratos": [
+  "           Multi-Physics 10.3.\"0\"-Release-10.3.0-14ee273e-",
+  "    Mesh 0 :\n        Number of Nodes       : 22\n        Number of Properties  : 1\n        Number of Elements    : 10\n        Number of Conditions  : 2",
+  "ModelPartIO:   [Reading Nodes    : 22 nodes read]"
+ ],
+ "dune": [
+  "Fem::CG it: 0 : residual 0.103593",
+  "Fem::CG preconditioning=none"
+ ],
+ "febio": [
+  "\tNr of equations ........................... : 54",
+  "\tNumber of time steps completed .................... : 4",
+  "\tTotal number of equilibrium iterations ............ : 12",
+  "      F I N I T E   E L E M E N T S   F O R   B I O M E C H A N I C S",
+  " N O R M A L   T E R M I N A T I O N"
+ ],
+ "sparta": [
+  "Cells:     400 ave 400 max 400 min\nHistogram: 1 0 0 0 0 0 0 0 0 0",
+  "Created 400 child grid cells",
+  "Loop time of 0.018019 on 1 procs for 100 steps with 17328 particles",
+  "Loop time of 0.021106 on 1 procs for 100 steps with 17328 particles",
+  "SPARTA (24 Sep 2025)"
+ ]
+}

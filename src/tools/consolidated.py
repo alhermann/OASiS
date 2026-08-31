@@ -818,6 +818,70 @@ def _run_monolithic_check(monolithic: str, exports: dict,
     return report, findings, not_run
 
 
+_COUPLING_WORDS = (
+    "coupl",          # coupling, coupled, cosimulation spelt "co-coupling"
+    "partition",      # partitioned
+    "dirichlet_neumann", "dirichlet-neumann", "neumann_dirichlet",
+    "fsi", "tsi",     # the two named multiphysics abbreviations
+    "cosim", "co-sim",
+    "precice",
+    "two_code", "two-code", "two_way", "two-way",
+    "interface_field", "staggered",
+)
+
+
+def _is_coupling_request(keyword: str) -> bool:
+    """Would this keyword only ever be answered by coupled material?
+
+    Deliberately narrow: it fires only when the keyword is ABOUT coupling, so
+    an ordinary single-code search is never diverted. `fsi` and `tsi` are in
+    because a monolithic FSI deck in one code's test suite is not an example of
+    the partitioned two-code run the benchmark asks for, and an agent that gets
+    one thinks its question was answered.
+    """
+    k = (keyword or "").strip().lower()
+    if not k:
+        return False
+    return any(w in k for w in _COUPLING_WORDS)
+
+
+def _coupling_example_pointer(keyword: str, solver: str) -> str:
+    """Say where the coupled example IS, in one reply, without dumping it.
+
+    Not the payload itself: the coupling knowledge is ~66k chars and this tool
+    is often called early, when the agent has the fewest tokens spent and the
+    most calls left to lose. What it needs here is the name of the call that
+    works and the shape of the answer.
+    """
+    return (
+        f"No FILE example for '{keyword}' in {solver}'s test suite — and there "
+        f"cannot be one. A partitioned coupled run is TWO participant "
+        f"programs plus a driver, so it lives in neither code's test tree.\n\n"
+        f"WHERE IT ACTUALLY IS:\n"
+        f"  * `knowledge(topic=\"coupling\", solver=\"{solver}\")` — returns a "
+        f"RUNNABLE participant script for {solver}, with the interface "
+        f"exchange, the sign convention and the exports schema. Call it once "
+        f"per code you need.\n"
+        f"  * `knowledge(topic=\"coupling\")` with no solver — the driver "
+        f"contract: imports.json / exports.json shapes, roles, relaxation, and "
+        f"the failure table.\n"
+        f"  * `couple(participants=...)` — runs the pair and returns a "
+        f"verification verdict.\n\n"
+        f"THE SHAPE OF A COUPLED RUN (so you can size the work now):\n"
+        f"  1. one participant program per subdomain, each solving its own "
+        f"subdomain in its own code;\n"
+        f"  2. each writes `exports.json` (field_name, coordinates, values, "
+        f"and normal_fluxes when a flux exists) and reads the partner's "
+        f"`imports.json`;\n"
+        f"  3. one side takes the DIRICHLET role (receives the field, returns "
+        f"its outward-normal flux), the other the NEUMANN role;\n"
+        f"  4. `couple` iterates them to a tolerance and reports the residual "
+        f"history.\n\n"
+        f"Do NOT take a monolithic {keyword} deck from a single code's tests "
+        f"as an example of this: it solves the whole domain in one code, which "
+        f"is the opposite of what a partitioned run does.")
+
+
 def _couple_failure_reason(r, checks_ok: bool) -> str:
     """Name the clause that fired, and point the agent at the field that holds
     the cause.
@@ -2996,8 +3060,53 @@ def register_consolidated_tools(mcp: FastMCP):
                         break
 
             if not results:
-                return f"No examples found for '{keyword}' in {solver}"
-            return f"## {len(results)} example(s) for '{keyword}' from {solver}\n\n" + "\n---\n".join(results)
+                # A COUPLED REQUEST MUST NOT DEAD-END HERE.
+                #
+                # This tool searches ONE backend's test suite by filename, so a
+                # coupled example cannot exist in it by construction: a
+                # partitioned run is two codes and a driver, not a file in
+                # either code's tests. Measured: every coupling keyword —
+                # `coupling`, `coupled`, `partitioned`, `dirichlet_neumann`,
+                # and `fsi`, the flagship — returned "No examples found" for
+                # both fourc and fenics, with no hint that the material exists
+                # elsewhere. The docstring meanwhile tells the agent to ALWAYS
+                # call this before writing input files.
+                #
+                # That is the worst place to be silent: the coupled cells are
+                # where the OASiS arm most needs a worked example, and the
+                # OASiS arm's measured failure is running out of tool calls
+                # (median 39 against bare's 95). A dead end costs a call and
+                # returns nothing.
+                if _is_coupling_request(keyword):
+                    return _coupling_example_pointer(keyword, solver)
+                return (f"No examples found for '{keyword}' in {solver}. This "
+                        f"tool matches FILENAMES in {solver}'s own test suite "
+                        f"and generated templates; if the physics is coupled "
+                        f"(two codes exchanging an interface field), it cannot "
+                        f"appear here — call "
+                        f"`knowledge(topic=\"coupling\")` instead.")
+            body = (f"## {len(results)} example(s) for '{keyword}' from "
+                    f"{solver}\n\n" + "\n---\n".join(results))
+            # AND THE FOUND-SOMETHING CASE IS THE DANGEROUS ONE.
+            #
+            # The branch above fires only when the filename search comes back
+            # empty, which is true for fenics and false for fourc: 4C's test
+            # suite matches every coupling keyword — `fsi` returns
+            # fsi_dc3D_part_ait_ga_ost_xwall.4C.yaml, `partitioned` returns the
+            # elch multiscale decks, `coupled` returns elch_onewaycoupled_ost.
+            # Every one of them solves the whole problem inside 4C. They are
+            # single-code multiphysics, not the two-code partitioned run with
+            # exports.json/imports.json that the task asks for.
+            #
+            # So the guard existed and could not reach the case it was built
+            # for, and the case it could not reach is the worse one: nothing is
+            # more likely to stop an agent looking than a plausible answer. The
+            # pointer is therefore appended whenever the REQUEST is about
+            # coupling, found files or not.
+            if _is_coupling_request(keyword):
+                body += ("\n\n---\n⚠ READ THIS BEFORE COPYING THE ABOVE.\n"
+                         + _coupling_example_pointer(keyword, solver))
+            return body
 
         elif action == "template":
             if not keyword or not keyword.strip():

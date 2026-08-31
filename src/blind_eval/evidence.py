@@ -80,62 +80,151 @@ NOT_EVIDENCE = {"trajectory.txt", "trajectory_live.txt", "task.txt",
 # must grow with refinement) happens in code_evidence, not here.
 CANONICAL_NDOF = re.compile(r"^\s*NDOF\s*=\s*(\d{2,})\s*$", re.M)
 
+# MEASURED, NOT GUESSED. EVERY PATTERN BELOW WAS OBTAINED BY RUNNING THE CODE.
+#
+# The previous table was almost entirely fiction, and the measurement is brutal:
+# of its 27 patterns, 24 NEVER match the installed version's real output, and all
+# 3 that do also match a hand-written log a numpy script could produce. Zero were
+# both real and non-fakeable. Consequences found in the graded tree:
+#
+#   * FEBio: `normal termination` cannot match, because FEBio letter-spaces it as
+#     `N O R M A L   T E R M I N A T I O N`, and `total elapsed time` is not the
+#     wording either (` Elapsed time : 0:00:00`). 93 run directories contain a
+#     real FEBio log; the febio patterns matched NONE of them.
+#     FB1_27b_MCP_seed5 was graded FABRICATED_NO_RUN with `Nr of equations : 196`
+#     and `N O R M A L   T E R M I N A T I O N` in its own log.
+#   * 4C: `number of (nodes|elements)` is never printed by 4C at any verbosity on
+#     the inline-mesh path -- it is an ordinary English sentence an agent writes
+#     about its own mesh, which is precisely the trap this table must avoid.
+#   * deal.II: `number of active cells` / `number of degrees of freedom` are
+#     TUTORIAL PROGRAM prints, not library output. The library emits no mesh
+#     count at any verbosity.
+#   * Kratos: the real banner is `Multi-Physics 10.3."0"-Release-...`; the word
+#     "Kratos" appears only in the ASCII art, so `kratos multiphysics` never
+#     matched the version line.
+#
+# So every "PROVEN" verdict in the campaign came from the code-agnostic
+# `NDOF =` line, which is exactly why coupled attribution collapsed.
+#
+# SELECTION RULE for what follows: a pattern must (1) appear in output the code
+# ITSELF emitted, verified by execution on this machine, and (2) not match a
+# plausible sentence an agent writes about its own hand-rolled solver. Where a
+# code prints an English-looking phrase, the pattern is tightened to the code's
+# own framing -- fixed field order, its C++ symbol names, dotted leaders, tab
+# indentation, an ANSI escape, a letter-spaced banner -- so narration cannot
+# satisfy it. Verified against a deliberately adversarial fake log that mimics
+# each code's dialect: tests/test_per_code_signatures_are_measured.py.
+#
+# VERBOSITY IS NOT FREE, and the task text must say so: dolfinx is byte-for-byte
+# silent by default, deal.II needs depth_console(2) AND SolverControl log flags,
+# NGSolve needs ngsglobals.msg_level = 3, DUNE needs linear.verbose, scikit-fem
+# needs logging.basicConfig or print(basis). Kratos, 4C, FEBio and SPARTA need
+# nothing. A gate stricter than the instruction fails honest quiet runs -- the
+# original sin this module exists to undo.
 PER_CODE_SIGNATURES = {
+    # dolfinx spdlog framing: millisecond stamp + `[info]` + an internal phrase
+    # with an enum ordinal (`Cell type: 0`) and a dofmap RxC shape.
     "fenics": [
-        r"num_dofs[^0-9]{0,12}(\d{2,})",
-        r"number of (?:dofs|degrees of freedom)[^0-9]{0,12}(\d{2,})",
-        r"dolfinx[^\n]{0,80}?(\d{2,})\s*(?:cells|dofs|vertices)",
-        r"(?:num_cells|topology\.index_map\(\s*\d+\s*\)\.size_local)"
-        r"[^0-9]{0,12}(\d{2,})",
-        r"petsc[^\n]{0,60}converged[^\n]{0,40}?(\d+)\s*iterations",
-        r"ksp[_ ]converged[^\n]{0,40}?(\d+)",
+        r"\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\] \[info\] "
+        r"Cell type: \d+ dofmap: (\d+)x\d+",
+        r"\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\] \[info\] "
+        r"nodes\.size = (\d+)",
+        r"\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\] \[info\] "
+        r"xdofs\.size = (\d+)",
     ],
-    "ngsolve": [
-        r"ndof\s*[:=]\s*(\d{2,})",
-        r"assemble[^\n]{0,40}?(\d{2,})\s*(?:elements|dofs)",
-        r"ne\s*=\s*(\d{2,})[^\n]{0,40}nv\s*=\s*(\d{2,})",
-        r"netgen[^\n]{0,60}?(\d{2,})\s*(?:elements|points)",
-        r"call\s+solver[^\n]{0,40}?(\d+)",
-    ],
+    # dealii::LogStream's `DEAL:` sigil plus the `::`-delimited prefix stack.
+    # The wording is "Convergence step N value X", not "converged in N".
     "dealii": [
-        r"number of active cells\s*[:=]\s*([\d,]{2,})",
-        r"number of degrees of freedom\s*[:=]\s*([\d,]{2,})",
-        r"(\d+)\s+cg iterations needed",
-        r"solver[^\n]{0,30}converged[^\n]{0,30}?(\d+)\s*iterations",
+        r"^DEAL:\w+::Convergence step (\d+) value [-\d.eE+]+$",
+        r"^DEAL:\w+::Check (\d+)\t[-\d.eE+]+$",
+        r"^DEAL:\w+::Starting value [-\d.eE+]+$",
+        r"^\| Section\s+\| no\. calls \|\s+wall time \| % of total \|$",
     ],
-    "kratos": [
-        r"kratos multiphysics[^\n]{0,80}?(\d+\.\d+)",
-        r"(?:solving|solve) time\s*[:=]?\s*(\d+\.\d+)",
-        r"::\s*solve\s*[^\n]{0,40}?(\d+)",
-        r"number of (?:nodes|elements)\s*[:=]\s*(\d{2,})",
-    ],
-    "skfem": [
-        r"(?:ndofs|n_dofs|N\s*=)\s*[:=]?\s*(\d{2,})",
-        r"skfem[^\n]{0,60}?(\d{2,})\s*(?:elements|dofs)",
-    ],
-    "dune": [
-        r"(?:dune|gridview)[^\n]{0,60}?(\d{2,})\s*(?:elements|entities|dofs)",
-        r"number of (?:elements|dofs)\s*[:=]\s*(\d{2,})",
-    ],
+    # 4C: pipe-delimited fixed field order with its own abbreviations
+    # (nlniter/wct), Teuchos TimeMonitor rows labelled with 4C C++ namespace
+    # paths, the width-locked 54-column banner, and the exodus mesh summary.
     "4C": [
-        r"number of (?:nodes|elements)\s*[:=]\s*(\d{2,})",
-        r"4c[^\n]{0,80}?(\d+\.\d+)\s*s",
+        r"^Finalised step (\d+) / \d+ \| time [-\d.eE+]+ \| dt [-\d.eE+]+ "
+        r"\| nlniter (\d+) \| wct [-\d.eE+]+$",
+        r"^(?:Core|Adapter|Rebalance|Solid|ALE|FSI|ScaTra)::[\w:]+[^\n]*?"
+        r"\s+[\d.eE+-]+ \((\d+)\)\s*$",
+        # The exodus mesh summary (`Mesh consists of N points and M cells`,
+        # requires GEOMETRY SHOW_INFO: "summary") is DELIBERATELY ABSENT: it
+        # was reported to me as measured, but no captured 4C output available
+        # here contains it, and an unverified pattern does not ship. Add it
+        # back with a committed sample from a real run that prescribes an
+        # exodus mesh.
+        r"^Trilinos Version: [0-9a-f]{9,} \(git SHA1\)$",
+        r"^\*\s+([0-9a-f]{40})\s+\*$",
+        # written BY the 4C binary into <name>.control: its own git sha and a
+        # field block carrying num_dof. 307 such files exist across 110 runs.
+        r"^\s*sha: \"([0-9a-f]{40})\"$",
+        r"^\s*num_dof: (\d+)$",
     ],
+    # NGSolve: C++ progress counter (`VOL` is its integration-domain token, and
+    # the n/n ratio is a progress bar); the CG line carries a literal ANSI
+    # erase-line escape no hand-written log contains. Lines start with \r, so
+    # these are deliberately NOT ^-anchored.
+    "ngsolve": [
+        r"assemble VOL element (\d+)/(\d+)",
+        r"CalcLocalH: (\d+) Points (\d+) Elements (\d+) Surface Elements",
+        r"\x1b\[2KCG iteration (\d+), residual = [-\d.eE+]+",
+    ],
+    # scikit-fem: the logger name is skfem's INTERNAL module path, and the
+    # __repr__ demands the versioned class names plus a trailing `Size: N B`.
+    "skfem": [
+        r"^INFO:skfem\.utils:Solving linear system, shape=\((\d+), \d+\)\.$",
+        r"^INFO:skfem\.assembly\.basis\.\w+:Initializing "
+        r"\w*Basis\(Mesh\w+, Element\w+\)$",
+        r"^INFO:skfem\.assembly\.form\.\w+:Assembling '\w+'\.$",
+        r"^<skfem \w*Basis\(Mesh\w+, Element\w+\) object>\n"
+        r"\s+Number of elements: (\d+)\n\s+Number of DOFs: (\d+)\n"
+        r"\s+Size: \d+ B$",
+    ],
+    # Kratos: the `Mesh 0 :` block must be a five-line fixed-order dump from
+    # ModelPart::PrintData -- an isolated "Number of nodes = N" cannot satisfy
+    # it. ModelPartIO uses its own bracket framing.
+    "kratos": [
+        r"^\s+Mesh 0 :\n\s+Number of Nodes\s+:\s+(\d+)\n"
+        r"\s+Number of Properties\s+:\s+\d+\n"
+        r"\s+Number of Elements\s+:\s+(\d+)\n"
+        r"\s+Number of Conditions\s+:\s+\d+",
+        r"^ModelPartIO:\s+\[Reading (?:Nodes|Elements|Conditions)\s+:\s+"
+        r"(\d+) (?:nodes|elements|conditions) read\]",
+        r"^\s+Multi-Physics \d+\.\d+\.\"\d+\"-\w+-[\d.]+-[0-9a-f]{6,}-",
+    ],
+    # DUNE: `Fem::` is the Dune::Fem namespace shorthand from
+    # krylovinverseoperators.hh; spacing is exactly `it: N : residual X`.
+    # The DUNE-INFO JIT lines are cold-cache only and deliberately excluded.
+    "dune": [
+        r"^Fem::(?:CG|GMRES|BiCGstab|MINRES) it: (\d+) : residual [-\d.eE+]+$",
+        r"^Fem::(?:CG|GMRES|BiCGstab|MINRES) preconditioning=\S+$",
+    ],
+    # FEBio: leading TAB, the abbreviation `Nr of`, a dotted-leader run before
+    # ` : `, and the letter-spaced termination banner that killed the old
+    # pattern.
     "febio": [
-        r"normal termination[^\n]{0,80}",
-        r"total elapsed time\s*[:=]\s*([\d:\.]+)",
+        r"^\tNr of equations \.{5,} : (\d+)$",
+        r"^\tTotal number of equilibrium iterations \.{5,} : (\d+)$",
+        r"^\tNumber of time steps completed \.{5,} : (\d+)$",
+        r"^ N O R M A L   T E R M I N A T I O N$",
+        r"^      F I N I T E   E L E M E N T S   F O R   B I O M E C H A N I C S",
     ],
-    # SPARTA was ABSENT, so every SPARTA cell graded FABRICATED_NO_RUN
-    # unconditionally — the audit that found it called the omission fatal for
-    # all four planned DSMC cells. These are lines the DSMC binary itself
-    # prints, carrying numbers it computed.
+    # SPARTA is INSTALLED and runs here (/home/alexander/Schreibtisch/sparta/
+    # src/spa_serial) -- the old comment claiming it was absent is stale. The
+    # full `Loop time` line has four fields in fixed order; `child grid cells`
+    # is SPARTA's hierarchical-grid term; the banner is a DATE in parentheses.
     "sparta": [
-        r"Created\s+(\d{2,})\s+particles",
-        r"grid cells\s*=?\s*(\d{2,})",
-        r"Step\s+\d+\s+.*?(\d{2,})",
-        r"Loop time of\s+([0-9.]+)",
+        r"^Loop time of [\d.eE+-]+ on (\d+) procs for (\d+) steps with "
+        r"(\d+) particles$",
+        r"^Created (\d+) child grid cells$",
+        r"^SPARTA \(\d{1,2} \w{3} \d{4}\)$",
+        r"^Cells:\s+(\d+) ave \d+ max \d+ min\nHistogram: (?:\d+ ){9}\d+$",
     ],
 }
+PER_CODE_SIGNATURES["fenicsx"] = PER_CODE_SIGNATURES["fenics"]
+PER_CODE_SIGNATURES["fourc"] = PER_CODE_SIGNATURES["4C"]
+PER_CODE_SIGNATURES["dolfinx"] = PER_CODE_SIGNATURES["fenics"]
 
 # THE CANONICAL LINE, ACCEPTED FOR EVERY CODE.
 #
@@ -158,7 +247,20 @@ PER_CODE_SIGNATURES = {
 # which a monolithic solve cannot produce at all -- is required separately.
 CANONICAL_SIGNATURES = [r"ndof\s*[:=]\s*(\d+)"]
 
-READABLE_SUFFIXES = (".log", ".out", ".txt", ".json", ".csv", ".err", ".dat")
+# `.control` IS 4C's OWN OUTPUT, AND IT WAS NEVER OPENED.
+#
+# 4C writes <name>.control next to its results, containing its own git sha and
+# version and a `- field:` block with num_nd / num_ele / num_dof. Measured: 307
+# such files across 110 run directories in the graded tree, none of them read,
+# because the suffix was not in this tuple. That is the strongest per-code
+# evidence 4C produces -- a 40-hex git sha of the actual binary, next to a DOF
+# count -- and 13 coupled runs were graded NO_PER_CODE_EXECUTION_EVIDENCE while
+# holding one.
+#
+# The other native artefacts (.xplt, .vtu, .s0) stay out: they are binary, and
+# opening them buys nothing a text log does not already give.
+READABLE_SUFFIXES = (".log", ".out", ".txt", ".json", ".csv", ".err", ".dat",
+                     ".control")
 MAX_FILE_BYTES = 8_000_000
 
 
@@ -205,7 +307,26 @@ def code_evidence(work: Path, code: str) -> EvidenceItem:
         return EvidenceItem(code, "NOT_PROVEN",
                             detail=f"no structured signature is known for "
                                    f"{code!r}; a bare name is not evidence")
-    pats = list(pats) + CANONICAL_SIGNATURES
+    # THE CODE-AGNOSTIC PATTERNS ARE KEPT SEPARATE, AND LABELLED AS SUCH.
+    #
+    # They used to be concatenated onto the per-code list, so a match on
+    # CANONICAL_SIGNATURES (`ndof[:=]<n>`, which is case-insensitive and
+    # therefore also matches the contract line `NDOF = 54` itself) was recorded
+    # with no marker saying it was code-agnostic. `only_canonical` tests for the
+    # marker, so such a match read as CODE-SPECIFIC evidence.
+    #
+    # That silently disarmed the whole attribution rule the moment the canonical
+    # line stopped short-circuiting the per-code scan: every compliant file
+    # matched this pattern too, `only_canonical` became False, and
+    # C2_27b_MCP_seed15 -- the run that solved both subdomains with numpy and
+    # scipy while the task named 4C and Kratos -- graded PROVEN again. Measured
+    # directly: shared_evidence_fatal was False on it.
+    #
+    # Caught by an impact measurement that looked too good: 92 of 92 previously
+    # unattributable runs became "attributable", with BOTH codes matched in
+    # nearly every one, including pairs like ('4C','dune') whose DUNE side
+    # needs a verbosity flag no run set.
+    canon_pats = list(CANONICAL_SIGNATURES)
     files, matches = [], []
     for f, text in _candidate_files(work):
         # PER-CODE PATTERNS MATCH THE ORIGINAL TEXT, CASE-INSENSITIVELY.
@@ -223,17 +344,50 @@ def code_evidence(work: Path, code: str) -> EvidenceItem:
         # is what happened: a silent dolfinx run graded FABRICATED_NO_RUN
         # while the identical ndofs line proved skfem and condemned fenics.
         # The per-code patterns below remain as additional evidence.
+        # ...AND THE PER-CODE PATTERNS IN THE SAME FILE. THIS `continue` WAS A
+        # BUG THAT WOULD HAVE VOIDED THE WHOLE ATTRIBUTION REPAIR.
+        #
+        # The canonical check used to `continue`, so the per-code patterns were
+        # never evaluated for any file that contained `NDOF = <n>`. That was
+        # harmless while the canonical line was the ONLY thing the task asked
+        # for. It stopped being harmless the moment the task began requiring
+        # BOTH the solver's own captured output AND the canonical line in the
+        # same run_level<k>.log: every fully COMPLIANT submission would record
+        # only the canonical match, `only_canonical` would be True, and the
+        # shared-evidence rule would mark it NO_PER_CODE_EXECUTION_EVIDENCE.
+        # The repair would have failed on exactly the submissions it was built
+        # to reward, and it would have looked like agents ignoring the contract.
+        #
+        # Caught by the grader's own fixture: once the fixture wrote per-side
+        # code-specific lines, the flag still fired.
+        #
+        # So both are recorded. The canonical line still PROVES the code on its
+        # own -- that is why it exists, and a quiet honest dolfinx run must not
+        # be condemned for its print style -- but a code-specific match in the
+        # same file is no longer discarded, which is what lets
+        # `only_canonical` mean what it says.
+        hit = False
         cm = CANONICAL_NDOF.search(text)
         if cm:
-            files.append(str(f.relative_to(work)))
             matches.append(f"NDOF = {cm.group(1)} (canonical contract line)")
-            continue
-        for p in pats:
-            m = re.search(p, low, re.IGNORECASE)
+            hit = True
+        # Code-agnostic fallbacks: they PROVE a run, and they are labelled so
+        # that `only_canonical` does not mistake them for attribution.
+        for p in canon_pats:
+            m = re.search(p, low, re.IGNORECASE | re.MULTILINE)
             if m:
-                files.append(str(f.relative_to(work)))
-                matches.append(f"{p} -> {m.group(0)[:80]!r}")
+                matches.append(f"{p} -> {m.group(0)[:80]!r} "
+                               f"(canonical contract line, code-agnostic)")
+                hit = True
                 break
+        for p in pats:
+            m = re.search(p, low, re.IGNORECASE | re.MULTILINE)
+            if m:
+                matches.append(f"{p} -> {m.group(0)[:80]!r}")
+                hit = True
+                break
+        if hit:
+            files.append(str(f.relative_to(work)))
     if files:
         return EvidenceItem(code, "PROVEN", files, matches,
                             f"{len(files)} file(s) carry structured "

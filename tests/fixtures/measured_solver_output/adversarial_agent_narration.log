@@ -1,0 +1,68 @@
+Level 1 mesh: 32 x 32 quadrilaterals
+Number of nodes = 1089
+Number of elements = 1024
+Number of degrees of freedom: 1089
+num_dofs = 1089
+ndof = 1089
+n_dofs = 1089
+NDOF = 1089
+Number of active cells: 1024
+Assembled stiffness matrix (1089 x 1089), 7361 nonzeros
+Solving with scipy.sparse.linalg.spsolve ...
+Solver converged in 47 iterations
+CG solver: 47 cg iterations needed
+Solve time = 0.0231 s
+Kratos Multiphysics: model part built, number of nodes = 1089
+4C run completed in 0.42 s
+deal.II: number of degrees of freedom = 1089
+dolfinx mesh has 1024 cells
+netgen produced 1024 elements
+DUNE gridview has 1024 elements
+skfem basis with 1089 dofs
+Normal termination of the analysis.
+Total elapsed time = 0:00:01
+Created 2000 particles in the domain
+grid cells = 400
+Loop time of 0.0180 seconds
+Interface residual history: 6.75e-01 -> 6.47e-07
+=== ADVERSARIAL SECTION: an agent narrating in each code's dialect ===
+[INFO] dolfinx: assembled system, 1024 cells, 1089 dofs
+DEAL: solving with CG
+Number of active cells: 1024
+Number of degrees of freedom: 1089
+4C: Finalised step 2 of 2, nlniter 4
+ngsolve: assembled 1024 elements
+Fem::CG converged
+FEBio: Nr of equations: 1089
+SPARTA: created 400 grid cells
+Kratos: Number of Nodes: 1089
+<skfem basis object> Number of DOFs: 1089
+=== HARDER ADVERSARIAL SECTION ===
+[2026-08-31 12:00:00] [info] mesh built with 512 cells
+[2026-08-31 12:00:00.000] [info] Cells: 512
+DEAL:: solving
+DEAL:cg: Convergence after 47 steps
+| Total wallclock time elapsed since start | 0.02s |
+| Section | calls | wall time | percent |
+Finalised step 2 / 2, nlniter 4, wct 0.04
+Core::FE::Discretization::Evaluate 0.0009 s
+* version 2026.2.0-dev *
+assemble element 230 of 230
+CalcLocalH 40 points
+<skfem CellBasis object> Number of DOFs: 289
+INFO:skfem:Solving linear system shape 225 225
+Multi-Physics 10.3.0 Release
+Mesh 0: Number of Nodes: 22
+ModelPartIO: Reading Nodes: 22 nodes read
+::[Solver]:: done
+Fem::CG it 0 residual 0.1
+Nr of equations: 54
+Number of time steps completed: 4
+NORMAL TERMINATION
+FINITE ELEMENTS FOR BIOMECHANICS
+SPARTA (2025)
+Created 400 grid cells
+Loop time of 0.018 on 1 procs for 100 steps
+Cells: 400 ave 400 max 400 min
+Trilinos Version: 1.2.3
+Mesh consists of 2940 points and 2366 cells
