@@ -1413,7 +1413,7 @@ def test_submission_found_in_a_subdirectory(tmp_path):
     (work / "results").mkdir(parents=True)
     (work / "results" / "solution_level1_A.csv").write_text("0,0,1\n")
     (work / "results" / "solution_level1_B.csv").write_text("0,0,2\n")
-    levels, problems = GB2.sub.discover_levels(work, True, tmp_path)
+    levels, problems, _ = GB2.sub.discover_levels(work, True, tmp_path)
     assert set(levels) == {1} and set(levels[1]) == {"A", "B"}, (levels, problems)
 
 
@@ -1431,7 +1431,7 @@ def test_submission_beside_the_sandbox_is_found(tmp_path):
     for lvl in (1, 2, 3):
         for side in ("A", "B"):
             (tmp_path / f"solution_level{lvl}_{side}.csv").write_text("0,0,1\n")
-    levels, _ = GB2.sub.discover_levels(work, True, tmp_path)
+    levels, _, _ = GB2.sub.discover_levels(work, True, tmp_path)
     assert sorted(levels) == [1, 2, 3]
 
 
@@ -1443,7 +1443,7 @@ def test_preserved_evidence_is_never_graded(tmp_path):
     ev = tmp_path / "out_of_sandbox_evidence" / "tmp"
     ev.mkdir(parents=True)
     (ev / "solution_level1_A.csv").write_text("0,0,9\n")
-    levels, _ = GB2.sub.discover_levels(work, True, tmp_path)
+    levels, _, _ = GB2.sub.discover_levels(work, True, tmp_path)
     assert levels == {}
 
 
@@ -1453,8 +1453,13 @@ def test_differing_duplicate_copies_are_reported(tmp_path):
     (work / "b").mkdir(parents=True)
     (work / "a" / "solution_level1_A.csv").write_text("0,0,1\n")
     (work / "b" / "solution_level1_A.csv").write_text("0,0,2\n")
-    _, problems = GB2.sub.discover_levels(work, True, tmp_path)
-    assert any("more than one differing copy" in p for p in problems)
+    _, problems, notes = GB2.sub.discover_levels(work, True, tmp_path)
+    # Both copies sit at the SAME depth (work/a and work/b), so nothing in
+    # the contract picks a winner and it stays a PROBLEM. A copy DEEPER than
+    # the contractual one is different: see
+    # test_a_deeper_duplicate_is_a_note_not_a_rejection below, which is the
+    # case that cost the OASiS arm 16 runs.
+    assert any("same depth" in p for p in problems), (problems, notes)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -1547,3 +1552,61 @@ def test_a_realistic_small_mismatch_still_grades_correct(tmp_path):
     r = cell.grade()
     assert r["outcome"] == "CORRECT", r
     assert r["interface"]["verdict"] == "INTERFACE_SATISFIED", r["interface"]
+
+
+def test_a_deeper_duplicate_is_a_note_not_a_rejection(tmp_path):
+    """OASiS's own tooling cost its own arm 16 runs through this rule.
+
+    A run driven through OASiS's simulation tools writes results into
+    work/simulation_outputs/<run>/, so the MCP arm ends up with BOTH
+
+        work/solution_level1.csv                                  (contractual)
+        work/simulation_outputs/ngsolve_20260818_144115/solution_level1.csv
+
+    and the two differ, because the deeper one is an earlier attempt. The rule
+    reported "grading the shallowest" and then appended to `problems`, which
+    grade_blind_v2 turns into MALFORMED_SUBMISSION / UNASSIGNED_SUBDOMAIN_FILES
+    for the whole run. It said one thing and did another.
+
+    MEASURED across the development grades: 16 runs rejected this way, ALL
+    SIXTEEN in the MCP arm and NONE in BARE -- NG1 (9), NG2 (2), DL1 (2), DL2,
+    DU1, KR1. The bare arm writes only to work/ and was never touched. That is
+    roughly 6.5 points of the single-code score taken from the tool arm by an
+    instrumentation artefact, on a cell family where bare otherwise beat OASiS
+    8 times.
+
+    The CONTRACT decides: the task says write `solution_level<k>.csv`, the agent
+    did, at the top of the sandbox. A deeper copy is an intermediate artefact.
+    """
+    work = tmp_path / "work"
+    deep = work / "simulation_outputs" / "ngsolve_20260818_144115"
+    deep.mkdir(parents=True)
+    (work / "solution_level1.csv").write_text("0,0,1\n")      # contractual
+    (deep / "solution_level1.csv").write_text("0,0,2\n")      # earlier attempt
+    levels, problems, notes = GB2.sub.discover_levels(work, False, tmp_path)
+    assert problems == [], f"a deeper intermediate copy still rejects: {problems}"
+    assert any("deeper in the tree" in n for n in notes), notes
+    assert levels[1]["-"] == work / "solution_level1.csv", (
+        "the contractual file must be the one graded")
+
+
+def test_the_single_code_run_that_was_rejected_now_grades(tmp_path):
+    """End to end, in the shape of NG1_27b_MCP_seed5."""
+    cell = Cell(tmp_path)
+    cell.standard_submission()
+    deep = cell.work / "simulation_outputs" / "ngsolve_20260818_144115"
+    deep.mkdir(parents=True)
+    for k in range(1, len(cell.mesh_N) + 1):
+        src = cell.work / f"solution_level{k}.csv"
+        # An explicitly different earlier attempt. A string replace on the
+        # real file is not reliable here -- if it matches nothing the copies are
+        # IDENTICAL, and identical copies are correctly no conflict at all,
+        # which is how this test first passed its outcome check and still saw
+        # no note.
+        lines = src.read_text().splitlines()
+        (deep / f"solution_level{k}.csv").write_text(
+            lines[0] + "\n" + "\n".join("9.0," * 2 + "9.0" for _ in lines[1:])
+            + "\n")
+    r = cell.grade()
+    assert r["outcome"] == "CORRECT", r
+    assert any("deeper in the tree" in n for n in r.get("notes", [])), r["notes"]

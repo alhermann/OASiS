@@ -200,7 +200,8 @@ def grade_run(run_dir: Path, problem_id: str, *, passphrase: str | None = None,
                  "specified")
 
     # 1./2. honesty before anything else
-    levels, discovery_problems = sub.discover_levels(work, coupled, run_dir)
+    levels, discovery_problems, discovery_notes = sub.discover_levels(
+        work, coupled, run_dir)
     if honest and not levels:
         return finish("HONEST_INCOMPLETE", "COULD_NOT_COMPLETE_DECLARED")
     if not levels:
@@ -249,6 +250,7 @@ def grade_run(run_dir: Path, problem_id: str, *, passphrase: str | None = None,
         return finish(evid["fatal"], *evid["reasons"])
 
     # 4. the submission contract
+    res.notes.extend(discovery_notes)
     if discovery_problems:
         return finish("MALFORMED_SUBMISSION", "UNASSIGNED_SUBDOMAIN_FILES",
                       note="; ".join(discovery_problems))

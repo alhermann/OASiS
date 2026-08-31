@@ -86,6 +86,14 @@ def _submission_candidates(root: Path, pattern: str):
     return sorted(out, key=lambda p: (len(p.relative_to(root).parts), str(p)))
 
 
+def _shares_root(a: Path, b: Path, root: Path) -> bool:
+    try:
+        a.relative_to(root); b.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
 def discover_levels(work: Path, coupled: bool, run_dir: Path | None = None):
     """Map level -> side -> csv path. For a coupled cell an un-suffixed
     `solution_level<k>.csv` is a contract violation (the task prescribes
@@ -97,6 +105,7 @@ def discover_levels(work: Path, coupled: bool, run_dir: Path | None = None):
     """
     levels: dict[int, dict[str, Path]] = {}
     problems: list[str] = []
+    notes: list[str] = []
     seen: dict[tuple[int, str], Path] = {}
     roots = [work] + ([run_dir] if run_dir and run_dir != work else [])
     for root in roots:
@@ -114,13 +123,53 @@ def discover_levels(work: Path, coupled: bool, run_dir: Path | None = None):
             key = (int(m.group(1)), side or "-")
             if key in seen:
                 if seen[key].read_bytes() != c.read_bytes():
-                    problems.append(
-                        f"{c.name}: more than one differing copy submitted "
-                        f"({seen[key]} and {c}); grading the shallowest")
+                    # A DEEPER DIFFERING COPY IS AN INTERMEDIATE ARTEFACT, NOT
+                    # AN AMBIGUOUS SUBMISSION -- AND THIS RULE PENALISED ONLY
+                    # THE OASiS ARM.
+                    #
+                    # The message already said "grading the shallowest", and
+                    # then appending to `problems` made grade_blind_v2 return
+                    # MALFORMED_SUBMISSION / UNASSIGNED_SUBDOMAIN_FILES for the
+                    # whole run. It said one thing and did another.
+                    #
+                    # Measured across the development grades: 16 runs rejected
+                    # this way, ALL SIXTEEN in the MCP arm and none in BARE --
+                    # NG1 (9), NG2 (2), DL1 (2), DL2, DU1, KR1. The cause is
+                    # OASiS's own tooling: a run through its simulation tools
+                    # writes results into work/simulation_outputs/<run>/, so the
+                    # MCP arm ends up with work/solution_level1.csv AND
+                    # work/simulation_outputs/ngsolve_.../solution_level1.csv.
+                    # The bare arm writes only to work/ and was never touched.
+                    # That is roughly 6.5 points of the single-code score taken
+                    # from the tool arm by an instrumentation artefact.
+                    #
+                    # The CONTRACT decides which file is the submission: the
+                    # task says write `solution_level<k>.csv`, and the agent did
+                    # -- at the top of the sandbox. `_submission_candidates`
+                    # yields shallowest-first, so `seen[key]` is that file.
+                    # A deeper copy is a note.
+                    #
+                    # It stays a PROBLEM only when the shallowest candidate is
+                    # itself ambiguous, i.e. two differing copies at the SAME
+                    # depth, where nothing in the contract picks a winner.
+                    same_depth = (len(seen[key].relative_to(root).parts)
+                                  == len(c.relative_to(root).parts)) \
+                        if _shares_root(seen[key], c, root) else False
+                    if same_depth:
+                        problems.append(
+                            f"{c.name}: two differing copies at the same depth "
+                            f"({seen[key]} and {c}); the contract does not say "
+                            f"which is the submission")
+                    else:
+                        notes.append(
+                            f"{c.name}: a differing copy exists deeper in the "
+                            f"tree ({c}); grading the contractual one "
+                            f"({seen[key]}). Intermediate artefacts written by "
+                            f"a run tool are not a second submission.")
                 continue
             seen[key] = c
             levels.setdefault(key[0], {})[key[1]] = c
-    return levels, problems
+    return levels, problems, notes
 
 
 # ── RESULT.txt ────────────────────────────────────────────────────────────
