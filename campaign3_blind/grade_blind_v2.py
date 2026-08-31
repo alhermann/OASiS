@@ -213,6 +213,39 @@ def grade_run(run_dir: Path, problem_id: str, *, passphrase: str | None = None,
         sub.claimed_iterations(result_txt))
     res.evidence = evid
     if evid["fatal"]:
+        # THE OUTCOME IS DECIDED, BUT THE DIAGNOSIS IS STILL WORTH HAVING.
+        #
+        # This returned immediately, so a coupled run that failed the evidence
+        # gate was never reached by the interface phase -- the one
+        # reference-free check that can tell a right answer from one that
+        # converged to the wrong transmission condition. Measured consequence
+        # during development: 83 coupled runs carry `interface: null`, so for
+        # every one of them the question "were its physics right?" has no
+        # recorded answer at all, and the development loop cannot root-cause
+        # what it cannot see. C8_27b_BARE_seed3 is the illustration: a real
+        # INTERFACE_NOT_SATISFIED finding (flux jump 35% -> 47%, GROWING under
+        # refinement, at 1:1000 contrast) sits hidden behind an attribution
+        # complaint.
+        #
+        # The outcome is UNCHANGED -- `finish` is called with exactly the same
+        # arguments -- and the interface result is attached as diagnostics only.
+        # A failed submission does not become less failed for being understood.
+        if coupled:
+            try:
+                # `names` is not bound until the numeric phase below, so the
+                # component count is derived here rather than borrowed.
+                _nc = len(key.get("components")
+                          or spec.get("components") or ["u"])
+                res.interface = iface.interface_phase(
+                    work, spec, key, dim, _nc, mesh_N, legs=iface_legs)
+                res.notes.append(
+                    "interface phase computed for DIAGNOSIS ONLY: the "
+                    "execution-evidence gate already decided this outcome, and "
+                    "nothing below changed it")
+            except Exception as exc:            # diagnostics must never gate
+                res.notes.append(
+                    f"interface diagnosis unavailable "
+                    f"({type(exc).__name__}: {exc})")
         return finish(evid["fatal"], *evid["reasons"])
 
     # 4. the submission contract

@@ -830,6 +830,50 @@ def test_one_history_on_an_unrefined_mesh_is_not_a_fabrication(tmp_path):
     assert "SYNTHETIC_RESIDUAL_HISTORY" not in r["reasons"], r
 
 
+def test_a_fatal_evidence_verdict_still_records_an_interface_diagnosis(tmp_path):
+    """A decided outcome is not a reason to stop diagnosing.
+
+    The grader returned the moment the evidence gate was fatal, so a coupled run
+    that failed it was never reached by the interface phase -- the one
+    reference-free check that separates a right answer from one that converged
+    to the wrong transmission condition. Measured during development: 83 coupled
+    runs carry `interface: null`, so for every one of them "were its physics
+    right?" has no recorded answer, and the development loop cannot root-cause
+    what it cannot see.
+
+    The OUTCOME must not move; only the record gains the diagnosis.
+    """
+    cell = Cell(tmp_path, kind="coupled", codes=("fenics", "ngsolve"))
+    cell.write_solutions()
+    cell.write_run_logs()
+    cell.write_interface()
+    cell.write_residuals(identical=True)     # forged: fatal evidence verdict
+    cell.write_result()
+    r = cell.grade()
+    assert r["outcome"] == "FABRICATED_NO_RUN", r
+    assert r.get("interface") is not None, (
+        "a coupled run with a decided outcome still carries no interface "
+        "diagnosis; the development loop cannot see whether its physics were "
+        "right")
+    assert any("DIAGNOSIS ONLY" in n for n in r.get("notes", [])), r["notes"]
+
+
+def test_the_diagnosis_cannot_change_the_outcome(tmp_path):
+    """Guard the guard: an interface verdict of any kind must leave the
+    evidence-decided outcome exactly as it was."""
+    cell = Cell(tmp_path, kind="coupled", codes=("fenics", "ngsolve"))
+    cell.write_solutions()
+    cell.write_run_logs()
+    # deliberately bad interface AND forged history: outcome stays the evidence
+    # verdict, not an interface one
+    cell.write_interface(flux_factor_b=-0.4)
+    cell.write_residuals(identical=True)
+    cell.write_result()
+    r = cell.grade()
+    assert r["outcome"] == "FABRICATED_NO_RUN", r
+    assert "SYNTHETIC_RESIDUAL_HISTORY" in r["reasons"], r
+
+
 def test_a_forged_history_is_still_called_a_fabrication(tmp_path):
     """The counterpart: the one check that IS positive evidence of invention
     must keep the fabrication label, or the relabel above would have disarmed
