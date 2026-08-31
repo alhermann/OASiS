@@ -452,11 +452,29 @@ class FebioBackend(SolverBackend):
         ]
 
     def get_knowledge(self, physics: str) -> dict:
+        # THE DECK GRAMMAR GOES OUT WITH EVERY PHYSICS, INCLUDING THE EMPTY
+        # CASE.
+        #
+        # Measured on the `heat` payload (21,787 characters): no `<febio_spec`,
+        # no `<MeshDomains`, no `<Boundary`, no `<node id=`, no `fix=`. The
+        # corpus is rich on material models and pitfalls and silent on the
+        # document that carries them, so an agent cannot begin. Same shape of
+        # gap as 4C, where it cost all three OASiS runs of coupled C2 their
+        # whole attempt.
+        #
+        # It is attached even when there is no per-physics entry: an unknown
+        # physics is exactly when the agent most needs to know how a deck is
+        # shaped, and returning {} taught it nothing at all.
+        try:
+            from backends.febio.deck_grammar import FEBIO_DECK_GRAMMAR
+        except Exception:                                # pragma: no cover
+            FEBIO_DECK_GRAMMAR = ""
         kn = _FEBIO_KNOWLEDGE.get(physics)
-        if not kn:
-            return {}
-        out = dict(kn)
-        out.update(_CROSS_CUTTING)
+        out = dict(kn) if kn else {}
+        if kn:
+            out.update(_CROSS_CUTTING)
+        if FEBIO_DECK_GRAMMAR:
+            out["deck_grammar"] = FEBIO_DECK_GRAMMAR
         return out
 
     def generate_input(self, physics: str, variant: str, params: dict) -> str:

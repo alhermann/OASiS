@@ -411,15 +411,37 @@ class SpartaBackend(SolverBackend):
         them here cost tens of kilobytes per call and pushed the pitfalls past
         the client-side truncation point.
         """
+        # THE INPUT-SCRIPT GRAMMAR GOES OUT WITH EVERY ANSWER, INCLUDING THE
+        # ERROR ONE.
+        #
+        # Measured on the `heat` payload: 1,084 characters in total, with no
+        # `fix` and no `run` -- the two commands without which the binary does
+        # nothing at all. Same shape of gap as 4C, where it cost all three
+        # OASiS-arm runs of coupled C2 their whole attempt, and as FEBio.
+        #
+        # It is attached to the unknown-physics reply too: that is exactly when
+        # an agent most needs to know how a script is shaped, and a bare
+        # `available_physics` list taught it nothing.
+        try:
+            from backends.sparta.deck_grammar import SPARTA_INPUT_GRAMMAR
+        except Exception:                                # pragma: no cover
+            SPARTA_INPUT_GRAMMAR = ""
+
+        def _with_grammar(d: dict) -> dict:
+            if SPARTA_INPUT_GRAMMAR and isinstance(d, dict):
+                d = dict(d)
+                d["input_grammar"] = SPARTA_INPUT_GRAMMAR
+            return d
+
         if physics == "_general":
-            return KNOWLEDGE["_general"]
+            return _with_grammar(KNOWLEDGE["_general"])
         kn = KNOWLEDGE.get(physics)
         if not kn:
-            return {"error": f"unknown physics '{physics}'",
+            return _with_grammar({"error": f"unknown physics '{physics}'",
                     "available_physics": sorted(_PHYSICS.keys()),
                     "all_commands": sorted(
                         _KB.get("command_surface", {}).get("true_commands")
-                        or _KB.get("commands", {}).keys())}
+                        or _KB.get("commands", {}).keys())})
         info = _PHYSICS[physics]
         out = dict(kn)
         out["variants"] = list(info["variants"])
