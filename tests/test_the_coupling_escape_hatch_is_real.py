@@ -119,7 +119,16 @@ def test_an_unsignalled_request_is_unchanged(knowledge_tool):
         "head limit stops doing its job"
     )
     assert "THIS PAYLOAD IS TRUNCATED HERE" in plain
-    assert len(plain) < _COUPLING_HEAD_LIMIT + 6000
+    # Bound the payload by what it is MADE OF rather than by a round number:
+    # the truncated head, the universal core that rides on every reply, and the
+    # truncation notice. Stated this way the check keeps working when the core
+    # is edited, and still fails if the head limit stops being enforced.
+    from tools.knowledge import _UNIVERSAL_CORE
+    NOTICE = 1500
+    assert len(plain) <= _COUPLING_HEAD_LIMIT + len(_UNIVERSAL_CORE) + NOTICE, (
+        f"the unsignalled coupling reply is {len(plain)} characters against a "
+        f"head limit of {_COUPLING_HEAD_LIMIT}; the cap is not being enforced"
+    )
 
 
 def test_the_continuation_is_bounded(knowledge_tool):

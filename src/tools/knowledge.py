@@ -338,47 +338,65 @@ expression field fails, and the two failures below were both measured here.
     as a broken binary and is not one. The same rule applies to NODE COORDS and
     every `*_ELEMENTS` block.
 
-YOUR ERROR IS NOT FALLING UNDER REFINEMENT — DIAGNOSE IT IN THIS ORDER
-─────────────────────────────────────────────────────────────────────
-Measured across this campaign's single-code runs, the MEDIAN observed order of
-a run that scored wrong was 0.00 in BOTH arms: the error did not shrink at all
-between meshes. And 74-77% of those runs had already reported
-MESH_INDEPENDENCE = NOT_CONVERGED, so the agent KNEW. Knowing is not the hard
-part; isolating the cause is. Work through these, cheapest first. None of them
-needs a reference answer.
+IF YOU DID SUBMIT AND WANT TO KNOW WHETHER IT IS RIGHT
+──────────────────────────────────────────────────────────────────────
+   GUESS. Among submissions with a complete level set the self-convergence
+   order is a median 1.96 to 1.99 in both arms: the discretisation converges
+   cleanly. Two failures survive that, and neither shows up in a refinement
+   study — a solution converging beautifully TO THE WRONG FUNCTION (7% of all
+   runs), and a field off by orders of magnitude in its overall size.
 
-  1. IS YOUR EVALUATOR ITSELF SECOND ORDER? Feed it a function you know.
-     Pick any smooth function -- u*(x,y) = x(1-x)y(1-y) will do -- sample it at
-     your MESH NODES, run those samples through the SAME code that produces your
-     probe values, and compare against u* evaluated at the probe points.
-     Refine and watch the error. Measured on a 44x44 probe grid over N = 8, 16,
-     32:
-         nearest-node lookup   5.39e-3 -> 2.66e-3 -> 1.34e-3   order ~1.0
-         linear/shape function 1.09e-3 -> 2.73e-4 -> 6.85e-5   order ~2.0
-     YOUR EVALUATOR'S OWN ORDER BOUNDS THE ORDER YOU CAN REPORT. If this test
-     gives 1, your probing is the defect and no improvement to the solve can
-     fix it. This costs one script and no solver run.
+   YOUR OWN CONVERGENCE VERDICT DOES NOT SEPARATE THEM. Measured, a run's
+   MESH_INDEPENDENCE = NOT_CONVERGED catches about three quarters of the wrong
+   runs, but it also fires on HALF the correct ones, so on its own it says
+   almost nothing. What is falsifiable, with no reference answer:
+     a. DOES YOUR FIELD SATISFY THE EQUATION YOU WERE GIVEN? Pick a smooth
+        function v that vanishes on the boundary, and check the identity
+            integral of u * (L* v)  ==  integral of f * v
+        by quadrature on the probe values you already have, with the L and f
+        the task states (L* is the adjoint; for -div(K grad u) with symmetric
+        K, L* = L). Refine and watch it. Measured: fields that solve the stated
+        problem give 6.7e-2 -> 1.5e-2 -> 4.3e-3, falling at order 2; fields
+        that do not give 5.49 -> 5.62 -> 5.64, flat. It costs no solver run and
+        separated a third of all submissions.
+     b. IS YOUR EVALUATOR ITSELF SECOND ORDER? Push a function you KNOW (say
+        x(1-x)y(1-y)) through the SAME code that produces your probe values.
+        Measured on a 44x44 grid at N = 8, 16, 32:
+            nearest-node lookup    5.39e-3 -> 2.66e-3 -> 1.34e-3   order ~1.0
+            linear/shape function  1.09e-3 -> 2.73e-4 -> 6.85e-5   order ~2.0
+        Your evaluator's own order BOUNDS the order you can report.
+     c. DO THE BOUNDARY VALUES COME BACK? Probe nearest a boundary where the
+        value is prescribed. Values that are not right there mean the condition
+        landed elsewhere, or your probe coordinates are in a different frame.
+        A common form of this: a source expression evaluated in ELEMENT-LOCAL
+        coordinates instead of global ones, which is silent and wrong
+        everywhere.
+     d. IS THE SIZE PLAUSIBLE? Compare the magnitude of your field against what
+        the source term and the domain size imply. Measured, 11 to 30% of
+        submissions are off by more than a factor of ten, including fields that
+        are all zero and fields of order 1e11.
+     e. DID THE MESH CHANGE? The degree-of-freedom count must GROW per level.
 
-  2. DO YOUR BOUNDARY VALUES COME BACK? If the problem prescribes u = 0 on the
-     outer boundary, evaluate your solution at probe points nearest that
-     boundary. Values that are not small say the boundary condition was applied
-     somewhere other than where you think, or the probe coordinates are in a
-     different frame from the mesh (offset, scaled, or transposed).
+   Report what you measured either way: a run that states NOT_CONVERGED with
+   its largest relative change scores better than one claiming a convergence
+   it cannot show.
 
-  3. DID THE MESH ACTUALLY CHANGE? The degree-of-freedom count must GROW by
-     about 2**dim per level. If it is constant you solved one mesh and submitted
-     it repeatedly -- measured at 4-8% of runs -- and the error is then
-     identical at every level, which reads as order 0.
-
-  4. ONLY THEN SUSPECT THE PHYSICS. A source term sign, a material value, or a
-     boundary datum that is wrong gives a solution that converges CLEANLY to the
-     wrong function: the error stops falling because it is dominated by a term
-     refinement cannot remove. Re-derive the source term from your own strong
-     form and check one interior point by hand.
-
-REPORT WHAT YOU MEASURED EITHER WAY. A run that says NOT_CONVERGED and gives its
-largest relative change is worth more than one that claims convergence it cannot
-show, and it is scored on its numbers, not on its confidence.
+5. IF YOUR SOLVER IS A BINARY, ITS INPUT FILE IS THE RUN INTERFACE and you
+   cannot guess it. For 4C, FEBio and SPARTA the full deck grammar — every
+   required section, in order, with the silent failure modes — is served by
+       knowledge(topic="physics", solver=<name>, physics=<name>)
+   and by NO other topic. Ask for it before deciding a deck cannot be written.
+   Two measured corrections, because runs have concluded the opposite and
+   stopped:
+     * 4C DOES ACCEPT PER-NODE DIRICHLET VALUES. `DESIGN LINE DIRICH
+       CONDITIONS` takes one scalar per line, which is why a per-node list
+       there aborts in "Read/generate conditions" — but `DESIGN POINT DIRICH
+       CONDITIONS` with a `DNODE-NODE TOPOLOGY` block sets a different value at
+       every named node, which is exactly what a Dirichlet-Neumann interface
+       needs. A run that reports this as a 4C limitation is wrong.
+     * FEBio DOES ACCEPT A POSITION-DEPENDENT BODY FORCE, as a `<body_load>`
+       component carrying `type="math"`. Without that attribute the expression
+       is silently truncated to its numeric prefix.
 
 WHERE THE DELIVERABLE HAS TO END UP
 ──────────────────────────────────
@@ -695,59 +713,49 @@ FOUR RULES THAT APPLY WHATEVER YOU ASKED FOR
 
 5. IF YOU DID SUBMIT AND WANT TO KNOW WHETHER IT IS RIGHT, MEASURE, DO NOT
    GUESS. Among submissions with a complete level set the self-convergence
-   order is a median 1.96 to 1.99 in both arms: the discretisation converges
-   cleanly. Two failures survive that, and neither shows up in a refinement
-   study — a solution converging beautifully TO THE WRONG FUNCTION (7% of all
-   runs), and a field off by orders of magnitude in its overall size.
+   order is a median 1.96 to 1.99 in both arms — the discretisation converges
+   cleanly — and the failures that survive that do not show up in a refinement
+   study at all: a solution converging beautifully TO THE WRONG FUNCTION, and a
+   field off by orders of magnitude in size. Your own MESH_INDEPENDENCE verdict
+   does not separate them: it catches three quarters of the wrong runs and also
+   fires on HALF the correct ones.
 
-   YOUR OWN CONVERGENCE VERDICT DOES NOT SEPARATE THEM. Measured, a run's
-   MESH_INDEPENDENCE = NOT_CONVERGED catches about three quarters of the wrong
-   runs, but it also fires on HALF the correct ones, so on its own it says
-   almost nothing. What is falsifiable, with no reference answer:
-     a. DOES YOUR FIELD SATISFY THE EQUATION YOU WERE GIVEN? Pick a smooth
-        function v that vanishes on the boundary, and check the identity
-            integral of u * (L* v)  ==  integral of f * v
-        by quadrature on the probe values you already have, with the L and f
-        the task states (L* is the adjoint; for -div(K grad u) with symmetric
-        K, L* = L). Refine and watch it. Measured: fields that solve the stated
-        problem give 6.7e-2 -> 1.5e-2 -> 4.3e-3, falling at order 2; fields
-        that do not give 5.49 -> 5.62 -> 5.64, flat. It costs no solver run and
-        separated a third of all submissions.
-     b. IS YOUR EVALUATOR ITSELF SECOND ORDER? Push a function you KNOW (say
-        x(1-x)y(1-y)) through the SAME code that produces your probe values.
-        Measured on a 44x44 grid at N = 8, 16, 32:
-            nearest-node lookup    5.39e-3 -> 2.66e-3 -> 1.34e-3   order ~1.0
-            linear/shape function  1.09e-3 -> 2.73e-4 -> 6.85e-5   order ~2.0
-        Your evaluator's own order BOUNDS the order you can report.
-     c. DO THE BOUNDARY VALUES COME BACK? Probe nearest a boundary where the
-        value is prescribed. Values that are not right there mean the condition
-        landed elsewhere, or your probe coordinates are in a different frame.
-        A common form of this: a source expression evaluated in ELEMENT-LOCAL
-        coordinates instead of global ones, which is silent and wrong
-        everywhere.
-     d. IS THE SIZE PLAUSIBLE? Compare the magnitude of your field against what
-        the source term and the domain size imply. Measured, 11 to 30% of
-        submissions are off by more than a factor of ten, including fields that
-        are all zero and fields of order 1e11.
-     e. DID THE MESH CHANGE? The degree-of-freedom count must GROW per level.
+   What is falsifiable, with no reference answer, is whether your field
+   satisfies the equation you were given:
+
+       verify_pde_consistency(solution_files=..., source_term=...,
+                              coefficient=..., domain=...)
+
+   Measured: fields that solve the stated problem give 2.32e-02 -> 5.27e-03 ->
+   1.23e-03 -> 2.56e-04, falling at order ~2.2; fields that do not give 6.25 ->
+   6.37 -> 6.40, flat. On a coupled task run it on EACH side separately, with
+   that side's own source and coefficient. For the other cheap checks — is your
+   evaluator itself second order, do the boundary values come back, is the size
+   plausible, did the mesh change — ask
+   knowledge(topic="physics", solver=..., physics=...).
 
    Report what you measured either way: a run that states NOT_CONVERGED with
    its largest relative change scores better than one claiming a convergence
    it cannot show.
 
-5. IF YOUR SOLVER IS A BINARY, ITS INPUT FILE IS THE RUN INTERFACE and you
+6. IF YOUR SOLVER IS A BINARY, ITS INPUT FILE IS THE RUN INTERFACE and you
    cannot guess it. For 4C, FEBio and SPARTA the full deck grammar — every
    required section, in order, with the silent failure modes — is served by
        knowledge(topic="physics", solver=<name>, physics=<name>)
    and by NO other topic. Ask for it before deciding a deck cannot be written.
-   Two measured corrections, because runs have concluded the opposite and
+   Three measured corrections, because runs have concluded the opposite and
    stopped:
      * 4C DOES ACCEPT PER-NODE DIRICHLET VALUES. `DESIGN LINE DIRICH
        CONDITIONS` takes one scalar per line, which is why a per-node list
-       there aborts in "Read/generate conditions" — but `DESIGN POINT DIRICH
-       CONDITIONS` with a `DNODE-NODE TOPOLOGY` block sets a different value at
-       every named node, which is exactly what a Dirichlet-Neumann interface
-       needs. A run that reports this as a 4C limitation is wrong.
+       there aborts — but `DESIGN POINT DIRICH CONDITIONS` with a `DNODE-NODE
+       TOPOLOGY` block sets a different value at every named node, which is
+       what a Dirichlet-Neumann interface needs.
+     * 4C DESIGN ENTITY IDS ARE ONE-BASED, AND A 0 SEGFAULTS WITH NO MESSAGE.
+       `E: 0` with `NODE n DLINE 0` dies with "Signal: Segmentation fault (11)"
+       and no diagnostic, during "Read/generate conditions" so it reads as a
+       problem with the condition's content. Measured on one deck: E:0 -> exit
+       139, the SAME deck with E:1 -> "processor 0 finished normally", exit 0.
+       Check the digit before rewriting section names or element types.
      * FEBio DOES ACCEPT A POSITION-DEPENDENT BODY FORCE, as a `<body_load>`
        component carrying `type="math"`. Without that attribute the expression
        is silently truncated to its numeric prefix.

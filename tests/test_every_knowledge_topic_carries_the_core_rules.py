@@ -80,7 +80,9 @@ CORE_MARKERS = [
     "THE DELIVERABLE GOES IN THE DIRECTORY YOU WERE GIVEN",
     "A SOLVER'S INPUT LANGUAGE IS NOT PYTHON",
     "DO NOT CONCLUDE A SOLVER IS BROKEN",
-    "IS YOUR EVALUATOR SECOND ORDER",
+    # renamed when the ladder was corrected; the check that matters is that
+    # the core routes to the falsifiable test, not that it restates it.
+    "verify_pde_consistency",
     # Rule 5, added because C2_27b_MCP_seed70 concluded "4C cannot accept
     # per-node Dirichlet values" and stopped, while the served 4C grammar shows
     # DESIGN POINT DIRICH CONDITIONS doing exactly that. seed70 and seed71 made
@@ -159,9 +161,26 @@ def test_a_future_return_path_cannot_leak(knowledge_tool):
 def test_the_core_is_cheap_enough_to_send_every_time(knowledge_tool):
     """It is appended to every call and shares the model's context window."""
     from tools.knowledge import _UNIVERSAL, _UNIVERSAL_CORE
-    assert len(_UNIVERSAL_CORE) < 4500, (
+    # THE BOUND IS A DELIBERATE TRADE, RAISED ONCE, WITH THE NUMBERS.
+    #
+    # The core rides on every knowledge call, so it costs the arm that already
+    # accumulates context fastest. Measured: OASiS runs take a median 39 tool
+    # calls against bare's 95, at 91k input tokens per call against 60k, so
+    # ACTIONS are the binding constraint. At ~5 knowledge calls per run this
+    # block costs roughly 6k tokens of a 262k window.
+    #
+    # Against that, every rule in it was written from a run that lost its whole
+    # attempt: a deliverable written where nobody looked, `**` in a deck, a
+    # solver declared broken that was not, a field never read back at the probe
+    # points, and three backend facts each of which ended a run on its own —
+    # 4C's per-node Dirichlet, 4C's one-based design ids, FEBio's type="math".
+    #
+    # Raised from 4500 to 5500 when the one-based-id segfault was added. Adding
+    # anything further should displace something, not push this again.
+    assert len(_UNIVERSAL_CORE) < 5500, (
         f"the core is {len(_UNIVERSAL_CORE)} chars; it rides on EVERY knowledge "
-        f"call, and the OASiS arm already accumulates context faster than bare"
+        f"call, and the OASiS arm already accumulates context faster than bare. "
+        f"Displace something rather than raising this bound again."
     )
     assert len(_UNIVERSAL_CORE) < len(_UNIVERSAL), "the core must be a subset"
 
