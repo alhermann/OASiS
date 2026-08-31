@@ -73,6 +73,36 @@ def _fourc_diagnostic(stdout_text: str, stderr_text: str,
     marker at all (a signal, an MPI-level failure) still needs reporting.
     """
     parts = []
+    # A SEGFAULT IS NOT A DIAGNOSTIC, SO NAME THE CAUSE THAT PRODUCES IT.
+    #
+    # Measured on C2_27b_MCP_seed76, which lost its entire run to this. 4C dies
+    # with "Signal: Segmentation fault (11) / Address code: Address not mapped"
+    # and prints no error, no line number and no mention of conditions. The
+    # crash lands during "Read/generate conditions", so it reads as a problem
+    # with the condition's CONTENT — and the run responded by rewriting section
+    # names, swapping DESIGN LINE TRANSPORT DIRICH for DESIGN LINE DIRICH, and
+    # changing the element TYPE, five attempts that all crashed identically.
+    #
+    # The cause was one digit. Design entity ids are ONE-based; `E: 0` with
+    # `NODE n DLINE 0` indexes past the end of the array. Verified by running
+    # that agent's own deck twice with only that digit changed: E:0/DLINE 0
+    # segfaults at exit 139, E:1/DLINE 1 finishes normally at exit 0.
+    blob = (stdout_text or "") + "\n" + (stderr_text or "")
+    if re.search(r"Signal:\s*Segmentation fault|signal 11|SIGSEGV", blob):
+        parts.append(
+            "--- 4C crashed with a signal, not an error message ---\n"
+            "A segmentation fault carries no diagnostic, so read the deck, not "
+            "the log. In this codebase the commonest cause by far is a "
+            "ZERO-BASED DESIGN ENTITY ID: `E:` in a condition block and the "
+            "DLINE/DNODE/DSURF number in the topology block are ONE-based, and "
+            "`E: 0` with `NODE n DLINE 0` indexes past the end of the array and "
+            "dies with exactly this signal. Measured on one real deck: "
+            "E:0/DLINE 0 -> Segmentation fault, exit 139; the SAME deck with "
+            "E:1/DLINE 1 -> 'processor 0 finished normally', exit 0.\n"
+            "Check that digit BEFORE rewriting section names, swapping "
+            "DESIGN LINE TRANSPORT DIRICH for DESIGN LINE DIRICH, or changing "
+            "the element TYPE: each of those leaves the fault in place and "
+            "crashes identically.")
     for name, text in (("stdout", stdout_text), ("stderr", stderr_text)):
         m = _FOURC_ERROR_RE.search(text or "")
         if m:

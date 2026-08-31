@@ -117,6 +117,25 @@ three-level submission from the same binary.
 
 WHICH PROBLEM TYPE YOU PICK DECIDES WHETHER YOU CAN READ YOUR OWN ANSWER.
 Measured on this build:
+  * DESIGN ENTITY IDS START AT 1, AND A 0 IS A SEGMENTATION FAULT WITH NO
+    MESSAGE. `E:` in a condition block and the `DLINE`/`DNODE`/`DSURF` number
+    in the matching topology block are ONE-BASED. Writing `E: 0` with
+    `NODE n DLINE 0`, which is the natural thing to do coming from Python,
+    indexes past the end of the design-entity array:
+
+        E: 0 / DLINE 0   ->  Signal: Segmentation fault (11)
+                             Signal code: Address not mapped (1)     exit 139
+        E: 1 / DLINE 1   ->  Read/generate conditions ... 0.0024 secs
+                             processor 0 finished normally           exit 0
+
+    Measured by running the SAME deck twice with only that digit changed. There
+    is no error message, no line number and no mention of conditions: the
+    process simply dies, and the crash arrives during "Read/generate
+    conditions", so it reads like a problem with the condition's CONTENT. A run
+    that responds by rewriting the section names, swapping
+    `DESIGN LINE TRANSPORT DIRICH` for `DESIGN LINE DIRICH`, or changing the
+    element TYPE will crash identically every time. Check the digit first.
+
   * `PROBLEMTYPE: "Thermo"` with a `THERMAL DYNAMIC` section and
         IO:
           VERBOSITY: "Standard"
