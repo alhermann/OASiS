@@ -2373,6 +2373,87 @@ def _fourc() -> str:
                   "   4C's dependency lib directory in `FOURC_LD` if the binary does\n"
                   "   not find its libraries by itself.")),
         '''\
+* THE DECK GRAMMAR — you cannot guess it, and 4C is a BINARY, so the deck is
+  this backend's run interface in exactly the way exports.json is the driver's.
+  Every NUMBER below is an ARBITRARY PLACEHOLDER; the sections and their syntax
+  are what is documented. A deck with these sections runs; one missing any of
+  them aborts during input parsing.
+
+    TITLE:
+      - "anything"
+    PROBLEM SIZE:
+      ELEMENTS: 4
+      NODES: 9
+    PROBLEM TYPE:
+      PROBLEMTYPE: "Scalar_Transport"
+    SCALAR TRANSPORT DYNAMIC:
+      TIMEINTEGR: "Stationary"
+      SOLVERTYPE: "linear_full"
+      NUMSTEP: 1
+      TIMESTEP: 1.0
+      MAXTIME: 1.0
+      LINEAR_SOLVER: 1
+    SOLVER 1:
+      SOLVER: "UMFPACK"
+    MATERIALS:
+      - MAT: 1
+        MAT_scatra:
+          DIFFUSIVITY: 1.0          # <- YOUR k
+    FUNCT1:
+      - SYMBOLIC_FUNCTION_OF_SPACE_TIME: "x^2*y"     # <- YOUR source/BC
+    DESIGN LINE DIRICH CONDITIONS:
+      - E: 1
+        NUMDOF: 1
+        ONOFF: [1]
+        VAL: [0.0]
+        FUNCT: [0]
+    NODE COORDS:
+      - "NODE 1 COORD 0.0 0.0 0.0"
+    TRANSPORT ELEMENTS:
+      - "1 TRANSP QUAD4 1 2 5 4 MAT 1 TYPE Std"
+    DLINE-NODE TOPOLOGY:
+      - "NODE 1 DLINE 1"
+
+  THE VOLUME SOURCE TERM f IS A "SURF" NEUMANN CONDITION IN 2-D. There is no
+  body-force section: 4C calls a 2-D domain a SURFACE, so `-div(k grad u) = f`
+  gets its f from
+
+    DESIGN SURF TRANSPORT NEUMANN CONDITIONS:
+      - E: 1
+        NUMDOF: 1
+        ONOFF: [1]
+        VAL: [1.0]        # scale; the shape comes from FUNCT
+        FUNCT: [1]        # -> FUNCT1's SYMBOLIC_FUNCTION_OF_SPACE_TIME
+    DSURF-NODE TOPOLOGY:
+      - "NODE 1 DSURFACE 1"      # every node of the subdomain
+
+  In 3-D the same role is played by `DESIGN VOL TRANSPORT NEUMANN CONDITIONS`
+  with `DVOL-NODE TOPOLOGY`. Using the VOL form on a 2-D problem is trap (d)
+  below. Omit this section and you solve f = 0 -- the run succeeds and the
+  answer is wrong, which is the worst failure mode available.
+
+  FOUR MEASURED WAYS THIS DIES, all of them silently:
+  (a) THE LEGACY BLOCKS ARE YAML SEQUENCES. `NODE COORDS`, `TRANSPORT
+      ELEMENTS` and `D*-NODE TOPOLOGY` entries each need `- ` and quotes.
+      Written bare, YAML reads them as mapping keys and 4C dies with
+        ERROR: could not find ':' colon after key
+      BEFORE its own banner appears.
+  (b) `**` IS NOT EXPONENTIATION in SYMBOLIC_FUNCTION_OF_SPACE_TIME. Use `^`.
+      The task states its source term in Python notation; rewrite every term.
+  (c) ONOFF / VAL / FUNCT must each have EXACTLY `NUMDOF` entries, or
+        [!] Candidate parameter 'VAL' has incorrect size
+  (d) A condition's dimension must not exceed the problem's: a
+      `DESIGN VOL ...` block on a 2-D problem gives
+        Dimension of condition is larger than the problem dimension.
+
+  AND READ THE LOG FROM THE TOP. 4C buffers stdout and MPI_Abort kills it
+  before the flush, so `| tail` shows only MPI boilerplate. Measured on one
+  failing deck: 8 lines without line buffering, 43 with it. Run
+      stdbuf -oL <4C binary> deck.4C.yaml out > run.log 2>&1 ; head -40 run.log
+  `Invalid MIT-MAGIC-COOKIE-1 key` is an X11 warning that appears on
+  SUCCESSFUL runs too — `4C -p` prints it and then dumps the whole grammar.
+  It never explains a failure.
+
 * `PROBLEMTYPE: "Scalar_Transport"` with `TIMEINTEGR: "Stationary"` is the
   conduction problem. Element line is `TRANSP QUAD4 ... MAT 1 TYPE Std` in a
   `TRANSPORT ELEMENTS` section — `SOLID QUAD4` is a structural element and will
