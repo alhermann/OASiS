@@ -827,6 +827,18 @@ _COUPLING_WORDS = (
     "precice",
     "two_code", "two-code", "two_way", "two-way",
     "interface_field", "staggered",
+    # NAMED MULTIPHYSICS PROBLEMS THAT ARE COUPLED BY DEFINITION.
+    #
+    # A run asked knowledge(topic='conjugate_heat_transfer') — a correct name
+    # for a coupled fluid-solid thermal problem — and got the usage message,
+    # because every word above describes the METHOD and none names a PROBLEM.
+    # An agent that has identified its problem correctly should not have to
+    # guess our vocabulary. Still narrow: each of these is coupled by
+    # definition, so no single-code request is diverted.
+    "conjugate_heat", "conjugate heat",
+    "thermomechanic", "thermo_mechanic", "thermo-mechanic",
+    "poroelast",      # solid + fluid pressure
+    "aeroelast",      # fluid + structure, the aero spelling of fsi
 )
 
 
@@ -2734,6 +2746,22 @@ def register_consolidated_tools(mcp: FastMCP):
             return json.dumps(get_setup_knowledge(solver or None), indent=2)
 
         else:
+            # A COUPLING QUESTION UNDER AN UNLISTED NAME IS STILL A COUPLING
+            # QUESTION.
+            #
+            # The topic list above is exact, so a physically reasonable request
+            # like topic='conjugate_heat_transfer' — measured in this campaign's
+            # trajectories — matched nothing and got the usage message. That is a
+            # dead end handed to an agent that had correctly identified its problem
+            # as coupled, and the run then had to guess the vocabulary.
+            #
+            # `_is_coupling_request` already existed for exactly this, and was
+            # wired into `examples` only. It is deliberately narrow — it fires on
+            # words that are ABOUT coupling — so a single-code request is never
+            # diverted here.
+            if _is_coupling_request(topic):
+                return _get_coupling_knowledge(solver, signal)
+
             # Topics list must match the docstring + dispatch
             # branches. Audit 2026-06-01: 'postmortems' was
             # documented in the docstring and implemented at
@@ -2750,6 +2778,7 @@ def register_consolidated_tools(mcp: FastMCP):
                 "whether a claim depends on how it was compiled, use "
                 "topic='install' (solver=... optional)."
             )
+
 
 
     # EVERY return of _knowledge_body GETS THE CORE RULES — not just the one.
@@ -5874,6 +5903,44 @@ _COUPLING_HEAD_LIMIT = 24000
 # so the default max_iter = 50 is ALREADY SHORT at rho = 2, and the default
 # accelerator diverges on exactly the severe-contrast cells this campaign uses.
 _COUPLING_MUST_READ = """\
+THE INTERFACE FILE IS WRITTEN AT THE POINTS THE TASK LISTS, NOT AT YOUR NODES.
+
+This is the single most common way a coupled run that WORKED is still scored
+unusable. Measured on runs whose 4C execution, Kratos execution and coupling
+iteration were all independently PROVEN, and whose residual fell to 1e-7: the
+submissions were rejected anyway, because interface_level<k>_<side>.csv held
+the agent's own interface MESH NODES.
+
+    what was written   level 1: 7 rows   level 2: 15 rows   level 3: 23 rows
+    what was asked     the same fixed list of points at EVERY level
+
+You almost certainly already get this right for the solution file: those runs
+wrote exactly the prescribed probe rows there. THE INTERFACE FILE OBEYS THE
+SAME RULE. Its rows are the coordinates the task names, in the order the task
+names them, identical at every mesh level.
+
+WHY IT IS FATAL RATHER THAN UNTIDY. An order of convergence is a comparison of
+the SAME quantity across levels. Mesh nodes move and multiply with every
+refinement, so a set of node values at level 1 and another at level 2 have no
+point in common to compare — there is no order to compute, and no partial
+credit for a beautifully converged iteration. A grader also cannot tell your
+node values from a different problem's node values.
+
+WHAT TO DO. Interpolate your solution to each listed coordinate, exactly as you
+already do for the solution probe points — the same shape-function evaluation,
+not the value at the nearest node. Write one row per listed point, all of them,
+in the listed order, and nothing else: extra rows, missing rows, duplicated
+rows and a different ordering are each enough to make the file unreadable to
+the grader. If the task says the interface points are a subset of the solution
+probe points, the cheapest correct implementation is to select those rows from
+the file you have already written.
+
+THE ENDS OF THE INTERFACE ARE USUALLY EXCLUDED ON PURPOSE. Where the interface
+meets the outer boundary, a Dirichlet-Neumann split has a corner at which the
+recovered flux does not converge under refinement. A task that lists interior
+points only is not an oversight and the list must not be "completed" with the
+end points.
+
 THE GRADED ARTEFACT IS THE ITERATION HISTORY, AND `couple` IS WHAT PRODUCES IT.
 
 The coupled task asks you to write `residual_level<k>.csv` — one row per
@@ -5927,8 +5994,24 @@ interface refinement.
 
 
 def _front_load_coupling(payload: str, solver: str = "") -> str:
-    if not isinstance(payload, str) or len(payload) <= _COUPLING_HEAD_LIMIT:
+    # THE MUST-READ IS ATTACHED ALWAYS, NOT ONLY WHEN THE PAYLOAD IS TOO LONG.
+    #
+    # This returned `payload` untouched whenever it fitted inside the limit, so
+    # the must-read — the couple() call, the forgery rules, the rho budget, and
+    # where interface values go — rode along only as a SIDE EFFECT of
+    # truncation. Measured: knowledge(topic='coupling') is long enough to be
+    # cut and did carry it, but knowledge(topic='coupling', solver='fourc') and
+    # any call narrowed by signal='...' are shorter, and carried none of it.
+    #
+    # Those are not exotic call shapes. The truncation notice below tells the
+    # agent, in as many words, to come back with
+    # knowledge(topic='coupling', solver='...', signal='<what you are stuck
+    # on>') — so OASiS was directing agents at the one door that dropped the
+    # text they were being sent to find.
+    if not isinstance(payload, str):
         return payload
+    if len(_COUPLING_MUST_READ) + len(payload) <= _COUPLING_HEAD_LIMIT:
+        return _COUPLING_MUST_READ + payload
     budget = _COUPLING_HEAD_LIMIT - len(_COUPLING_MUST_READ)
     head = _COUPLING_MUST_READ + payload[:budget]
     # Cut on a section boundary so no instruction is truncated mid-sentence --
