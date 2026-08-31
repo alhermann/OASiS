@@ -79,7 +79,8 @@ def run_log_ndofs(work: Path) -> dict:
             text = f.read_text(errors="ignore")
         except OSError:
             continue
-        cm = EV.CANONICAL_NDOF.search(text)
+        # strip what the TERMINAL wrote before matching what the AGENT wrote
+        cm = EV.CANONICAL_NDOF.search(EV.strip_terminal_noise(text))
         if not cm:
             continue
         side = (m.group(2) or "-").upper()

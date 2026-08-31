@@ -78,7 +78,42 @@ NOT_EVIDENCE = {"trajectory.txt", "trajectory_live.txt", "task.txt",
 # follows the task text can be labelled fabricated for its phrasing again.
 # Verification that <integer> is PLAUSIBLE for the prescribed mesh level (it
 # must grow with refinement) happens in code_evidence, not here.
-CANONICAL_NDOF = re.compile(r"^\s*NDOF\s*=\s*(\d{2,})\s*$", re.M)
+CANONICAL_NDOF = re.compile(r"^\s*NDOF\s*=\s*(\d+)\s*$", re.M)
+
+# THE TERMINAL WRITES INTO THE AGENT'S LOG, AND THE ANCHOR BLAMED THE AGENT.
+#
+# The pattern above is anchored so that an agent's PROSE about its own solver
+# cannot satisfy the contract. That is right, and it had a cost nobody had
+# measured: a program that writes to the terminal WITHOUT a trailing newline
+# glues its text onto the front of the agent's correct line, and `^` then
+# cannot match. Measured in this tree:
+#
+#   C2_27b_MCP_seed73   "Invalid MIT-MAGIC-COOKIE-1 keyNDOF = 54"
+#                       an X11 warning, no newline. All three side-A logs of
+#                       the best coupled run in the campaign were voided.
+#   FB1_27b_MCP_seed2   "\x1b]0;(100%) level1.feb - FEBio 4.12...\x07NDOF = 196"
+#                       FEBio's own terminal-title escape sequence.
+#
+# 19 logs state an NDOF that the anchor rejects. The repair is to remove what
+# the TERMINAL wrote before matching what the AGENT wrote — ANSI/OSC escape
+# sequences and the X11 cookie warning — rather than to relax the anchor, which
+# would let narration back in.
+#
+# Separately, `\d{2,}` demanded at least two digits, so a coarse level with 8 or
+# 9 degrees of freedom failed the contract for being small. Measured:
+# C6_27b_BARE_seed8 reports NDOF = 9 and C9_27b_BARE_seed4 reports NDOF = 8,
+# both plausible for a first level. Now any integer is accepted here, and
+# whether the count is PLAUSIBLE — non-zero, and growing under refinement — is
+# decided by ndof_growth, which is where that judgement belongs.
+_TERMINAL_NOISE = re.compile(
+    r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)"      # OSC title, e.g. FEBio's
+    r"|\x1b\[[0-9;?]*[A-Za-z]"                  # CSI colour / cursor moves
+    r"|Invalid MIT-MAGIC-COOKIE-1 key")           # X11, printed with no newline
+
+
+def strip_terminal_noise(text: str) -> str:
+    """Remove what the terminal wrote so the agent's own line can be seen."""
+    return _TERMINAL_NOISE.sub("", text or "")
 
 # MEASURED, NOT GUESSED. EVERY PATTERN BELOW WAS OBTAINED BY RUNNING THE CODE.
 #
@@ -409,7 +444,7 @@ def code_evidence(work: Path, code: str) -> EvidenceItem:
         # same file is no longer discarded, which is what lets
         # `only_canonical` mean what it says.
         hit = False
-        cm = CANONICAL_NDOF.search(text)
+        cm = CANONICAL_NDOF.search(strip_terminal_noise(text))
         if cm:
             matches.append(f"NDOF = {cm.group(1)} (canonical contract line)")
             hit = True
