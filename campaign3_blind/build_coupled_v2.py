@@ -140,11 +140,41 @@ def probe_rule(dim: int, extent) -> str:
               f"ordered with the last index varying fastest")
 
 
-def iface_probe_rule(dim: int, iface_desc: str, span) -> str:
+def iface_probe_indices(dim: int, span, extent: float = 1.0):
+    """Interface probe positions, taken FROM the solution probe grid.
+
+    WHY THIS IS NOT AN INDEPENDENT GRID ANY MORE.
+
+    `flux_consistency` in src/blind_eval/interface.py exists to catch a
+    fabricated interface flux: it recomputes the flux from the submitted FIELD
+    and compares it with the flux the agent reported. Two numbers that do not
+    follow from each other mean one of them was not computed. It is the only
+    reference-free check for that, and the module's docstring presents it as an
+    anti-fabrication mechanism.
+
+    It has never once run. Two independent reasons, both measured:
+
+      1. Nothing in campaign3_blind/grading/ calls it at all. It is defined and
+         unit-tested, and no grading path invokes it.
+      2. Even wired, it could not assess. It needs three field samples in a
+         COLUMN at an interface point's coordinate to extrapolate from, and the
+         two grids never share a coordinate: solution probes sat at (j+0.5)/44,
+         i.e. odd multiples of 1/88, while interface probes sat at
+         0.25 + (i+0.5)/88 = (45+2i)/176. In 1/176 units the first set has even
+         numerators and the second odd ones, so the intersection is empty for
+         every C-series cell.
+
+    So the interface points are now a SUBSET of the solution probe grid,
+    restricted to the graded band. Each one then has a full row of field
+    samples at its own coordinate, and the cross-check can actually run.
+
+    The interface's varying coordinate is the one both subdomains span fully
+    (a vertical interface varies in y, and both sides span the whole y range),
+    which is why one `extent` suffices.
+    """
     M = PROBE_M[dim]
-    lo, hi = span
-    return (f"the {M} points on {iface_desc} given by s = {float(lo):g} + "
-            f"(i+0.5)*{float(hi) - float(lo):g}/{M}, i = 0, 1, ..., {M - 1}")
+    lo, hi = float(span[0]), float(span[1])
+    return M, [j for j in range(M) if lo <= (j + 0.5) * extent / M <= hi]
 
 
 def _exclusion_text(spec) -> str:
@@ -445,22 +475,33 @@ def _iface_band(lo, hi):
 
 
 def _straight_iface_probe(dim):
-    M = PROBE_M[dim]
+    """THE LIVE interface-probe generator. Points come FROM the solution grid.
+
+    `iface_probe_rule` above looked like the authority and has zero callers;
+    this is the function the specs actually use. See iface_probe_indices for why
+    the coordinates must be a subset of the solution probe grid: the
+    fabricated-flux cross-check needs field samples AT an interface coordinate,
+    and under the old independent spacing the two sets could never share one --
+    solution probes at odd multiples of 1/88, interface probes at (45+2i)/176.
+    """
+    M, js = iface_probe_indices(dim, _iface_band(0, 1))
     xi = f"{XI}"
-    a, b = _iface_band(0, 1)
-    w = b - a
+    tail = (" These are exactly the solution probe coordinates lying in the "
+            "graded band, so the same values appear in your "
+            "solution_level<k>.csv rows.")
     if dim == 2:
-        return (f"the {M} points (x, y) = ({xi}, {a} + (i+0.5)*{w}/{M}) for "
-                f"i = 0, 1, ..., {M - 1}. These cover the INTERIOR of the "
-                f"interface only: the two points where the interface meets the "
-                f"outer boundary are corners of the split problem and the "
-                f"recovered flux there does not converge, so they are not "
-                f"graded")
-    return (f"the {M * M} points (x, y, z) = ({xi}, {a} + (i+0.5)*{w}/{M}, "
-            f"{a} + (j+0.5)*{w}/{M}) for i, j = 0, 1, ..., {M - 1}, ordered "
-            f"with j varying fastest. These cover the INTERIOR of the interface "
-            f"only: where the interface meets the outer boundary the recovered "
-            f"flux does not converge, so the edges are not graded")
+        return (f"the {len(js)} points (x, y) = ({xi}, (j+0.5)/{M}) for "
+                f"j = {js[0]}, {js[0] + 1}, ..., {js[-1]}. These cover the "
+                f"INTERIOR of the interface only: the two points where the "
+                f"interface meets the outer boundary are corners of the split "
+                f"problem and the recovered flux there does not converge, so "
+                f"they are not graded." + tail)
+    return (f"the {len(js) * len(js)} points (x, y, z) = "
+            f"({xi}, (j+0.5)/{M}, (k+0.5)/{M}) for j, k = {js[0]}, "
+            f"{js[0] + 1}, ..., {js[-1]}, ordered with k varying fastest. "
+            f"These cover the INTERIOR of the interface only: where the "
+            f"interface meets the outer boundary the recovered flux does not "
+            f"converge, so the edges are not graded." + tail)
 
 
 def _scalar_spec(pid, codes, labels, dim, kA_txt, kB_txt, eq, contrast):

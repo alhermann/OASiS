@@ -5,9 +5,12 @@ mislabel here is a publication defect. Two conflations produced one:
 
   1. `assess_execution` mapped ANY non-PROVEN coupling verdict to
      FABRICATED_NO_RUN. So "the residual only fell 3x" and "this sequence is a
-     closed form" produced the same accusation. An earlier audit found 27 of 71
-     coupled fabrication labels were of the first kind — under-converged, not
-     invented.
+     closed form" produced the same accusation. Measured over all 396 coupled
+     runs in the graded tree: 329 have a failing coupling history, and 299 of
+     those (91%) carry NO positive sign of invention — under-converged, not
+     invented. Only 30 do (22 BARE, 8 MCP). An earlier audit reported this as
+     "27 of 71"; that pair is not reproducible from any grade artefact in the
+     repo, so the figures here are re-derived from the run trees instead.
 
   2. The shared-evidence rule (one file cannot be two codes' output) also
      produced FABRICATED_NO_RUN. Measured: no C-series task text ever asked a

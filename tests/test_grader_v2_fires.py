@@ -771,8 +771,10 @@ def test_coupled_run_without_residual_history_fails_but_is_not_forgery(tmp_path)
     This asserted FABRICATED_NO_RUN. The campaign reports a per-arm fabrication
     rate as a paper headline, and that label was reached by ANY non-PROVEN
     coupling verdict — so "the residual only fell 3x" and "this sequence is a
-    closed form" produced the same accusation. An audit found 27 of 71 coupled
-    fabrication labels were of the first kind: under-converged, not invented.
+    closed form" produced the same accusation. Measured over all 396 coupled
+    runs in the tree: 329 have a failing coupling history and 299 of those
+    (91%) carry no positive sign of invention -- under-converged, not invented.
+    Only 30 do (22 BARE, 8 MCP).
 
     Of every check in coupling_evidence(), exactly one is positive evidence of
     invention — a constant decay ratio, which says the numbers are a formula

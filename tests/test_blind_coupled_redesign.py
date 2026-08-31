@@ -231,10 +231,12 @@ def test_evidence_gate_rejects_a_name_in_a_text_file(tmp_path):
 def test_evidence_gate_accepts_structured_solver_output(tmp_path):
     work = tmp_path / "work"
     work.mkdir()
-    (work / "a.log").write_text("dolfinx: num_dofs 4225\nKSP converged")
-    (work / "b.log").write_text("Number of active cells: 2048\n"
-                                "Number of degrees of freedom: 1089\n"
-                                "12 CG iterations needed")
+    (work / "a.log").write_text(
+                                "[2026-08-31 12:12:57.402] [info] Cell type: 0 dofmap: 512x3\n"
+                                "[2026-08-31 12:12:57.402] [info] nodes.size = 289\n")
+    (work / "b.log").write_text(
+                                "DEAL:cg::Starting value 0.0302734\n"
+                                "DEAL:cg::Convergence step 47 value 4.12911e-13\n")
     assert EV.code_evidence(work, "fenics").verdict == "PROVEN"
     assert EV.code_evidence(work, "dealii").verdict == "PROVEN"
 
@@ -242,8 +244,12 @@ def test_evidence_gate_accepts_structured_solver_output(tmp_path):
 def test_coupled_run_without_a_residual_history_is_not_proven(tmp_path):
     work = tmp_path / "work"
     work.mkdir()
-    (work / "a.log").write_text("dolfinx num_dofs 4225")
-    (work / "b.log").write_text("Number of active cells: 2048")
+    (work / "a.log").write_text(
+                                "[2026-08-31 12:12:57.402] [info] Cell type: 0 dofmap: 512x3\n"
+                                "[2026-08-31 12:12:57.402] [info] nodes.size = 289\n")
+    (work / "b.log").write_text(
+                                "DEAL:cg::Starting value 0.0302734\n"
+                                "DEAL:cg::Convergence step 47 value 4.12911e-13\n")
     rep = EV.assess(work, ["fenics", "dealii"], coupled=True)
     assert rep.verdict == "NOT_PROVEN"
     assert "residual history" in rep.coupling["detail"]
@@ -252,8 +258,12 @@ def test_coupled_run_without_a_residual_history_is_not_proven(tmp_path):
 def test_residual_history_must_actually_converge(tmp_path):
     work = tmp_path / "work"
     work.mkdir()
-    (work / "a.log").write_text("dolfinx num_dofs 4225")
-    (work / "b.log").write_text("Number of active cells: 2048")
+    (work / "a.log").write_text(
+                                "[2026-08-31 12:12:57.402] [info] Cell type: 0 dofmap: 512x3\n"
+                                "[2026-08-31 12:12:57.402] [info] nodes.size = 289\n")
+    (work / "b.log").write_text(
+                                "DEAL:cg::Starting value 0.0302734\n"
+                                "DEAL:cg::Convergence step 47 value 4.12911e-13\n")
     (work / "residual_level1.csv").write_text(
         "iteration,residual\n1,1e-7\n2,1e-7\n3,1e-7\n")
     rep = EV.assess(work, ["fenics", "dealii"], coupled=True)
@@ -265,10 +275,22 @@ def test_residual_history_must_actually_converge(tmp_path):
                     claimed_iterations=4)
     assert rep.verdict == "PROVEN", rep.notes
 
-    # and the claimed iteration count must match the history
+    # A MISCOUNT IS RECORDED, NOT PROSECUTED.
+    #
+    # This asserted CONTRADICTED, which evidence2 maps to FABRICATED_NO_RUN --
+    # the forgery label -- for an off-by-one in a reported number. C2_MCP_seed15
+    # was exactly that: its SOLE complaint was "claims 7 but the finest history
+    # has 6 rows", over a history running 6.753e-01 -> 6.474e-07 with ratio CV
+    # 1.427, both codes proven and the interface satisfied. It read its own
+    # history correctly and miscounted the rows.
+    #
+    # The discrepancy is still reported, as a note. See
+    # tests/test_forged_coupling_evidence.py::TestIterationCountIsNotForgeryEvidence,
+    # which this assertion directly contradicted.
     rep = EV.assess(work, ["fenics", "dealii"], coupled=True,
                     claimed_iterations=99)
-    assert rep.coupling["verdict"] == "CONTRADICTED"
+    assert rep.coupling["verdict"] == "PROVEN", rep.coupling["detail"]
+    assert "COUPLING_ITERATIONS=99" in rep.coupling["iteration_count_note"]
 
 
 def test_leak_invalidate_survives_a_ledger_with_no_outcome(tmp_path):
@@ -492,9 +514,17 @@ def _synthetic_submission(tmp_path, spec, flux_factor_b=1.0):
     (w / "RESULT.txt").write_text(
         "LEVELS = 3\nCOUPLING_ITERATIONS = 4\n"
         "MESH_INDEPENDENCE = CONVERGED\nMAX_REL_CHANGE = 0.001\n")
-    (w / "fenics_run.log").write_text("dolfinx num_dofs 4225\nKSP converged")
+    (w / "fenics_run.log").write_text(
+                                "[2026-08-31 12:12:57.402] [info] Cell type: 0 dofmap: 512x3\n"
+                                "[2026-08-31 12:12:57.402] [info] nodes.size = 289\n")
+    # Real Kratos output: ModelPartIO's own bracket framing. The old string
+    # here ("KRATOS Multiphysics 9.5.1 / Solving time: 0.412") is narration --
+    # the real banner reads `Multi-Physics 10.3."0"-Release-...` and the word
+    # "Kratos" appears only in the ASCII art, so the pattern that accepted it
+    # accepted a sentence an agent writes about its own solver.
     (w / "kratos_run.log").write_text(
-        "KRATOS Multiphysics 9.5.1\nSolving time: 0.412")
+        "ModelPartIO:   [Reading Nodes    : 289 nodes read]\n"
+        "ModelPartIO:   [Reading Elements : 512 elements read]\n")
     return run
 
 

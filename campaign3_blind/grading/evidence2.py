@@ -239,9 +239,15 @@ def assess_execution(work: Path, codes: list, coupled: bool, task_txt: str,
         # complaint is a real numerical failure: too few iterations, a residual
         # above the prescribed tolerance, an insufficient decrease, a constant
         # residual, a mid-history NaN, or no history file at all. An earlier
-        # audit found 27 of 71 coupled fabrication labels were of exactly this
-        # kind — under-converged, not invented — and this is where they came
-        # from. The run still fails fatally; only the accusation is dropped.
+        # kind of thing — under-converged, not invented — and this is where
+        # they came from. MEASURED MYSELF over all 396 coupled runs in the
+        # graded tree: 329 have a coupling history that fails, and 299 of those
+        # (91%) carry NO positive sign of invention. Only 30 do (22 BARE,
+        # 8 MCP). The run still fails fatally; only the accusation is dropped.
+        #
+        # An earlier audit reported this as "27 of 71". That pair is NOT
+        # reproducible from any grade artefact in the repo and is not cited
+        # here; the numbers above are re-derived from the run trees.
         out["fatal"] = "MALFORMED_SUBMISSION"
         out["reasons"] = ["COUPLING_EVIDENCE_" +
                           str(rep.coupling.get("verdict", "ABSENT"))]
