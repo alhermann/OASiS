@@ -94,6 +94,20 @@ def _shares_root(a: Path, b: Path, root: Path) -> bool:
         return False
 
 
+_TIMESTAMP_RE = __import__("re").compile(r"_(\d{8}_\d{6})(?:/|$)")
+
+
+def _timestamp_in(path) -> str:
+    """The newest run-tool timestamp on this path, or "" if there is none.
+
+    OASiS names its per-call output directories <backend>_<YYYYmmdd_HHMMSS>,
+    which sorts lexicographically in time order, so a plain string compare is
+    a correct "which is later".
+    """
+    stamps = _TIMESTAMP_RE.findall(str(path).replace("\\", "/") + "/")
+    return max(stamps) if stamps else ""
+
+
 def discover_levels(work: Path, coupled: bool, run_dir: Path | None = None):
     """Map level -> side -> csv path. For a coupled cell an un-suffixed
     `solution_level<k>.csv` is a contract violation (the task prescribes
@@ -155,7 +169,42 @@ def discover_levels(work: Path, coupled: bool, run_dir: Path | None = None):
                     same_depth = (len(seen[key].relative_to(root).parts)
                                   == len(c.relative_to(root).parts)) \
                         if _shares_root(seen[key], c, root) else False
-                    if same_depth:
+                    # A RE-RUN IS NOT AN AMBIGUITY, AND THE LATEST WRITE IS
+                    # THE ANSWER.
+                    #
+                    # OASiS's run_simulation writes into
+                    # simulation_outputs/<backend>_<YYYYmmdd_HHMMSS>/, a fresh
+                    # directory per call, so an agent that ran its solver more
+                    # than once — which is the normal way to iterate — ends up
+                    # with several copies at the SAME depth and was rejected
+                    # for it. Measured: 18 runs in the tree carry two or more
+                    # timestamped directories for one backend, and every single
+                    # one is an OASiS-arm run, because only that arm has the
+                    # tool. So this rejection is arm-specific by construction,
+                    # and correcting it RAISES the measured uplift; it is
+                    # corrected because it is wrong, and the direction is
+                    # recorded here so nobody has to guess later.
+                    #
+                    # The contract does pick a winner. A file at the top of the
+                    # sandbox wins outright (candidates are shallowest-first,
+                    # handled above). Among timestamped siblings the newest is
+                    # the run's final state, and grading an earlier attempt is
+                    # grading work the agent had already superseded — which is
+                    # what the previous tiebreak did, sorting by (depth, str)
+                    # and so picking the OLDEST.
+                    stamp_new = _timestamp_in(c)
+                    stamp_old = _timestamp_in(seen[key])
+                    if same_depth and stamp_new and stamp_old:
+                        keep, drop = ((c, seen[key]) if stamp_new > stamp_old
+                                      else (seen[key], c))
+                        notes.append(
+                            f"{c.name}: the solver was run more than once; "
+                            f"grading the LATEST of the timestamped copies "
+                            f"({keep}), superseding {drop}.")
+                        if keep is c:
+                            seen[key] = c
+                            levels.setdefault(key[0], {})[key[1]] = c
+                    elif same_depth:
                         problems.append(
                             f"{c.name}: two differing copies at the same depth "
                             f"({seen[key]} and {c}); the contract does not say "
