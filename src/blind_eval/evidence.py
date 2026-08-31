@@ -275,8 +275,33 @@ CANONICAL_SIGNATURES = [r"ndof\s*[:=]\s*(\d+)"]
 #
 # The other native artefacts (.xplt, .vtu, .s0) stay out: they are binary, and
 # opening them buys nothing a text log does not already give.
+# `.sparta` IS A SOLVER LOG. SPARTA follows the LAMMPS convention and writes
+# `log.sparta` by default, so its suffix is `.sparta` — which this tuple did not
+# list, so the file was skipped unopened. The three SPARTA execution signatures
+# measured for this module could therefore NEVER fire: the only file that
+# contains them was unreadable by construction, and a run that had executed the
+# prescribed solver, and held the solver's own banner proving it, was labelled a
+# forger. Measured: 67 runs in the tree hold real SPARTA output ("SPARTA (...)",
+# "Loop time of ...", "Created ... child grid cells") in a `.sparta` file.
+#
+# This is the same defect already recorded and fixed in this file for 4C's
+# `.control`; SPARTA was never carried across. `.stdout` and `.sparta` are added
+# by suffix, and `_NAMED_LOG_PREFIXES` below catches the rest by NAME, because
+# the next solver to invent its own extension should not need a third repair.
 READABLE_SUFFIXES = (".log", ".out", ".txt", ".json", ".csv", ".err", ".dat",
+                     ".sparta", ".stdout",
                      ".control")
+# A FILE CALLED log.ANYTHING IS A LOG. Suffix allow-lists lose to every code
+# that names its output its own way (log.sparta, log.level1, run_level2.stdout),
+# and each miss reads as "the solver never ran".
+_NAMED_LOG_PREFIXES = ("log", "run", "stdout", "stderr", "screen", "output")
+
+
+def _looks_like_a_log(name: str) -> bool:
+    low = name.lower()
+    return any(low.startswith(p) for p in _NAMED_LOG_PREFIXES)
+
+
 MAX_FILE_BYTES = 8_000_000
 
 
@@ -306,7 +331,8 @@ def _candidate_files(work: Path):
     for f in sorted(work.rglob("*")):
         if not f.is_file() or f.name in NOT_EVIDENCE:
             continue
-        if f.suffix.lower() not in READABLE_SUFFIXES:
+        if (f.suffix.lower() not in READABLE_SUFFIXES
+                and not _looks_like_a_log(f.name)):
             continue
         try:
             if f.stat().st_size > MAX_FILE_BYTES:
@@ -464,7 +490,42 @@ def read_residual_history(work: Path) -> dict:
 # The threshold is placed in that empty valley. It flags both arms — of the 14
 # runs it catches, 3 are OASiS and 11 are bare — so it is instrument repair,
 # not a thumb on the scale.
-SYNTHETIC_RATIO_CV = 1e-5
+# RECALIBRATED, BECAUSE THE OLD JUSTIFICATION DID NOT HOLD.
+#
+# The previous note placed this at 1e-5 in "the empty valley" between "the
+# forged ones ... up to 8.8e-6" and "the nearest honest history above the band
+# is 2.2e-5". Re-measured: 8.803e-06 and 2.193e-05 are the SAME RUN,
+# C8_27b_BARE_seed10, at level 1 and level 2. The valley was one submission's
+# own level-to-level scatter, a factor of 2.5 wide, so it separated nothing.
+#
+# And the physics argues the other way. A Dirichlet-Neumann iteration with
+# fixed relaxation on a LINEAR problem contracts at the dominant eigenvalue of
+# the interface operator; once the error is mode-dominated its ratio is
+# constant to printing precision. A smooth rate is the textbook behaviour of
+# the scheme these tasks prescribe, not evidence of invention.
+#
+# What a real computation cannot do is be exactly geometric FROM THE FIRST
+# STEP. A real initial error carries several modes, so the early ratios differ
+# while the transient decays. Re-measured over every testable history that
+# actually decays, the distribution is bimodal and empty in between:
+#
+#   cv < 1e-14        25 histories,  8 runs   <- exactly geometric throughout
+#   1e-14 .. 1e-12     0
+#   1e-12 .. 1e-9      3 histories,  1 run
+#   1e-9  .. 1e-5      12 histories, 5 runs   <- smooth, but with a transient
+#   > 1e-5            188 histories, 62 runs
+#
+# The threshold moves to 1e-12, keeping every machine-exact history — including
+# C7_27b_BARE_seed14's 0.01*0.5^k, the campaign's known forgery — and sparing
+# the smooth-but-real ones. Two of those are decisive: C8_27b_BARE_seed2 has a
+# GROWING initial residual and a growing iteration count under refinement,
+# which copying one sequence into three files cannot produce, and
+# C8_27b_BARE_seed4 is cited by this harness's own iface.py as an example of a
+# converging coupling that was wrongly failed.
+#
+# The change removes accusations from both arms and slightly more from bare, so
+# it lowers the measured uplift rather than flattering it.
+SYNTHETIC_RATIO_CV = 1e-12
 # LOWERED FROM 5 TO 3, MEASURED.
 #
 # The floor exists so a short honest history is not judged on two ratios. But at
@@ -590,10 +651,35 @@ def coupling_evidence(work: Path, iface_tol: float = 1e-6,
     # the identical history is fully explained and the label would have been
     # wrong. `mesh_changed=None` means the caller could not establish it, and
     # then no forgery is claimed: an unproven suspicion is not evidence.
+    # THE LEADING-NON-FINITE DROP HAS TO HAPPEN BEFORE THIS CHECK, NOT AFTER.
+    #
+    # The drop that exists for exactly this reason lived inside the per-level
+    # loop BELOW, so this comparison ran on the RAW tuples. Measured: two runs
+    # whose three levels each held (inf, 0.0) were graded FABRICATED_NO_RUN —
+    # C2_27b_BARE_seed4 and C2_27b_BARE_seed7, both bare. An `inf` first
+    # residual is a divide-by-zero in the relative-residual normalisation, the
+    # same bookkeeping artefact the NaN rule was written for, and after the
+    # documented drop each history is one element long and cannot be compared
+    # at all. 39 runs in the tree carry a leading non-finite residual (35 MCP,
+    # 4 bare), so the exposure was live in both arms.
+    #
+    # AND A LENGTH FLOOR OF 2 IS NOT A FORMULA. Six further runs, all bare,
+    # were called forgers for writing (1.0, 0.0) at three levels: a normalised
+    # first residual and an exact zero. That is a degenerate history, already
+    # reported honestly and twice by "only 2 iteration(s)" and by the
+    # non-positive-residual rule. Nobody writes a closed form two entries long,
+    # and identical degenerate stubs are what a give-up looks like at every
+    # level, not an invention. Four entries is the shortest run of numbers that
+    # can show a rate at all, which is what a written-in sequence has to fake.
+    _clean = {}
+    for _lvl, _rows in hist.items():
+        _vals = [v for _, v in _rows]
+        if _vals and not math.isfinite(_vals[0]):
+            _vals = _vals[1:]
+        _clean[_lvl] = tuple(_vals)
     if len(hist) >= 2 and mesh_changed:
-        seqs = {lvl: tuple(v for _, v in rows) for lvl, rows in hist.items()}
-        distinct = set(seqs.values())
-        if len(distinct) == 1 and len(next(iter(distinct))) >= 2:
+        distinct = set(_clean.values())
+        if len(distinct) == 1 and len(next(iter(distinct))) >= 4:
             msg = (f"the residual history is BIT-IDENTICAL across all "
                    f"{len(hist)} mesh levels ({len(next(iter(distinct)))} rows "
                    f"each) while the NDOF sequence shows the mesh DID change. A "
