@@ -39,8 +39,16 @@
  ],
  "kratos": [
   "           Multi-Physics 10.3.\"0\"-Release-10.3.0-14ee273e-",
+  "           Multi-Physics 10.4.\"0\"--0-Release-x86_64",
   "    Mesh 0 :\n        Number of Nodes       : 22\n        Number of Properties  : 1\n        Number of Elements    : 10\n        Number of Conditions  : 2",
-  "ModelPartIO:   [Reading Nodes    : 22 nodes read]"
+  "BuilderAndSolver: Clear Function called",
+  "ModelPartIO:   [Reading Nodes    : 22 nodes read]",
+  "ResidualBasedBlockBuilderAndSolver: Build time: 0.00157297 [s]",
+  "ResidualBasedBlockBuilderAndSolver: System solve time: 0.00161806 [s]",
+  "ResidualBasedLinearStrategy: Setup Dofs Time: 0.00392341 [s]",
+  "ResidualBasedLinearStrategy: Setup System Time: 0.00217988 [s]",
+  "ResidualBasedLinearStrategy: System Construction Time: 0.0183521 [s]",
+  "ResidualBasedLinearStrategy: System Matrix Resize Time: 0.0121522 [s]"
  ],
  "dune": [
   "Fem::CG it: 0 : residual 0.103593",

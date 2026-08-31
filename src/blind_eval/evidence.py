@@ -191,7 +191,23 @@ PER_CODE_SIGNATURES = {
         r"\s+Number of Conditions\s+:\s+\d+",
         r"^ModelPartIO:\s+\[Reading (?:Nodes|Elements|Conditions)\s+:\s+"
         r"(\d+) (?:nodes|elements|conditions) read\]",
-        r"^\s+Multi-Physics \d+\.\d+\.\"\d+\"-\w+-[\d.]+-[0-9a-f]{6,}-",
+        # THE BANNER VARIES BY BUILD. The measured install prints
+        #   Multi-Physics 10.3."0"-Release-10.3.0-14ee273e-Release-x86_64
+        # and the one an agent actually used on C2 prints
+        #   Multi-Physics 10.4."0"--0-Release-x86_64
+        # -- no git hash at all. Requiring the hash made this pattern dead on
+        # the second build. What is invariant is the odd `X.Y."Z"` quoting of
+        # the patch level, which no agent writes about its own solver.
+        r"^\s+Multi-Physics \d+\.\d+\.\"\d+\"-",
+        # KRATOS'S OWN SOLVER TELEMETRY, and the reason this set needed it: on
+        # C2_27b_BARE_seed70 the agent built its model part IN PYTHON rather
+        # than from a .mdpa, so the ModelPartIO lines and the `Mesh 0 :` block
+        # -- the only numeric patterns here -- were both absent, and Kratos
+        # graded NOT_PROVEN with its own banner sitting in the log. These are
+        # C++ class names followed by Kratos's own `[s]` unit bracket; the same
+        # strings appear in C8_27b_MCP_seed4's genuine Kratos output.
+        r"^ResidualBased\w+: [A-Z][\w ]+ [Tt]ime: ([\d.eE+-]+) \[s\]$",
+        r"^BuilderAndSolver: \w+ Function called$",
     ],
     # DUNE: `Fem::` is the Dune::Fem namespace shorthand from
     # krylovinverseoperators.hh; spacing is exactly `it: N : residual X`.
