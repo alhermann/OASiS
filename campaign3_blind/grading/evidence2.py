@@ -313,6 +313,32 @@ def assess_execution(work: Path, codes: list, coupled: bool, task_txt: str,
     required = task_prescribes_run_logs(task_txt)
     fatal_missing, violations, notes, table = ndof_growth(
         ndofs, mesh_N, dim, required)         # read once, above
+    # A CELL WHOSE TASK SAYS THE GRID DOES NOT REFINE MUST NOT BE FAILED FOR
+    # NOT REFINING ITS GRID.
+    #
+    # ndof_growth demands the reported count grow like 2**dim per level, which
+    # is right wherever a mesh is halved. The DSMC cells prescribe the
+    # opposite, in as many words: "THE GRID IS FIXED AND THE PARTICLE COUNT
+    # REFINES ... do NOT refine the grid instead", with the particle count
+    # quadrupling per level, and the task itself says "particle count plays the
+    # role the degree-of-freedom count plays elsewhere". Their EXECUTION LOG
+    # clause still asks for an NDOF line, so the growth rule ran on them.
+    #
+    # An agent that reports the grid cell count it was told to hold fixed was
+    # therefore charged MESH_SEQUENCE_NOT_PRESCRIBED for obeying the task, and
+    # one that reports particles passed only because quadrupling happens to
+    # land inside the 2.2-7.2 band for dim=2. Which quantity the line carries
+    # cannot be told apart from the number alone, so on these cells the
+    # observation is RECORDED and not charged — the same rule as everywhere
+    # else here: the grader may not punish what the task did not ask.
+    if "GRID IS FIXED" in (task_txt or "").upper() and violations:
+        notes.append(
+            "NDOF GROWTH NOT CHARGED: this task prescribes a FIXED grid with a "
+            "refining particle count, so a constant or non-2**dim NDOF "
+            "sequence is what it asked for. Recorded, not charged: "
+            + "; ".join(str(v)[:160] for v in violations))
+        out.setdefault("notes", []).extend(notes)
+        violations = []
     out["ndof"] = table
     out["notes"].extend(notes)
     if fatal_missing:
