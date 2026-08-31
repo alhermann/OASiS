@@ -121,3 +121,69 @@ class TestTheDeckActuallyRuns(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestBothPathsServeTheSameOneCopy(unittest.TestCase):
+    """The grammar must reach the SINGLE-CODE cells too, from ONE copy.
+
+    It was served only from the coupling payload. A single-code 4C cell (FC1,
+    FC2) never calls knowledge(topic='coupling') -- it has no coupling -- so the
+    agents working the LARGEST target (>70% single-code, currently ~40%)
+    received nothing about how to write a runnable deck. Same defect that killed
+    all three OASiS runs of coupled C2, on the bigger number.
+
+    And it must not become four copies. The interface-probe text existed in four
+    places, two of them dead, and a fix applied to the wrong one looked correct
+    for hours; the drawn task still emitted the old grid. So both serving paths
+    import backends/fourc/deck_grammar.py and this test fails if either grows
+    its own.
+    """
+
+    def test_the_single_code_path_serves_it(self):
+        from backends.fourc.backend import FourcBackend
+        import json
+        b = FourcBackend()
+        for physics in ("scalar_transport", "thermal", "poisson"):
+            k = b.get_knowledge(physics)
+            self.assertIn("deck_grammar", k or {},
+                          f"a single-code {physics} agent gets no deck grammar")
+            blob = json.dumps(k, default=str)
+            self.assertIn("PROBLEM TYPE", blob)
+            self.assertIn("DESIGN SURF TRANSPORT NEUMANN", blob)
+
+    def test_the_coupling_path_serves_it(self):
+        self.assertIn("PROBLEM TYPE", _served())
+        self.assertIn("DESIGN SURF TRANSPORT NEUMANN", _served())
+
+    def test_both_paths_carry_THE_SAME_text(self):
+        """One copy, or the next fix lands on the wrong one."""
+        from backends.fourc.deck_grammar import FOURC_DECK_GRAMMAR as G
+        from backends.fourc.backend import FourcBackend
+        import json
+        single = json.loads(json.dumps(
+            FourcBackend().get_knowledge("scalar_transport"), default=str))
+        self.assertEqual(single["deck_grammar"], G,
+                         "the single-code path has its own copy of the grammar")
+        # the coupling payload re-indents it as a bullet; compare a distinctive
+        # line rather than the whole block
+        for line in ("DESIGN SURF TRANSPORT NEUMANN CONDITIONS:",
+                     'NODE 1 DSURFACE 1'):
+            self.assertIn(line, G)
+            self.assertIn(line, _served())
+
+    def test_the_grammar_lives_in_exactly_one_module(self):
+        import subprocess
+        # Match the DOC, not the section name: generators legitimately EMIT
+        # `DESIGN SURF TRANSPORT NEUMANN CONDITIONS:` in their deck templates
+        # (cardiac_monodomain.py does), and that is not a second copy of the
+        # explanation. This test's first version conflated the two and failed
+        # on a false positive -- worth keeping in mind, because the same
+        # conflation is how a "duplicate" hunt can start deleting real code.
+        r = subprocess.run(
+            ["grep", "-rl", "you solve f = 0", "--include=*.py", "src/"],
+            capture_output=True, text=True, cwd=str(REPO_ROOT))
+        files = sorted(f for f in r.stdout.split() if f)
+        self.assertEqual(
+            files, ["src/backends/fourc/deck_grammar.py"],
+            f"the grammar DOC appears in more than one module, which is how "
+            f"four copies of the interface-probe rule happened: {files}")

@@ -552,6 +552,17 @@ class FourcBackend(SolverBackend):
         ]
 
     def get_knowledge(self, physics: str) -> dict:
+        # THE DECK GRAMMAR REACHES THE SINGLE-CODE CELLS TOO.
+        #
+        # It was served only from the coupling payload, and a single-code 4C
+        # cell (FC1, FC2) never calls knowledge(topic='coupling') -- it has no
+        # coupling. So the agents with the LARGEST target (>70% single-code)
+        # received nothing about how to write a runnable deck, which is the same
+        # defect that killed all three OASiS runs of coupled C2.
+        #
+        # One copy, in backends/fourc/deck_grammar.py, served from both paths.
+        # The interface-probe text taught why that matters: it existed in four
+        # places, two of them dead, and a fix to the wrong one looked correct.
         # Try deep knowledge from data file first
         # Resolution: merge data/fourc_knowledge.py (rich
         # course-level dict — description / methods / variants /
@@ -581,6 +592,17 @@ class FourcBackend(SolverBackend):
             gen_entry = gen.get_knowledge()
         except Exception:  # noqa: BLE001
             pass
+
+        try:
+            from backends.fourc.deck_grammar import FOURC_DECK_GRAMMAR
+        except Exception:                                # pragma: no cover
+            FOURC_DECK_GRAMMAR = ""
+
+        def _with_grammar(d: dict) -> dict:
+            if FOURC_DECK_GRAMMAR and isinstance(d, dict):
+                d = dict(d)
+                d["deck_grammar"] = FOURC_DECK_GRAMMAR
+            return d
 
         if data_entry and gen_entry:
             # Merge: data_entry wins for shared keys (its
@@ -621,17 +643,17 @@ class FourcBackend(SolverBackend):
             merged = dict(merged)
             merged["funct_wiring"] = _FUNCT_WIRING
             merged["grammar_dump"] = _GRAMMAR_DUMP
-            return merged
+            return _with_grammar(merged)
         if data_entry:
             data_entry = dict(data_entry)
             data_entry["funct_wiring"] = _FUNCT_WIRING
             data_entry["grammar_dump"] = _GRAMMAR_DUMP
-            return data_entry
+            return _with_grammar(data_entry)
         if gen_entry:
             gen_entry = dict(gen_entry)
             gen_entry["funct_wiring"] = _FUNCT_WIRING
             gen_entry["grammar_dump"] = _GRAMMAR_DUMP
-            return gen_entry
+            return _with_grammar(gen_entry)
         return {"error": f"no knowledge for {physics!r} in fourc"}
 
     def generate_input(self, physics: str, variant: str, params: dict) -> str:
