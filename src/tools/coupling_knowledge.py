@@ -182,6 +182,33 @@ def _append_reconstruction_contract(served: str, original: str) -> str:
 # CORE — served by knowledge(topic='coupling') with no solver
 # ══════════════════════════════════════════════════════════════════════════
 
+# audit_results is mentioned in ZERO of the eight coupling payloads and was
+# called by 7 of 224 coupled runs (3%). It catches, from the agent's own files
+# and with no answer key: a missing NDOF line, a short or NaN-leading residual
+# history, a near-zero field, duplicate deliverables, a hole in the level
+# sequence, a nearest-node sampler. Every one of those has cost real runs. It
+# belongs at the FRONT, not unmentioned.
+_SELF_CHECK_FIRST = """
+BEFORE YOU SUBMIT, CALL audit_results(work_dir=...)
+──────────────────────────────────────────────────
+It reads only your own files -- no reference solution -- and names the defects
+that most often sink a coupled submission:
+
+    a level with solution files but no run_level<k>.log carrying `NDOF = <n>`
+    a residual history that is too short, or starts with the NaN `couple`
+        returns as history[0]
+    a field that peaks below 1e-8 (the load never reached the solver)
+    the same deliverable submitted twice with different contents
+    a hole in the level sequence, or fewer than three levels
+    a sampler that reads the nearest NODE instead of interpolating, which caps
+        your measured convergence order at 1 however good the solve was
+
+It costs one call. Measured across this campaign, 3% of coupled runs used it,
+and the defects above account for most of the submissions that were graded
+malformed or fabricated rather than wrong.
+
+"""
+
 _CONTRACT = '''\
 ## 1. THE PARTICIPANT CONTRACT — this is the whole interface
 
@@ -232,11 +259,22 @@ NOT done for you (these are the four things agents get wrong):
 only containing the partners you listed in `imports_from`. `exports.json` is
 ONE InterfaceData object, not a dict of them:
 
-    {"field_name":    "temperature",          # REQUIRED key, free-form value
-     "coordinates":   [[x0,y0], [x1,y1], ...],# REQUIRED — YOUR interface points
-     "values":        [v0, v1, ...],          # REQUIRED — one per point
-     "normal_fluxes": [q0, q1, ...],          # optional, one per point
-     "n_points":      21}                     # optional label, never read
+A COMPLETE, VALID exports.json — copy this and substitute your own numbers. It
+is deliberately free of annotation, because a `#` comment is not legal JSON and
+a file with one in it fails to parse:
+
+    {"field_name": "temperature",
+     "coordinates": [[1.0, 0.0], [1.0, 0.05], [1.0, 0.1]],
+     "values": [305.2, 304.8, 304.1],
+     "normal_fluxes": [-1.52, -1.49, -1.44],
+     "n_points": 3}
+
+What each key is for (this list is NOT part of the file):
+  * `field_name`     REQUIRED key, free-form value
+  * `coordinates`    REQUIRED — YOUR interface points, one [x, y] per point
+  * `values`         REQUIRED — one per point, same order as `coordinates`
+  * `normal_fluxes`  optional, one per point
+  * `n_points`       optional label, never read
 
 THREE KEYS ARE REQUIRED: `field_name`, `coordinates`, `values`. `field_name`
 is a free-form label whose VALUE is never interpreted, but leaving the KEY out
@@ -2239,7 +2277,7 @@ def coupling_core() -> str:
         "schemes. `coupled_solve(...)` is DEPRECATED — it only reproduces a fixed enum "
         "of benchmark problems on a hard-coded unit square and cannot express your "
         "problem; do not start there.\n\n"
-        + _CONTRACT + "\n" + _DRIVER_BEHAVIOUR + "\n" + _SIGNS + "\n"
+        + _SELF_CHECK_FIRST + "\n" + _CONTRACT + "\n" + _DRIVER_BEHAVIOUR + "\n" + _SIGNS + "\n"
         + _PROBES + "\n" + _DEALII_BUILD + "\n" + _HISTORY_NAN + "\n" + _RESIDUAL_IS_A_RECORD + "\n" + _NGSOLVE_DOFS + "\n"
         + _SIDES + "\n" + _FAILURES + "\n" + _index(_BACKEND_ORDER)
     )

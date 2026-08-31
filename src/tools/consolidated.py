@@ -818,6 +818,53 @@ def _run_monolithic_check(monolithic: str, exports: dict,
     return report, findings, not_run
 
 
+def _couple_failure_reason(r, checks_ok: bool) -> str:
+    """Name the clause that fired, and point the agent at the field that holds
+    the cause.
+
+    Three distinct situations were collapsed into one message, then two:
+
+      * A CRASH. `converged` is False when a participant never ran at all, so a
+        crash fell into the convergence branch and the agent was told to read
+        `history` for "the residual per iteration" — an empty list. The one
+        field carrying the cause, `error`, was never named, and neither were
+        the per-participant `returncodes`. An agent shown an empty history and
+        no cause has nothing to debug, and the coupled arm's dominant failure
+        mode is stopping early: 63% end HONEST_INCOMPLETE at a median 30% of
+        budget, with zero timeouts in 112 runs.
+      * A GENUINE CONVERGENCE FAILURE, where `history` IS the thing to read.
+      * A CONVERGED RUN that failed a downstream silent-wrong check. Telling
+        that agent its coupling "may not have converged" is the cheapest
+        possible reason to stop, and it is false in the same payload that says
+        converged=True.
+
+    Extracted from the tool body so the branches can be tested: nothing
+    exercised them before, which is how the crash case survived.
+    """
+    if checks_ok:
+        return ""
+    if getattr(r, "error", None) or not getattr(r, "history", None):
+        err = str(getattr(r, "error", "") or "").strip()
+        rcs = getattr(r, "returncodes", None)
+        return (
+            "the coupling did not produce an iteration history — a "
+            "participant failed to run, so there is no residual to read. "
+            + (f"The error was: {err[:400]} " if err else
+               "No error text was captured. ")
+            + (f"Per-participant exit codes: {rcs}. " if rcs else "")
+            + "Fix the participant that failed and re-run; do NOT read "
+              "`history`, which is empty because nothing iterated.")
+    if not getattr(r, "converged", False):
+        return ("the coupling did not reach the requested tolerance "
+                "(see `history` for the residual per iteration)")
+    return (
+        "the coupling CONVERGED, and then failed one of OASiS's "
+        "silent-wrong checks (see `validation`). This is a converged "
+        "result with a caveat, NOT a failed run: report the numbers "
+        "and the caveat. A downstream check can fail on discretisation "
+        "error alone at the coarsest level and pass on the finer ones.")
+
+
 def _stamp_verification(result: dict, *, evidence_ok: bool, reason: str = "",
                         critic_approved: bool = False,
                         solver: str | None = None,
@@ -4254,7 +4301,45 @@ def register_consolidated_tools(mcp: FastMCP):
         # its own tests pin the distinction: with BOTH stubbed out, a do-nothing
         # participant is expected to verify, because those two are what detect it.
         checks_ok = r.converged and not val
-        result = {"converged": r.converged, "iterations": r.iterations,
+        # DO NOT SPEND THE AGENT'S CONTEXT ON DATA IT ALREADY HAS ON DISK.
+        #
+        # `exports` was returned in full. Measured: at a level-3 interface the
+        # whole return is 290,512 chars and `exports` is 143,813 of them —
+        # 49.5% — while the verdict sat at char 287,419, i.e. 98.9% of the way
+        # in. Every one of those arrays is already in the participant's own
+        # work_dir/exports.json, which the agent wrote and can read.
+        #
+        # Why it matters more than it looks: the OASiS arm gets a median 39
+        # tool calls per coupled run against the bare arm's 95, at 91k input
+        # tokens per call against 60k, and stops at 39% of the wall clock with
+        # 5.8% timeouts against bare's 19.5%. It runs out of ACTIONS, not
+        # time — 60% write no output file at all against bare's 31%. Text we
+        # added to help (the deliverables-first imperative, the NaN rule) is
+        # worth nothing while it arrives at 98.9% of a 290 kB payload.
+        #
+        # So: a summary per participant plus the path, and the verdict first.
+        def _export_summary(exports):
+            if not isinstance(exports, dict):
+                return exports
+            out = {}
+            for name, ifd in exports.items():
+                d = ifd if isinstance(ifd, dict) else {}
+                vals = d.get("values") or []
+                out[name] = {
+                    "field_name": d.get("field_name"),
+                    "n_points": d.get("n_points", len(vals)),
+                    "has_normal_fluxes": bool(d.get("normal_fluxes")),
+                    "first_values": [float(v) for v in vals[:3]],
+                    "last_values": [float(v) for v in vals[-3:]],
+                    "full_arrays_are_on_disk":
+                        f"<participant {name}'s work dir>/exports.json",
+                }
+            return out
+
+        result = {"verification": None,          # filled by _stamp_verification
+                  "validation": val, "checks_not_run": not_run,
+                  "error": r.error,
+                  "converged": r.converged, "iterations": r.iterations,
                   "residual": r.residual, "history": r.history,
                   "block_residuals": r.block_residuals,
                   "returncodes": r.returncodes,
@@ -4262,8 +4347,7 @@ def register_consolidated_tools(mcp: FastMCP):
                   "graph": r.graph, "relaxation": r.theta,
                   "interface_sensitivity": r.sensitivity,
                   "monolithic_check": mono_block,
-                  "exports": r.exports, "error": r.error,
-                  "validation": val, "checks_not_run": not_run}
+                  "exports": _export_summary(r.exports)}
         if r.noise_floor is not None:
             result["noise_floor"] = r.noise_floor
             result["tol_effective"] = r.tol_effective
@@ -4289,18 +4373,7 @@ def register_consolidated_tools(mcp: FastMCP):
         # with a failed downstream check IS a result — but it sits ~700 lines
         # away in a different payload from this message. So the operative
         # sentence is repeated here, where the agent is actually reading.
-        if checks_ok:
-            reason = ""
-        elif not getattr(r, "converged", False):
-            reason = ("the coupling did not reach the requested tolerance "
-                      "(see `history` for the residual per iteration)")
-        else:
-            reason = (
-                "the coupling CONVERGED, and then failed one of OASiS's "
-                "silent-wrong checks (see `validation`). This is a converged "
-                "result with a caveat, NOT a failed run: report the numbers "
-                "and the caveat. A downstream check can fail on discretisation "
-                "error alone at the coarsest level and pass on the finer ones.")
+        reason = _couple_failure_reason(r, checks_ok)
         _stamp_verification(result, evidence_ok=checks_ok, reason=reason,
                             critic_approved=critic_approved,
                             solver="couple",
@@ -5614,7 +5687,65 @@ def _get_coupling_knowledge(solver: str = "", signal: str = ""):
     be dropped on the floor, so every backend got the same bytes.
     """
     payload = _capture_knowledge_fn("get_coupling_knowledge", solver, signal)
-    return payload
+    return _front_load_coupling(payload, solver)
+
+
+# THE COUPLING PAYLOAD HAD NO CAP, WHILE prepare_simulation HAS ONE AT 16 kB.
+#
+# Measured: the generic coupling payload is 65,601 chars, and a coupled run
+# typically reads it plus two solver payloads (dune 76,831, kratos 72,115,
+# fenics 72,993) -- about 214,547 chars of prose before a solver runs. 220 of
+# 224 OASiS coupled runs read all three.
+#
+# The consequence is not that the text is unread; it is that the agent runs out
+# of ACTIONS. Median tool calls: OASiS 39, bare 95. Median input tokens per
+# call: 91k against 60k. OASiS stops at 39% of the wall clock with 5.8%
+# timeouts where bare hits 19.5% -- and writes NO output file in 60% of runs
+# against bare's 31%. Given the identical task and no help at all, the
+# unassisted arm produces a median 10 CSV files where the assisted arm produces
+# zero.
+#
+# So the fix is not more text and not better text. Sections the agent needs
+# FIRST -- the submission contract, the deliverable half, the NaN rule, the
+# pointer to audit_results -- are moved to the front, and the rest is offered
+# rather than pushed. Nothing is deleted: every section is still reachable by
+# asking for it, which is what the `signal` argument is for.
+_COUPLING_HEAD_LIMIT = 24000
+
+
+def _front_load_coupling(payload: str, solver: str = "") -> str:
+    if not isinstance(payload, str) or len(payload) <= _COUPLING_HEAD_LIMIT:
+        return payload
+    head = payload[:_COUPLING_HEAD_LIMIT]
+    # cut on a section boundary so no instruction is truncated mid-sentence
+    for marker in ("\n────", "\n\n#", "\n\n", "\n"):
+        cut = head.rfind(marker)
+        if cut > _COUPLING_HEAD_LIMIT // 2:
+            head = head[:cut]
+            break
+    rest = len(payload) - len(head)
+    hint = (f"\n\n{'─' * 70}\n"
+            f"THIS PAYLOAD IS TRUNCATED HERE. {rest:,} further characters "
+            f"exist and are NOT lost.\n"
+            f"{'─' * 70}\n"
+            f"You are reading the first {len(head):,} of {len(payload):,} "
+            f"characters. The rest is available on request -- ask "
+            f"knowledge(topic='coupling'"
+            + (f", solver='{solver}'" if solver else "")
+            + ", signal='<what you are stuck on>') and name the problem: a "
+            f"diverging iteration, a sign convention, a flux that will not "
+            f"balance, a participant that will not start.\n"
+            f"WHY IT IS CUT. Reading all of it costs you the actions you need "
+            f"to solve the problem. Measured on this campaign: coupled runs "
+            f"that read the full coupling corpus got a median 39 tool calls "
+            f"and wrote no output file 60% of the time; runs with no coupling "
+            f"text at all got 95 calls and a median 10 output files. The text "
+            f"was not the binding constraint -- your budget was.\n"
+            f"WHAT TO DO NEXT, in order: get ONE participant running "
+            f"standalone until it writes exports.json; get the SECOND one "
+            f"running; then call couple(); then write the deliverables. Ask "
+            f"for more text only when a specific step has failed.\n")
+    return head + hint
 
 
 def _get_tsi_knowledge():
