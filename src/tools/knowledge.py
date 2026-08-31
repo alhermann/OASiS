@@ -270,6 +270,41 @@ def _find_reference_test_files(solver: str, physics: str) -> str:
 # backend.get_knowledge(), so this is the one place a cross-backend rule
 # cannot be missed.
 _UNIVERSAL = """
+BEFORE YOU CONCLUDE A SOLVER IS BROKEN ON THIS MACHINE
+──────────────────────────────────────────────────────
+Two runs of this campaign gave up entirely -- zero output files, at a quarter of
+their time budget -- after deciding the 4C binary did not work. It worked. The
+same binary produced a complete three-level submission in the same minutes for
+another agent. What they saw was this:
+
+  * A WARNING BEFORE THE BANNER IS THE ENVIRONMENT, NOT THE SOLVER.
+    `Invalid MIT-MAGIC-COOKIE-1 key` is an X11 display-authority warning. 4C
+    prints it on EVERY run on this machine, including successful ones: run
+    `4C -p` and you get the cookie line followed by the entire input grammar.
+    It never explains a failure. Test any suspicious line this way -- run the
+    binary's own `-p`/`--help`/`--version` and see whether the line appears
+    there too. If it does, it is noise.
+
+  * THE REAL DIAGNOSTIC COMES BEFORE THE ABORT BOILERPLATE. An MPI solver
+    prints its own error and THEN ~40 lines of "MPI_ABORT was invoked on rank
+    0 ... Open MPI will now kill all processes". So `2>&1 | tail` shows you the
+    boilerplate and hides the cause. READ THE LOG FROM THE TOP:
+        <run command> > run.log 2>&1 ; head -40 run.log
+        grep -n "ERROR\\|Could not match\\|exception" run.log
+    4C's real message looks like
+        PROC 0 ERROR in 4C_io_input_spec_builders.cpp, line 633:
+        Could not match this input
+        STRUCTURAL DYNAMIC:
+          NOT_A_REAL_KEY: 42
+    and it names the offending key. That is a five-second fix; "the binary is
+    broken" is a dead end.
+
+  * A NON-ZERO EXIT WITH NO MESSAGE IS NOT EVIDENCE THE TOOL IS BROKEN. It is
+    evidence you have not found the message yet. Before writing
+    COULD_NOT_COMPLETE for an infrastructure reason, run the binary on its own
+    trivial self-test (`-p`, `--help`) and report THAT result: if the self-test
+    passes, the defect is in your input.
+
 CAPTURING YOUR SOLVER'S OWN OUTPUT (asked for by every task's run-log clause)
 ────────────────────────────────────────────────────────────────────────────
 The run log must carry the text YOUR SOLVER printed, not a line you wrote about

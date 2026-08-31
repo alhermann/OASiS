@@ -32,6 +32,55 @@ FOURC_ROOT = Path(os.environ["FOURC_ROOT"]) if os.environ.get("FOURC_ROOT") else
 _FOURC_IDENT_CACHE: dict[str, tuple[bool, str]] = {}
 
 
+_FOURC_ERROR_RE = re.compile(
+    r"^.*?(?:PROC\s+\d+\s+ERROR|Could not match this input|"
+    r"terminate called after throwing|Caught exception|"
+    r"\bFOUR_C_THROW\b|Segmentation fault|dserror)",
+    re.M | re.I)
+
+# Lines 4C prints on EVERY run, successful ones included, so they never explain
+# a failure. `Invalid MIT-MAGIC-COOKIE-1 key` is an X11 authority warning from
+# the display, not the solver: `4C -p` prints it and then dumps the whole input
+# grammar successfully. Reporting it as the error is what convinced two agents
+# the binary was broken.
+_FOURC_NOISE = ("Invalid MIT-MAGIC-COOKIE-1 key",)
+
+
+def _fourc_diagnostic(stdout_text: str, stderr_text: str,
+                      window: int = 1600) -> str:
+    """4C's real error, found by CONTENT rather than by position.
+
+    4C prints its diagnostic BEFORE the MPI_ABORT boilerplate, so the last N
+    characters of stdout are always the boilerplate and never the cause. This
+    locates the first genuine error marker and returns the window that follows
+    it, which is where the offending input block is printed.
+
+    The tails are appended afterwards as a fallback, because a crash with no
+    marker at all (a signal, an MPI-level failure) still needs reporting.
+    """
+    parts = []
+    for name, text in (("stdout", stdout_text), ("stderr", stderr_text)):
+        m = _FOURC_ERROR_RE.search(text or "")
+        if m:
+            block = text[m.start():m.start() + window].strip()
+            parts.append(f"--- 4C diagnostic ({name}) ---\n{block}")
+    if not parts:
+        noise_only = all(
+            (not (stdout_text or "").strip()
+             or all(n in stdout_text for n in _FOURC_NOISE))
+            for _ in (0,))
+        hint = ("\nNOTE: 4C aborted without printing a recognised diagnostic. "
+                "The `Invalid MIT-MAGIC-COOKIE-1 key` line, if present, is an "
+                "X11 warning that 4C prints on SUCCESSFUL runs too and never "
+                "explains a failure. Read work_dir/stdout.log from the TOP."
+                if noise_only else "")
+        return ((stderr_text or "")[-1000:] + "\n--- stdout tail ---\n"
+                + (stdout_text or "")[-1000:])[-2000:] + hint
+    parts.append("--- stderr tail ---\n" + (stderr_text or "")[-400:])
+    parts.append("--- stdout tail ---\n" + (stdout_text or "")[-400:])
+    return "\n".join(parts)
+
+
 def _identifies_as_fourc(binary) -> tuple[bool, str]:
     """Does this executable actually identify itself as 4C?
 
@@ -1502,10 +1551,42 @@ class FourcBackend(SolverBackend):
             job.return_code = proc.returncode
             job.status = "completed" if proc.returncode == 0 else "failed"
             if proc.returncode != 0:
-                # 4C often writes the real error to stdout, not stderr
+                # 4C WRITES THE REAL ERROR BEFORE THE MPI BOILERPLATE, SO A
+                # TAIL IS EXACTLY THE WRONG END.
+                #
+                # This line already knew "4C often writes the real error to
+                # stdout, not stderr" -- and then took stdout_text[-1000:].
+                # Measured on a deliberately malformed deck, 4C prints:
+                #
+                #   Invalid MIT-MAGIC-COOKIE-1 key         <- X11 noise
+                #   ***** 4C version 2026.2.0-dev *****    <- banner
+                #   Trilinos Version: ...
+                #   ====================================
+                #   PROC 0 ERROR in 4C_io_input_spec_builders.cpp, line 633:
+                #   Could not match this input
+                #   STRUCTURAL DYNAMIC:
+                #     INT_STRATEGY: "Standard"             <- the actual defect
+                #   ... then ~40 lines of MPI_ABORT boilerplate
+                #
+                # The last 1000 characters are entirely that boilerplate, so the
+                # agent was handed "Invalid MIT-MAGIC-COOKIE-1 key ... MPI_ABORT
+                # was invoked on rank 0" and nothing else.
+                #
+                # THE COST, MEASURED: both OASiS-arm runs of coupled cell C2
+                # (seeds 70 and 71) concluded from exactly that string that the
+                # 4C BINARY was broken on this machine, wrote
+                # COULD_NOT_COMPLETE with zero deliverables, and stopped at 30
+                # and 37 tool calls having used 22-27% of their wall budget. The
+                # bare arm, running 4C directly and reading the head of its own
+                # log, produced a complete three-level submission from the same
+                # binary in the same minutes. The binary was never broken: `4C
+                # -p` prints the cookie line too and succeeds.
+                #
+                # So the diagnostic is now located BY CONTENT. The tails are
+                # kept as a fallback, after it.
                 stdout_text = stdout.decode(errors="replace")
                 stderr_text = stderr.decode(errors="replace")
-                job.error = (stderr_text[-1000:] + "\n--- stdout tail ---\n" + stdout_text[-1000:])[-2000:]
+                job.error = _fourc_diagnostic(stdout_text, stderr_text)
             else:
                 # Skip post_vtu — 4C writes VTU directly via IO/RUNTIME VTK OUTPUT.
                 # post_vtu is only needed for legacy .control/.result files and
