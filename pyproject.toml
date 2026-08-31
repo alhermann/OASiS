@@ -58,6 +58,23 @@ dev = ["pytest>=7.0", "pytest-asyncio>=0.20"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+# PASSING TESTS MUST NOT LEAVE WORKED ANSWERS ON THE MACHINE.
+#
+# pytest keeps the last three runs' tmp_path trees by default. Several tests
+# here build COMPLETE coupled submissions to exercise the grader, and one
+# fixture runs 4C and Kratos for real and leaves a finished two-slab coupled
+# heat-transfer run on disk -- a real 4C deck, 4C's native output, and
+# exports.json/imports.json on both sides.
+#
+# The blind campaign's agent runs as this same user with shell access, and a
+# bare agent working coupled cell C2 was measured READING one of those trees,
+# in a campaign whose headline is that the bare arm completes no coupled
+# problem. Eleven copies had accumulated across /tmp and ~/tmp.
+#
+# "failed" keeps the trees for tests that FAIL, which is when they are wanted
+# for debugging, and discards them for tests that pass, which is when they are
+# only contamination.
+tmp_path_retention_policy = "failed"
 
 [build-system]
 requires = ["setuptools>=68.0"]

@@ -48,9 +48,14 @@ sys.path.insert(0, str(REPO_ROOT / "campaign3_blind"))
 
 
 def _mat(d: Path):
-    """The decision function, called the way preflight calls it."""
-    import run_blind as R
-    return R._materially_useful(d, [f.name for f in d.iterdir() if f.is_file()])
+    """The decision function, called the way preflight calls it.
+
+    Imported from host_hygiene, not run_blind: the check was extracted precisely
+    so it carries no langchain dependency and can be exercised by the repo's
+    normal test run rather than only from the one virtualenv that has langchain.
+    """
+    import host_hygiene as H
+    return H._materially_useful(d, [f.name for f in d.iterdir() if f.is_file()])
 
 
 def _write(d: Path, names, body="x\n"):
@@ -151,8 +156,8 @@ class TestTheHostIsActuallyClean(unittest.TestCase):
     def test_no_worked_answer_is_readable_right_now(self):
         """The live check, on the real machine. This is the one that asks what
         an AGENT would find rather than what the function does."""
-        import run_blind as R
-        found = R.readable_worked_answers()
+        import host_hygiene as H
+        found = H.readable_worked_answers()
         self.assertEqual(
             [str(d) for d, _ in found], [],
             "worked coupled answers are readable outside the campaign; a bare "
