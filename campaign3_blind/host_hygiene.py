@@ -61,6 +61,55 @@ def _materially_useful(d: Path, files: list) -> tuple | None:
     return levels, len(native), scripts[:3]
 
 
+def _worked_handshake(top: Path) -> tuple | None:
+    """The SECOND shape: a two-code interface handshake that actually ran.
+
+    The first shape looks for `interface_level<k>_<side>.csv` at two or more
+    levels -- the campaign's own deliverable set. It is blind to the shape that
+    actually leaked: three trees in /tmp,
+
+        /tmp/fourc_kratos_cht_hlyp6gki   15 files, 0 interface_level*,
+                                         4 exports/imports, 3 native 4C files
+
+    each a COMPLETE 4C+Kratos coupled run -- slabA_4c/slabA.4C.yaml with 4C's
+    own out.control and thermo VTU/PVTU, slabB_kratos/params.json, and
+    exports.json plus imports.json on both sides. My gate reported "0 readable
+    worked answers" while they sat there, and the same blind spot is why eleven
+    copies of the identical fixture survived until they were moved by hand.
+
+    Both conditions are required, and the second is what keeps this precise:
+    2,300+ directories on this machine hold an exports/imports pair from
+    driver-behaviour sweeps, nearly all of them one-point toys that teach an
+    agent nothing. Requiring a NATIVE solver artefact -- a file only a real
+    solver writes -- separates a run that happened from a schema demo.
+    """
+    # A SIZE BOUND, BECAUSE A WORKSPACE IS NOT A RUN.
+    #
+    # Without it this matched /home/alexander/Schreibtisch -- 14,597 native
+    # artefacts -- because the walk descends through every checkout underneath
+    # and trivially finds an exports/imports pair somewhere. A leaked coupled
+    # run is a small self-contained directory: the leaked 4C+Kratos fixture is
+    # 15 files. Anything larger than a couple of hundred is a workspace, and
+    # flagging a workspace is how this sweep went wrong the first time and
+    # moved a 37,445-file backend build tree.
+    MAX_FILES = 200
+    exports = imports = native = total = 0
+    for dp, dn, fn in os.walk(top, onerror=lambda e: None):
+        total += len(fn)
+        if total > MAX_FILES:
+            return None
+        for f in fn:
+            if f == "exports.json":
+                exports += 1
+            elif f == "imports.json":
+                imports += 1
+            elif f.endswith(_MATERIAL_NATIVE):
+                native += 1
+    if exports and imports and native:
+        return exports + imports, native, []
+    return None
+
+
 def readable_worked_answers() -> list:
     """Worked coupled answers an agent could read, outside the campaign.
 
@@ -93,6 +142,12 @@ def readable_worked_answers() -> list:
                 dn[:] = []
                 continue
             got = _materially_useful(d, fn)
+            if not got and (d.parent in (root, Path("/tmp"))
+                            or d.parent == root):
+                # tree-level check, applied at the top of each candidate tree
+                got = _worked_handshake(d)
+                if got:
+                    dn[:] = []          # do not report every subdirectory too
             if got:
                 out.append((d, got))
     return out

@@ -469,6 +469,21 @@ def preflight_or_die(problems: list) -> None:
 
     failures = []
 
+    # A SEALED PRIMARY SAYS NOTHING ABOUT A COPY BESIDE IT.
+    #
+    # Measured: keys/ was d--------- while keys_backup_20260816/ next to it was
+    # drwxr-xr-x and held 32 plaintext key.json files -- every live problem ID,
+    # 28 of them with `exact_solution` -- created 2026-08-14, before every run
+    # in this campaign. The seal check reported SEALED the whole time, and it
+    # was telling the truth about the one directory it was asked about. The
+    # shielding script only ever knew about "$D/keys".
+    siblings = _kv.unsealed_sibling_key_stores(keys)
+    if siblings:
+        failures.append(
+            "a COPY of the answer keys is readable beside the sealed one, so "
+            "the campaign's blindness cannot be shown:\n  - "
+            + "\n  - ".join(f"{d} ({state})" for d, state in siblings))
+
     if not keys_are_sealed():
         failures.append(f"answer keys at {keys} are not sealed "
                         f"(exists={keys.exists()})")

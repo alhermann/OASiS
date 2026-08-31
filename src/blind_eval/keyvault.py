@@ -184,6 +184,39 @@ def is_sealed(keys_dir: Path) -> bool:
     return seal_state(keys_dir) == "SEALED"
 
 
+def unsealed_sibling_key_stores(keys_dir: Path) -> list:
+    """Other key stores beside this one that are NOT sealed.
+
+    A COPY OF THE KEYS IS A COPY OF THE ANSWERS, AND THIS ONE WAS OPEN FOR
+    SEVENTEEN DAYS.
+
+    `is_sealed` answers about ONE directory. The shielding script seals only
+    "$D/keys". Measured on this machine: `keys/` was d--------- while its
+    sibling `keys_backup_20260816/` was drwxr-xr-x and held 32 plaintext
+    key.json files -- every live problem ID, C1-C14 and all eighteen
+    single-code cells, 28 of them carrying `exact_solution` -- created
+    2026-08-14, i.e. before every run in this campaign. `keys_are_sealed()`
+    reported SEALED throughout, truthfully and uselessly.
+
+    So the seal question is asked of the whole PARENT: any sibling whose name
+    starts with `keys` is a key store, and one that is readable makes the
+    campaign's blindness unprovable regardless of what the primary says.
+    """
+    keys_dir = Path(keys_dir)
+    parent = keys_dir.parent
+    if not parent.is_dir():
+        return []
+    out = []
+    for sib in sorted(parent.iterdir()):
+        if not sib.is_dir() or sib == keys_dir:
+            continue
+        if not sib.name.startswith("keys"):
+            continue
+        if seal_state(sib) != "SEALED":
+            out.append((sib, seal_state(sib)))
+    return out
+
+
 def verify_unreadable(keys_dir: Path, timeout: int = 30) -> dict:
     """Prove, by execution, that a separate process cannot read the keys.
 
