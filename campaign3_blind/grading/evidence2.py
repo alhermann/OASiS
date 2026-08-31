@@ -126,8 +126,24 @@ def assess_execution(work: Path, codes: list, coupled: bool, task_txt: str,
       per_code / coupling / ndof / notes — the evidence trail
     """
     EV = evidence_mod()
+    # THE MESH FACT MUST BE ESTABLISHED BEFORE THE HISTORY IS JUDGED.
+    #
+    # A residual history that is bit-identical across levels is a forgery only
+    # if the mesh actually changed between those levels; if the agent submitted
+    # one mesh three times, identical histories are honest and the defect is the
+    # mesh sequence. So the NDOF sequence is read FIRST and passed in. `None`
+    # (no readable run logs) means we cannot establish it, and then no forgery
+    # is claimed.
+    ndofs = run_log_ndofs(work)
+    mesh_changed = None
+    if ndofs:
+        per_side = [sorted(v.items()) for v in ndofs.values()]
+        seqs = [[n for _, n in s] for s in per_side if len(s) > 1]
+        if seqs:
+            mesh_changed = any(s[-1] > s[0] * 1.5 for s in seqs)
     rep = EV.assess(work, codes, coupled=coupled, iface_tol=iface_tol,
-                    claimed_iterations=claimed_iters)
+                    claimed_iterations=claimed_iters,
+                    mesh_changed=mesh_changed)
     out = {
         "verdict": rep.verdict,
         "per_code": [{"code": e.code, "verdict": e.verdict,
@@ -237,7 +253,7 @@ def assess_execution(work: Path, codes: list, coupled: bool, task_txt: str,
 
     required = task_prescribes_run_logs(task_txt)
     fatal_missing, violations, notes, table = ndof_growth(
-        run_log_ndofs(work), mesh_N, dim, required)
+        ndofs, mesh_N, dim, required)         # read once, above
     out["ndof"] = table
     out["notes"].extend(notes)
     if fatal_missing:
