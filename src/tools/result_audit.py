@@ -310,6 +310,28 @@ def residual_findings(work: Path) -> list[dict]:
         except OSError:
             continue
         name = q.name
+        # A LEADING NaN IS OASiS'S OWN history[0], NOT THE AGENT'S DEFECT.
+        #
+        # `couple` returns a history whose first entry is NaN by construction —
+        # there is no previous export to compare the first one against. The
+        # GRADER knows this and drops it (blind_eval.evidence records
+        # `dropped_leading_nonfinite`), but this audit, which is the gate we
+        # tell agents to run BEFORE submitting, did not.
+        #
+        # Measured on C2_27b_MCP_seed73 — the best coupled run in the campaign,
+        # graded 4C PROVEN, Kratos PROVEN, coupling PROVEN and not forged, with
+        # the residual falling 0.309 -> 8.2e-07 — this audit returned
+        # "clean": false and told it, three times, that "the residual was never
+        # actually computed from the two sides". OASiS produced the NaN, then
+        # reported it to the agent as evidence of the agent's own failure, and
+        # the only fix available to an agent that believes it is to go and
+        # break something that was right.
+        #
+        # Dropped, not tolerated: a NaN anywhere LATER in the history is still
+        # a real finding, and so is a non-positive value anywhere at all.
+        leading_nan = bool(vals) and vals[0] != vals[0]
+        if leading_nan:
+            vals = vals[1:]
         if len(vals) < 3:
             out.append({"sequence": name, "values": vals,
                         "finding": (
@@ -343,6 +365,61 @@ def residual_findings(work: Path) -> list[dict]:
                             "CONSTANT RESIDUAL COLUMN: every iteration reports "
                             "the same number, so the column is a placeholder "
                             "rather than a measured mismatch.")})
+            continue
+        # THE AUDIT PASSED A FORGERY. Measured on C2_27b_MCP_seed75, whose
+        # three levels each held 1.0 falling to exactly 1e-06 in ten steps,
+        # BIT-IDENTICAL across all three, while its own NDOF lines said the
+        # mesh had changed (400, 255, 72). The grader labels that
+        # FABRICATED_NO_RUN. This audit — the gate we tell agents to run before
+        # submitting — returned "clean": true.
+        #
+        # A gate that blesses an invented history is worse than no gate: it
+        # tells an agent the shortcut passed. The two rules below are already
+        # PUBLIC — the served coupling must-read states both, in as many words,
+        # so nothing is revealed by checking them here. They are imported from
+        # the grader's module rather than restated, so the thresholds cannot
+        # drift apart from the ones an agent is actually graded against.
+        try:
+            from blind_eval.evidence import (          # noqa: PLC0415
+                _decay_ratio_cv, SYNTHETIC_RATIO_CV, _FORGED_DECAY_MIN_DROP)
+        except Exception:                               # grader not importable
+            continue
+        cv = _decay_ratio_cv(vals)
+        if (cv is not None and cv < SYNTHETIC_RATIO_CV
+                and vals[0] / max(vals[-1], 1e-300) > _FORGED_DECAY_MIN_DROP):
+            out.append({"sequence": name, "values": vals[:5],
+                        "finding": (
+                            f"THIS READS AS A WRITTEN-IN SEQUENCE, NOT A "
+                            f"MEASURED ONE: the step-to-step ratio is constant "
+                            f"to a coefficient of variation of {cv:.1e}. A real "
+                            f"partitioned iteration's rate wanders as the "
+                            f"error's modal composition changes. This is graded "
+                            f"as fabrication, which scores below an honest "
+                            f"report that the iteration did not converge.")})
+    # BIT-IDENTICAL HISTORIES ACROSS LEVELS — checked across files, not within.
+    #
+    # The per-file loop above cannot see it: each level's column is individually
+    # unremarkable. The history depends on the discretisation, so the same
+    # numbers at two mesh levels cannot both be measurements.
+    seqs: dict[str, list[str]] = {}
+    for q in sorted(work.rglob("residual_level*.csv")):
+        if not q.is_file() or _SCRATCH & set(q.relative_to(work).parts[:-1]):
+            continue
+        try:
+            body = tuple(r[-1].strip() for r in _csv.reader(q.open()) if r)
+        except OSError:
+            continue
+        if len(body) >= 3:
+            seqs.setdefault(repr(body), []).append(q.name)
+    for _, names in seqs.items():
+        if len(names) > 1:
+            out.append({"sequence": ", ".join(sorted(names)), "values": [],
+                        "finding": (
+                            f"IDENTICAL RESIDUAL HISTORY AT {len(names)} MESH "
+                            f"LEVELS: {', '.join(sorted(names))} agree digit "
+                            f"for digit. The history depends on the "
+                            f"discretisation, so these cannot both be "
+                            f"measurements; this is graded as fabrication.")})
     return out
 
 

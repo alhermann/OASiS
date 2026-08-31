@@ -5854,7 +5854,106 @@ def _get_coupling_knowledge(solver: str = "", signal: str = ""):
     be dropped on the floor, so every backend got the same bytes.
     """
     payload = _capture_knowledge_fn("get_coupling_knowledge", solver, signal)
+    # THE ESCAPE HATCH HAD TO BE MADE REAL.
+    #
+    # The truncation notice tells the agent, verbatim, that "the rest is
+    # available on request -- ask knowledge(topic='coupling', solver='...',
+    # signal='<what you are stuck on>')", and the module comment above states
+    # that "every section is still reachable by asking for it, which is what
+    # the `signal` argument is for". Measured, neither was true: asking with a
+    # signal returned a DIFFERENT, shorter payload of failure-table entries —
+    # 11,529 characters carrying 5 lines the base did not already have — and
+    # the material that had been cut was in neither. For solver='kratos' the
+    # casualty is the participant script itself, cut mid-definition at
+    # `def build_model()`, on the side a coupled task is most likely to assign
+    # to Kratos.
+    #
+    # An unkept promise is worse than an honest cap: the agent spends a call,
+    # believes it has asked for the missing piece, and reads a reply that does
+    # not contain it. So a signalled request now really does return what the
+    # head left behind, chosen by overlap with the signal.
+    #
+    # ORDER MATTERS: truncate FIRST, then append. Appending before the cut put
+    # the continuation at the very end of a payload the front-loader trims from
+    # the front, so the material the agent had just asked for was the first
+    # thing dropped -- the request was answered and then silently unanswered.
+    if signal:
+        return _append_coupling_continuation(
+            _front_load_coupling(payload, solver), solver, signal)
     return _front_load_coupling(payload, solver)
+
+
+# How much of the cut material one signalled request may bring back. Sized so
+# that must-read + reply + continuation stays near the same order as an
+# ordinary coupling reply rather than dumping the whole 65k corpus, which is
+# the behaviour the head limit exists to prevent.
+_COUPLING_CONTINUATION_LIMIT = 14000
+
+
+def _split_coupling_sections(text: str) -> list:
+    """Break the corpus on the separators the front-loader also cuts on."""
+    import re as _re
+    parts, buf = [], []
+    for line in text.splitlines(keepends=True):
+        if _re.match(r"^(─{4,}|={4,}|#{1,3} )", line) and buf:
+            parts.append("".join(buf)); buf = [line]
+        else:
+            buf.append(line)
+    if buf:
+        parts.append("".join(buf))
+    return [p for p in parts if p.strip()]
+
+
+def _append_coupling_continuation(payload: str, solver: str, signal: str) -> str:
+    """Give back the sections the head cut off, ranked against the signal."""
+    full = _capture_knowledge_fn("get_coupling_knowledge", solver, "")
+    if not isinstance(full, str) or not isinstance(payload, str):
+        return payload
+    served_head = full[:max(_COUPLING_HEAD_LIMIT - len(_COUPLING_MUST_READ), 0)]
+    tail = full[len(served_head):]
+    if not tail.strip():
+        return payload
+    # RANK BY HOW RARE THE MATCHED WORD IS, NOT BY HOW MANY MATCHED.
+    #
+    # Counting raw hits ranks a section that happens to say "element",
+    # "script" and "need" above the one that says "build_model" — measured: the
+    # section actually carrying `def build_model()` scored 2 against three
+    # generic sections scoring 4, which filled the budget and pushed out the
+    # only section the agent had named. A word that occurs all over the corpus
+    # says nothing about which section is wanted; a word that occurs in one
+    # place says everything, so each match is weighted by its rarity.
+    import math as _math
+    words = {w for w in _re_words(signal) if len(w) > 3}
+    sections = _split_coupling_sections(tail)
+    lows = [sec.lower() for sec in sections]
+    weight = {}
+    for w in words:
+        df = sum(1 for low in lows if w in low)
+        weight[w] = 0.0 if df == 0 else _math.log(1.0 + len(sections) / df)
+    scored = []
+    for sec, low in zip(sections, lows):
+        score = sum(weight[w] for w in words if w in low)
+        scored.append((score, len(sec), sec))
+    scored.sort(key=lambda t: (-t[0], t[1]))
+    picked, used = [], 0
+    for score, size, sec in scored:
+        if used + size > _COUPLING_CONTINUATION_LIMIT:
+            continue
+        if score <= 0 and picked:
+            break
+        picked.append(sec); used += size
+    if not picked:
+        return payload
+    banner = (f"\n\n{'─' * 70}\n"
+              f"WHAT THE TRUNCATED REPLY LEFT OUT, MATCHED TO YOUR SIGNAL "
+              f"({used:,} of {len(tail):,} remaining characters)\n"
+              f"{'─' * 70}\n")
+    return payload + banner + "".join(picked)
+
+
+def _re_words(text: str) -> list:
+    import re as _re
+    return _re.findall(r"[a-z_]+", (text or "").lower())
 
 
 # THE COUPLING PAYLOAD HAD NO CAP, WHILE prepare_simulation HAS ONE AT 16 kB.
@@ -5985,10 +6084,27 @@ interface refinement.
     here is the scheme, not your model -- do not rebuild the setup.
   * With accelerator="constant", theta = 1/(1+rho) is the setting the counts
     above were measured with.
-  * IF rho > 10, THE BUDGET IS THE WRONG KNOB: SWAP WHICH SIDE IS DIRICHLET.
-    That replaces rho by 1/rho, and every ratio below 1 converged inside 25
-    iterations. On a severe-contrast problem this is the difference between
-    converging and not.
+  * COMPUTE rho, DO NOT READ IT OFF THE MATERIAL CONTRAST. The interface
+    conductance of a side is its coefficient divided by its own width, so a
+    material contrast of N:1 on subdomains of different widths is NOT rho = N:
+        rho = (k_dirichlet / width_dirichlet) / (k_neumann / width_neumann)
+    Worked with arbitrary numbers: k = 1 across a width of 2/3 on the
+    Dirichlet side and k = 100 across a width of 1/3 on the Neumann side give
+    1.5 and 300, so rho = 0.005 — five hundredths of one percent of the 100:1
+    material contrast, and a case that converges in a few iterations needing
+    nothing special. An agent that reads the contrast as rho concludes the
+    opposite and starts rebuilding a setup that was already fine. Put YOUR
+    numbers in the formula.
+  * IF rho > 10 AND THE TASK LEAVES THE ROLES TO YOU, the budget is the wrong
+    knob: SWAP WHICH SIDE IS DIRICHLET. That replaces rho by 1/rho, and every
+    ratio below 1 converged inside 25 iterations.
+  * IF THE TASK PRESCRIBES WHICH SIDE IS DIRICHLET, DO NOT SWAP THEM. Wording
+    like "these roles are prescribed: solve with them as stated rather than
+    choosing your own" makes the assignment part of the problem, and a run that
+    swaps has solved a different problem however well it converged. Raise
+    max_iter and set theta = 1/(1+rho) instead. Read the task again before
+    reaching for this: the remedy above is for the case where you are free to
+    choose.
 
 """
 
