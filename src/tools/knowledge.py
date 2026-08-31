@@ -338,6 +338,26 @@ expression field fails, and the two failures below were both measured here.
     as a broken binary and is not one. The same rule applies to NODE COORDS and
     every `*_ELEMENTS` block.
 
+WHERE THE DELIVERABLE HAS TO END UP
+──────────────────────────────────
+OASiS's run tools write their results into a TIMESTAMPED directory of their own,
+e.g. work/simulation_outputs/ngsolve_20260821_113326/. That is convenient for
+you and invisible to the assessment, which looks for the files the task names.
+
+  * COPY (or move) each deliverable to the TOP of your sandbox when you are
+    done: work/solution_level<k>.csv, work/RESULT.txt, and so on. A file that
+    exists only inside a tool's output directory is an intermediate artefact.
+  * IF YOU RUN THE SAME LEVEL TWICE, the second run gets a NEW timestamped
+    directory and the first one stays. Two differing copies of
+    solution_level<k>.csv with no copy at the top of the sandbox is an
+    AMBIGUOUS submission -- nothing in the task says which attempt is your
+    answer -- and it is rejected as malformed rather than guessed at. Overwrite
+    the copy at the top, or delete the superseded directory.
+
+Measured on this campaign: 16 runs were rejected for exactly this, every one of
+them in the tool-using arm and none in the arm that wrote straight to the
+sandbox. It costs you the whole cell for a file-copy.
+
 CAPTURING YOUR SOLVER'S OWN OUTPUT (asked for by every task's run-log clause)
 ────────────────────────────────────────────────────────────────────────────
 The run log must carry the text YOUR SOLVER printed, not a line you wrote about
