@@ -595,7 +595,25 @@ def run_one(pid: str, model: str, cond: str, seed: int, timeout_s: int) -> dict:
     # grader grades against the NEW key -- agent and grader disagreeing about
     # what was asked, which is the exact class of defect this harness has hit
     # repeatedly.
-    task = (_problems_root() / pid / "task.txt").read_text(encoding="utf-8")
+    _task_path = _problems_root() / pid / "task.txt"
+    task = _task_path.read_text(encoding="utf-8")
+    # WHICH CONTRACT WAS THIS RUN ACTUALLY ASKED TO MEET?
+    #
+    # The ledger recorded condition, model, seed, tokens and wall time -- and
+    # nothing about the QUESTION. So no run could be tied afterwards to the task
+    # text it was served, and a grader holding a newly drawn key had no way to
+    # show the agent had been given the matching contract. That is not a
+    # hypothetical: the problems root was hardcoded here while the grader
+    # resolved OASIS_BLIND_PROBLEMS, so runner and grader could silently read
+    # different contracts, and a fresh draw would have been graded against text
+    # the agent never saw.
+    #
+    # The sha256 is of the exact bytes served. It costs nothing and it is the
+    # only thing that can settle the question later.
+    import hashlib as _hl
+    _task_meta = {"problems_root": str(_problems_root()),
+                  "task_path": str(_task_path),
+                  "task_sha256": _hl.sha256(task.encode()).hexdigest()}
     # STATE THE BUDGET. Round 1: 13 of 14 coupled OASiS runs stopped
     # VOLUNTARILY at a mean of 37% of the wall budget (floor 11.8%, 24 calls,
     # zero solver runs), and 47 statements across those transcripts invoke
@@ -774,6 +792,7 @@ def run_one(pid: str, model: str, cond: str, seed: int, timeout_s: int) -> dict:
         # so far: 1 occurrence in 109 runs, in the BARE arm, so no bias yet —
         # but it is worth counting per arm at every tier.
         rec["outcome"] = "CONTEXT_EXHAUSTED"
+    rec.update(_task_meta)
     ledger.write_text(json.dumps(rec, indent=2))
     print(f"[{pid} {model} {cond} s{seed}] done  calls={n_calls} "
           f"tok={tin}/{tout} {rec['wall_s']}s"
