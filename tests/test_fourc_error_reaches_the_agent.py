@@ -254,3 +254,70 @@ class TestTheDeckSyntaxPrimitivesAreServed(unittest.TestCase):
         self.assertIn("could not find", got)
         self.assertIn("53:17", got)
         self.assertIn("NODE 7 DLINE 1", got)
+
+
+FAILURE_LOGS = Path(__file__).parent / "fixtures" / "fourc_failure_logs"
+
+# Four real 4C failures, peeled one at a time from the OASiS arm's own failing
+# C2 deck by repairing what the previous layer revealed and re-running. Each is
+# fatal on its own; each is diagnosed precisely by 4C; none survives a tail.
+LAYERS = [
+    ("L1_yaml_sequence.log",        "could not find",
+     "topology written as bare strings instead of a YAML sequence"),
+    ("L2_double_star_exponent.log", "Error while parsing",
+     "Python `**` in a SYMBOLIC_FUNCTION_OF_SPACE_TIME"),
+    ("L3_val_array_size.log",       "incorrect size",
+     "VAL had 7 entries against NUMDOF: 1"),
+    ("L4_condition_dimension.log",  "larger than the problem dimension",
+     "a DESIGN VOL condition on a 2-D problem"),
+]
+
+
+class TestAllFourRealLayersReachTheAgent(unittest.TestCase):
+    """The measurement that settles what OASiS owed this agent.
+
+    Layers 1 and 2 are knowledge OASiS should have served, and now does. Layers
+    3 and 4 are the agent's OWN modelling errors -- and 4C names both of them
+    exactly ("Candidate parameter 'VAL' has incorrect size", "Dimension of
+    condition is larger than the problem dimension"). They needed no new
+    knowledge whatsoever. They needed the diagnostic to be VISIBLE.
+
+    Measured over these four logs: the extractor surfaces 4 of 4, the previous
+    stdout-tail surfaced 0 of 4. That is the difference between four one-run
+    fixes and three runs concluding the binary was broken and submitting
+    nothing.
+    """
+
+    def test_the_extractor_surfaces_every_layer(self):
+        missed = []
+        for fname, needle, what in LAYERS:
+            log = (FAILURE_LOGS / fname).read_text(errors="ignore")
+            if needle not in _fourc_diagnostic(log, ""):
+                missed.append(f"{fname}: {what}")
+        self.assertEqual(missed, [], f"layers hidden from the agent: {missed}")
+
+    def test_the_old_tail_surfaced_none_of_them(self):
+        """Proof of the discriminating power, not a rhetorical flourish."""
+        surfaced = []
+        for fname, needle, _ in LAYERS:
+            log = (FAILURE_LOGS / fname).read_text(errors="ignore")
+            if needle in _old_behaviour(log, ""):
+                surfaced.append(fname)
+        self.assertEqual(
+            surfaced, [],
+            f"the old stdout-tail already showed {surfaced}; this suite is no "
+            f"longer measuring the defect it was written for")
+
+    def test_without_line_buffering_there_is_nothing_to_extract(self):
+        """L0: the same failing deck run WITHOUT stdbuf produced eight lines --
+        the X11 cookie warning and MPI boilerplate, no banner, no error. 4C
+        buffers stdout and MPI_Abort kills the process before the flush. This is
+        why the served text tells agents to keep the run line-buffered, and why
+        the backend already wraps 4C in `stdbuf -oL`."""
+        log = (FAILURE_LOGS / "L0_no_stdbuf_eight_lines.log").read_text()
+        self.assertLess(len(log.splitlines()), 12)
+        self.assertNotIn("4C", log.replace("MPI_COMM_WORLD", ""))
+        got = _fourc_diagnostic(log, "")
+        # nothing to find, so it must say so rather than imply a cause
+        self.assertIn("X11", got)
+        self.assertIn("from the TOP", got)

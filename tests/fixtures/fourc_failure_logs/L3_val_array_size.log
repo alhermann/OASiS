@@ -1,0 +1,95 @@
+Invalid MIT-MAGIC-COOKIE-1 key
+******************************************************
+*                                                    *
+*                         4C                         *
+*                                                    *
+*                version 2026.2.0-dev                *
+*                                                    *
+*                      git SHA1                      *
+*      89519cfe76251fc668617c4ab1a70b94fd86ec52      *
+*                                                    *
+******************************************************
+
+Trilinos Version: f4d64271518 (git SHA1)
+Total number of MPI ranks: 1
+
+Number of procs used for redistribution: 1
+
++--------------------------------------------------------------------+
+| fill_complete() on discretization fluid                            |
++--------------------------------------------------------------------+
+
+Number of procs used for redistribution: 1
+Redistributing using hypergraph .........
+
++--------------------------------------------------------------------+
+| fill_complete() on discretization scatra                           |
++--------------------------------------------------------------------+
+Read/generate conditions                          in....
+
+=========================================================================
+PROC 0 ERROR in /home/alexander/4C/src/core/fem/src/condition/4C_fem_condition_definition.cpp, line 79:
+Failed to match condition specification in section 'DESIGN LINE DIRICH CONDITIONS'. The error was:
+PROC 0 ERROR in /home/alexander/4C/src/core/io/src/4C_io_input_spec_builders.cpp, line 633:
+Could not match this input
+
+DESIGN LINE DIRICH CONDITIONS:
+  - E: 1
+    NUMDOF: 1
+    ONOFF: [1]
+    VAL: [0.0]
+    FUNCT: [0]
+  - E: 2
+    NUMDOF: 1
+    ONOFF: [1]
+    VAL: [0.0]
+    FUNCT: [0]
+  - E: 3
+    NUMDOF: 1
+    ONOFF: [1]
+    VAL: [0.0]
+    FUNCT: [0]
+  - E: 4
+    NUMDOF: 1
+    ONOFF: [1]
+    VAL: [0.0,0.0,0.0,0.0,0.0,0.0,0.0]
+    FUNCT: [0]
+
+
+against the given input specification. This was the best attempt to match the input:
+
+[!] Candidate list 'DESIGN LINE DIRICH CONDITIONS'
+  [!] The following list entry did not match:
+    {
+      [ ] Matched parameter 'E'
+      [ ] Defaulted parameter 'ENTITY_TYPE'
+      [ ] Defaulted parameter 'NODE_SET_NAME'
+      [ ] Matched parameter 'NUMDOF'
+      [ ] Matched parameter 'ONOFF'
+      [!] Candidate parameter 'VAL' has incorrect size
+      [ ] Matched parameter 'FUNCT'
+      [ ] Defaulted deprecated_selection 'TAG'
+    }
+
+------------------
+.
+------------------
+ 0# FourC::Core::Conditions::ConditionDefinition::read(FourC::Core::IO::InputFile&, std::vector<FourC::Core::Conditions::ConditionSpec, std::allocator<FourC::Core::Conditions::ConditionSpec> >&) const [clone .cold] in /home/alexander/4C/build/lib4C.so
+ 1# FourC::Global::read_conditions(FourC::Global::Problem&, FourC::Core::IO::InputFile&, FourC::Core::IO::MeshReader const&) in /home/alexander/4C/build/lib4C.so
+ 2# FourC::setup_global_problem(FourC::Core::IO::InputFile&, FourC::CommandlineArguments const&, FourC::Core::Communication::Communicators const&) in /home/alexander/4C/build/4C
+ 3# run(FourC::CommandlineArguments&, FourC::Core::Communication::Communicators&) in /home/alexander/4C/build/4C
+ 4# main in /home/alexander/4C/build/4C
+ 5# __libc_start_main at ../csu/libc-start.c:342
+ 6# _start in /home/alexander/4C/build/4C
+
+=========================================================================
+
+
+--------------------------------------------------------------------------
+MPI_ABORT was invoked on rank 0 in communicator MPI_COMM_WORLD
+with errorcode 1.
+
+NOTE: invoking MPI_ABORT causes Open MPI to kill all MPI processes.
+You may or may not see output from other processes, depending on
+exactly when Open MPI kills them.
+--------------------------------------------------------------------------
