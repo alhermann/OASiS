@@ -6088,6 +6088,27 @@ _COUPLING_HEAD_LIMIT = 24000
 # so the default max_iter = 50 is ALREADY SHORT at rho = 2, and the default
 # accelerator diverges on exactly the severe-contrast cells this campaign uses.
 _COUPLING_MUST_READ = """\
+CHECK EACH SUBDOMAIN AGAINST ITS OWN EQUATION BEFORE YOU BELIEVE THE COUPLING.
+
+A converged interface residual says the two sides AGREE. It does not say either
+of them is right, and the two failures are independent. Measured on two runs of
+the same coupled cell, hours apart:
+
+    one run   interface written at the prescribed points, iteration converged
+              to 8e-07 in 16 steps -- and its subdomain field was TEN TIMES too
+              small and shrinking with refinement, so the graded order was
+              -0.02 against a band starting at 0.8.
+    the other its field satisfied the stated equation to within 0.2 to 1.2%,
+              both codes independently PROVEN, the iteration converged -- and
+              it wrote its own mesh nodes into the interface file, so nothing
+              could be graded at all.
+
+Neither defect is visible in the other's symptom. Run
+verify_pde_consistency(...) on EACH side separately, with THAT side's own
+source term and THAT side's own coefficient, before spending your remaining
+budget on the iteration. It needs no reference answer, and a field that fails
+it cannot be rescued by any amount of coupling.
+
 THE INTERFACE FILE IS WRITTEN AT THE POINTS THE TASK LISTS, NOT AT YOUR NODES.
 
 This is the single most common way a coupled run that WORKED is still scored
