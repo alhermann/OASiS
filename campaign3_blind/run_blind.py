@@ -344,7 +344,7 @@ class TrajLiveLog(BaseCallbackHandler):
 sys.path.insert(0, str(REPO / "src"))
 from blind_eval import keyvault as _kv                             # noqa: E402
 from host_hygiene import (readable_worked_answers,               # noqa: E402
-                          _materially_useful)
+                          _materially_useful, _worked_handshake)
 
 
 def keys_are_sealed() -> bool:
@@ -377,6 +377,25 @@ def _keys_dir():
 
 _WROTE_RE = re.compile(r"wrote \d+ chars to (/[^\s\"']+)")
 
+# AN AGENT WRITES WITH BASH, NOT ONLY WITH write_file.
+#
+# _WROTE_RE matches the write_file tool's confirmation line and nothing else, so
+# a directory an agent created with `mkdir`/`python -c` was invisible to the
+# quarantine. Measured: C2_27b_MCP_seed72's agent built /tmp/coupled_heat_final
+# -- 12 two-sided interface levels and 18 native solver artefacts, a complete
+# worked coupled answer -- its transcript names the path TEN times, and none of
+# them in the "wrote N chars to" form. The next seed's preflight then refused to
+# start, correctly, because the readable-answers gate found it; but the loop
+# stalled instead of healing itself.
+#
+# This regex therefore collects EVERY absolute path an agent's transcript
+# mentions under a scatter root. That is deliberately loose, because precision
+# does not come from the pattern here -- it comes from the materiality test
+# applied afterwards: a candidate is only quarantined if it actually holds a
+# worked coupled answer. The docstring below already warned that "bash is not"
+# confined; this closes it.
+_PATH_RE = re.compile(r"(/(?:tmp|home/alexander)/[A-Za-z0-9_./+-]{2,})")
+
 
 def _quarantine_stray_scratch() -> list:
     """Move aside exactly what PRIOR RUNS wrote outside their sandbox.
@@ -397,6 +416,7 @@ def _quarantine_stray_scratch() -> list:
     roots = {Path("/tmp").resolve(), Path.home().resolve(),
              (Path.home() / "Schreibtisch").resolve()}
     targets, moved = set(), []
+    bash_candidates: set = set()
     # Quarantined runs count too: their run directory was moved aside, but
     # whatever they wrote into /tmp or $HOME is still sitting there.
     trajectories = list((HERE / "runs").glob("*/work/trajectory*.txt")) + \
@@ -406,8 +426,22 @@ def _quarantine_stray_scratch() -> list:
             text = traj.read_text(errors="replace")
         except OSError:
             continue
-        for m in _WROTE_RE.finditer(text):
-            p = Path(m.group(1))
+        seen_paths = {m.group(1) for m in _WROTE_RE.finditer(text)}
+        # Bash-created scratch: collect the TOP-LEVEL directory name as a
+        # STRING here and probe the filesystem once per unique candidate below.
+        #
+        # Probing inside this loop walked the disk once per regex match per
+        # transcript -- thousands of tree walks over ~2,000 transcripts, minutes
+        # per call, in a function that runs at every seed's preflight. String
+        # work first, filesystem work once.
+        for m in _PATH_RE.finditer(text):
+            parts = m.group(1).rstrip("/.,;:'\")").split("/")
+            if len(parts) > 2 and parts[1] == "tmp":
+                bash_candidates.add("/tmp/" + parts[2])
+            elif len(parts) > 4 and parts[1:3] == ["home", "alexander"]:
+                bash_candidates.add("/home/alexander/" + parts[3])
+        for raw in sorted(seen_paths):
+            p = Path(raw)
             try:
                 rp = p.resolve()
             except OSError:
@@ -423,8 +457,34 @@ def _quarantine_stray_scratch() -> list:
                 if anc in roots:
                     break
                 top = anc
+            # THE PATH MAY ALREADY *BE* THE DIRECTORY TO MOVE.
+            #
+            # This loop assumed the matched path is a FILE somewhere below the
+            # scatter directory, and walked up to the highest ancestor that is
+            # not itself a root. When the match is already top-level -- e.g.
+            # /tmp/coupled_heat_final -- the first parent IS /tmp, so it breaks
+            # immediately, `top` stays None, and the tree is silently skipped.
+            # Measured: that is why the widened path collection still quarantined
+            # 0 trees while the readable-answers gate was flagging exactly that
+            # directory.
+            if top is None and rp.parent in roots:
+                top = rp
             if top is not None and top.exists() and top.resolve() not in roots:
                 targets.add(top)
+    # ONE probe per unique candidate, gated by MATERIALITY rather than by the
+    # regex: a candidate is quarantined only if it actually holds a worked
+    # coupled answer. That is what keeps a loose path pattern precise.
+    for raw in sorted(bash_candidates):
+        d = Path(raw)
+        if not d.is_dir() or d in roots or "claude-" in raw:
+            continue
+        try:
+            names = [f.name for f in d.iterdir() if f.is_file()]
+        except OSError:
+            continue
+        if _materially_useful(d, names) or _worked_handshake(d):
+            targets.add(d)
+
     for d in sorted(targets):
         if not d.exists() or d.resolve() == here:
             continue
