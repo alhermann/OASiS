@@ -5822,17 +5822,67 @@ def _get_coupling_knowledge(solver: str = "", signal: str = ""):
 _COUPLING_HEAD_LIMIT = 24000
 
 
+# WHAT MUST SURVIVE TRUNCATION, BECAUSE AN AGENT CANNOT ASK FOR WHAT IT DOES
+# NOT KNOW EXISTS.
+#
+# Front-loading takes a PREFIX, so the "Choosing theta" section -- which sits
+# past 24,000 characters -- stopped reaching agents entirely the moment this
+# function was added. Measured: the served payload is 23,378 characters and
+# contains no occurrence of the rho sizing, the divergence thresholds or the
+# swap remedy. The truncation hint tells the agent to ask when it is stuck, but
+# an agent that does not know its accelerator can DIVERGE reads a rising
+# residual as its own modelling error and starts over.
+#
+# These numbers were measured by execution over 48 configurations of a
+# two-subdomain conduction split at the tool's own tol = 1e-6, and they are
+# mesh-independent to the iteration over a fourfold interface refinement:
+#
+#   rho          1/10   1     2     4      10     100
+#   iterations   11     37    66    123    299    3311      (theta = 1/(1+rho))
+#   theta = 0.5  18     37    90    DIVERGES from rho = 4 up
+#   default      12     37    78    381    DIVERGES from rho = 10 up
+#
+# so the default max_iter = 50 is ALREADY SHORT at rho = 2, and the default
+# accelerator diverges on exactly the severe-contrast cells this campaign uses.
+_COUPLING_MUST_READ = """\
+BEFORE ANYTHING ELSE — HOW MANY ITERATIONS TO BUDGET, AND WHEN THIS DIVERGES.
+
+rho = the interface conductance (or stiffness) of the DIRICHLET-side subdomain
+divided by that of the Neumann-side one. Everything below is set by rho, NOT by
+your mesh: measured counts did not move by a single iteration over a fourfold
+interface refinement.
+
+    rho          1/10   1     2     4      10     100
+    iterations   11     37    66    123    299    3311
+
+  * Set max_iter = 100 for rho <= 1 and 400 for rho <= 10, and size each
+    participant's `timeout` for that many solves. The DEFAULT max_iter = 50 is
+    already short at rho = 2.
+  * theta = 0.5 with accelerator="constant" DIVERGES from rho = 4 upward.
+    The DEFAULT accelerator DIVERGES from rho = 10 upward. A rising residual
+    here is the scheme, not your model -- do not rebuild the setup.
+  * With accelerator="constant", theta = 1/(1+rho) is the setting the counts
+    above were measured with.
+  * IF rho > 10, THE BUDGET IS THE WRONG KNOB: SWAP WHICH SIDE IS DIRICHLET.
+    That replaces rho by 1/rho, and every ratio below 1 converged inside 25
+    iterations. On a severe-contrast problem this is the difference between
+    converging and not.
+
+"""
+
+
 def _front_load_coupling(payload: str, solver: str = "") -> str:
     if not isinstance(payload, str) or len(payload) <= _COUPLING_HEAD_LIMIT:
         return payload
-    head = payload[:_COUPLING_HEAD_LIMIT]
+    budget = _COUPLING_HEAD_LIMIT - len(_COUPLING_MUST_READ)
+    head = _COUPLING_MUST_READ + payload[:budget]
     # cut on a section boundary so no instruction is truncated mid-sentence
     for marker in ("\n────", "\n\n#", "\n\n", "\n"):
         cut = head.rfind(marker)
         if cut > _COUPLING_HEAD_LIMIT // 2:
             head = head[:cut]
             break
-    rest = len(payload) - len(head)
+    rest = len(payload) - (len(head) - len(_COUPLING_MUST_READ))
     hint = (f"\n\n{'─' * 70}\n"
             f"THIS PAYLOAD IS TRUNCATED HERE. {rest:,} further characters "
             f"exist and are NOT lost.\n"

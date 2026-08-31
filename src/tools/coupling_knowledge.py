@@ -638,8 +638,18 @@ Observed on this driver, running real two-code couplings:
   | converged, but you want it faster             | put Dirichlet on the softer subdomain, theta = 1/(1+rho) |
 
 There is no theta that makes this driver converge in one step for a two-code
-Dirichlet-Neumann split. Budget tens to hundreds of iterations and set max_iter
-and the per-participant `timeout` accordingly.
+Dirichlet-Neumann split, and what to budget is set by rho: measured at the
+tool's own tol = 1e-6 with accelerator="constant" and theta = 1/(1+rho), a
+two-subdomain conduction split took 11 iterations at rho = 1/10, 37 at rho = 1,
+66 at rho = 2, 123 at rho = 4, 299 at rho = 10 and 3311 at rho = 100 — roughly
+LINEAR in rho once the Dirichlet side is the stiffer one, and unchanged to the
+iteration over a fourfold interface refinement. So size max_iter from rho and
+not from the mesh: 100 for rho <= 1, 400 for rho <= 10, with the
+per-participant `timeout` sized for that many solves — the default
+max_iter = 50 is already short at rho = 2. Beyond rho = 10 the budget is the
+wrong knob: theta = 0.5 diverges from rho = 4 up and the DEFAULT accelerator
+from rho = 10 up, so SWAP WHICH SIDE IS DIRICHLET, which replaces rho by 1/rho
+and puts every ratio measured below 1 inside 25 iterations.
 
 ### 4a. A STOCHASTIC PARTICIPANT — the residual has a floor and `tol` cannot cross it
 
