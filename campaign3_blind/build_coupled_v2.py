@@ -499,9 +499,26 @@ def _straight_iface_probe(dim):
     """
     M, js = iface_probe_indices(dim, _iface_band(0, 1))
     xi = f"{XI}"
-    tail = (" These are exactly the solution probe coordinates lying in the "
-            "graded band, so the same values appear in your "
-            "solution_level<k>.csv rows.")
+    # WHAT COINCIDES IS THE TRANSVERSE COORDINATE, NOT THE WHOLE POINT.
+    #
+    # This said the interface probes "are exactly the solution probe
+    # coordinates ... so the same values appear in your solution_level<k>.csv
+    # rows". Measured on a drawn instance: the interface sits at x = 5/8, while
+    # subdomain A's solution probes span x in [0.007102, 0.617898] and B's span
+    # [0.634943, 1.490057] — NEITHER set contains the interface coordinate,
+    # because both are cell midpoints of their own subdomain. Only the y values
+    # coincide. An agent that believed the sentence would look for interface
+    # rows inside its solution file, fail to find any, and reasonably conclude
+    # its probe grid was wrong.
+    #
+    # It also named solution_level<k>.csv, the SINGLE-CODE filename, in a
+    # coupled task whose own output clause asks for solution_level<k>_<side>.csv.
+    tail = (" Their transverse coordinates are the same ones your solution "
+            "probes use, but the interface coordinate itself lies BETWEEN the "
+            "two subdomains' probe columns, so these rows are not a subset of "
+            "solution_level<k>_<side>.csv: evaluate each side's converged "
+            "solution AT these points, with that side's own material and its "
+            "own outward normal.")
     if dim == 2:
         return (f"the {len(js)} points (x, y) = ({xi}, (j+0.5)/{M}) for "
                 f"j = {js[0]}, {js[0] + 1}, ..., {js[-1]}. These cover the "
