@@ -71,11 +71,21 @@ EXEC_LOG = """
 (3) EXECUTION LOG. Write one file PER PARTICIPANT
     run_level1_A.log     (written by the code that solved side A)
     run_level1_B.log     (written by the code that solved side B)
-containing at least the line
-    NDOF = <integer>
-where <integer> is, for a finite element side, the number of degrees of freedom
-of your discretisation, and for a DSMC side, the number of grid CELLS of your
-simulation volume. A side without this line counts as not run at all.
+containing BOTH of the following:
+  (a) THE CONSOLE OUTPUT THAT SIDE'S SOLVER ITSELF PRODUCED, captured verbatim
+      -- redirect the run into the file, for example
+          <run command for that side>  > run_level1_<side>.log 2>&1
+      or raise the code's log/verbosity level so its own messages land there.
+      Do not retype, summarise or paraphrase it: it must be the text that code
+      emitted.
+  (b) the line
+          NDOF = <integer>
+      where <integer> is, for a finite element side, the number of degrees of
+      freedom of your discretisation, and for a DSMC side, the number of grid
+      CELLS of your simulation volume.
+A side without (b) counts as not run at all. A side whose log carries no output
+from its own named code cannot be credited to that code. The two files must
+therefore carry the output of two DIFFERENT codes.
 
 (4) COUPLING HISTORY. Write
     residual_level1.csv

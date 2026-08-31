@@ -160,11 +160,21 @@ information the assessment needs and the submission is rejected.
 {graded_note}
 RUN LOG (required, one per level): for every mesh level k, write a file
     run_level<k>.log
-containing at least the line
-    NDOF = <integer>
-where <integer> is {ndof_desc} at that level. This line
-is how the assessment recognises that a solver actually ran, so a level without
-it counts as not run at all.
+containing BOTH of the following:
+  (a) THE CONSOLE OUTPUT YOUR SOLVER ITSELF PRODUCED for that level, captured
+      verbatim. Redirect the solver's own output into this file, for example
+          <your run command>  > run_level<k>.log 2>&1
+      or, from Python, raise the solver's log/verbosity level so its own
+      messages land there. Do not retype, summarise, translate or paraphrase
+      it, and do not write it yourself: it must be the text the named code
+      emitted.
+  (b) the line
+          NDOF = <integer>
+      where <integer> is {ndof_desc} at that level.
+The assessment reads (a) to establish WHICH code ran and (b) as the number it
+cross-checks against the mesh. A level without (b) counts as not run at all. A
+log that carries no output the NAMED code itself produced cannot be credited to
+that code, however plausible its numbers are.
 
 Then write the single summary file `RESULT.txt` containing exactly these lines:
     LEVELS = <number of mesh levels you solved>

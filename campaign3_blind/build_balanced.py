@@ -155,15 +155,50 @@ than choosing your own."""
 # run -- a bias that falls on whichever arm happens to use the quieter code. The
 # gate now accepts one CANONICAL line for every code; this clause is the other
 # half of that contract, and without it a correct quiet run stays unprovable.
+# WHY (b) EXISTS: THE OLD CLAUSE COULD BE SATISFIED WITHOUT EITHER CODE.
+#
+# The clause below used to require only `NDOF = <integer>`, a line the agent
+# types. It already said "one file PER PARTICIPANT", but nothing in it could
+# distinguish two codes from one script, because the canonical line is
+# code-agnostic BY DESIGN -- it exists so a quiet honest dolfinx run is not
+# condemned for its print style.
+#
+# C2_27b_MCP_seed15 is the demonstration. It solved both subdomains with numpy
+# and scipy.sparse -- its own docstrings say "direct FEM assembly" -- while the
+# task named 4C and Kratos, and no file in the run outside the transcript
+# carries a single token of either. Its whole execution evidence was fourteen
+# 10-byte files reading `NDOF = <n>`, credited to both named codes at once, and
+# its convergence order was genuinely second-order. Everything except "did the
+# prescribed codes run" looked right, and that is the one thing a coupled cell
+# exists to measure.
+#
+# The grader cannot repair this: with only the canonical line submitted, the
+# honest verdict is "unproven", and punishing an agent for meeting the contract
+# as written is not available to us. So the contract now asks for the thing that
+# actually settles attribution -- the solver's OWN captured output. Every real
+# run can produce it by redirection; a numpy monolith cannot produce 4C's
+# banner.
 EXEC_LOG_CONTRACT = """
 (5) EXECUTION LOG. For every mesh level k and for EACH subdomain, write a file
     run_level<k>_<side>.log             (k = 1,2,3,...; side = A or B)
-containing at least the line
-    NDOF = <integer>
-where <integer> is the number of degrees of freedom of YOUR discretisation of
-that subdomain at that level. Write one such file PER PARTICIPANT: the file for
-side A must be written by the code that solved subdomain A, and the file for
-side B by the code that solved subdomain B.
+containing BOTH of the following:
+  (a) THE CONSOLE OUTPUT THAT SUBDOMAIN'S SOLVER ITSELF PRODUCED, captured
+      verbatim -- redirect the run into the file, for example
+          <run command for that subdomain>  > run_level<k>_<side>.log 2>&1
+      or raise the code's log/verbosity level from Python so its own messages
+      land there. Do not retype, summarise, translate or paraphrase it, and do
+      not write it yourself: it must be the text that code emitted.
+  (b) the line
+          NDOF = <integer>
+      where <integer> is the number of degrees of freedom of YOUR
+      discretisation of that subdomain at that level.
+Write one such file PER PARTICIPANT: the file for side A must carry the output
+of the code that solved subdomain A, and the file for side B the output of the
+code that solved subdomain B. The two files must therefore carry the output of
+two DIFFERENT codes. The assessment reads (a) to establish which code ran on
+each side and (b) as the number it cross-checks against the mesh; a side whose
+log carries no output from its own named code cannot be credited to that code,
+however plausible its numbers are.
 """
 
 
