@@ -3745,6 +3745,92 @@ def register_consolidated_tools(mcp: FastMCP):
     # the coupling knowledge, minus the solve, and writes its own.
 
     @mcp.tool()
+    def verify_pde_consistency(solution_files: str, source_term: str,
+                               coefficient: str = "1.0",
+                               domain: str = "[[0,1],[0,1]]") -> str:
+        """Does your field actually satisfy the equation the task stated?
+
+        A refinement study CANNOT answer this. Measured over this campaign,
+        submissions with a complete level set self-converge at a median order
+        of 1.96 to 1.99 — the discretisation is fine — while a field that
+        converges cleanly to the WRONG function looks identical in that study.
+        Your own MESH_INDEPENDENCE verdict does not separate them either: it
+        catches three quarters of the wrong runs and also fires on half the
+        correct ones.
+
+        This checks the weak identity that any solution of
+        -div(K grad u) = f obeys for a smooth v vanishing on the boundary:
+
+            integral of u * (L* v)  ==  integral of f * v
+
+        using ONLY the operator and source from your task and the values you
+        already wrote. There is no reference solution in it.
+
+        Measured separation, by execution: fields that solve the stated problem
+        give 2.32e-02 -> 5.27e-03 -> 1.23e-03 -> 2.56e-04, falling at order
+        ~2.2; fields that do not give 6.25 -> 6.37 -> 6.40 -> 6.40, flat.
+
+        Args:
+            solution_files: comma-separated paths to your solution CSVs, one
+                per mesh level, each `x, y, u` (or `x, y, z, u`) with a header.
+            source_term: the task's source term, in the task's own Python
+                notation, e.g. "36*x**3*y - 20*x**3/3 + 8/3".
+            coefficient: "2.5" for a scalar, or a symmetric tensor written as
+                "[[3,-1],[-1,2]]". Must match what the task prescribes.
+            domain: the box the problem lives on, "[[x0,x1],[y0,y1]]".
+        """
+        import csv as _csv
+        import json as _json
+        from .pde_consistency import check_levels
+        try:
+            coeff = _json.loads(coefficient)
+        except Exception:
+            try:
+                coeff = float(coefficient)
+            except Exception:
+                return (f"coefficient {coefficient!r} is neither a number nor "
+                        f"a JSON matrix like [[3,-1],[-1,2]]")
+        try:
+            box = [tuple(float(v) for v in pair)
+                   for pair in _json.loads(domain)]
+        except Exception:
+            return (f"domain {domain!r} must be JSON like [[0,1],[0,1]] — one "
+                    f"[low, high] pair per axis")
+        levels, problems = {}, []
+        for i, raw in enumerate(str(solution_files).split(","), start=1):
+            path = Path(raw.strip())
+            if not path.is_file():
+                problems.append(f"{path} does not exist")
+                continue
+            rows = []
+            try:
+                with path.open() as fh:
+                    for row in _csv.reader(fh):
+                        try:
+                            rows.append(tuple(float(c) for c in row))
+                        except ValueError:
+                            continue                      # header
+            except OSError as exc:
+                problems.append(f"{path}: {exc}")
+                continue
+            width = len(box) + 1
+            rows = [r for r in rows if len(r) >= width]
+            if not rows:
+                problems.append(f"{path}: no rows with {width} numeric columns")
+                continue
+            levels[i] = [r[:width] for r in rows]
+        if not levels:
+            return ("no readable level files. " + "; ".join(problems))
+        try:
+            result = check_levels(levels, source_term, coeff, box)
+        except Exception as exc:
+            return f"{type(exc).__name__}: {exc}"
+        out = result.as_dict()
+        if problems:
+            out["files_skipped"] = problems
+        return _json.dumps(out, indent=2) + _UNIVERSAL_CORE
+
+    @mcp.tool()
     async def audit_results(work_dir: str, claimed_order: float = 0.0,
                             ctx: Context = None) -> str:
         """Check your OWN result files for the failures that most often sink a

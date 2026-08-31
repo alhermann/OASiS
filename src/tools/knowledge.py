@@ -682,24 +682,54 @@ FOUR RULES THAT APPLY WHATEVER YOU ASKED FOR
    letter-spaced so a grep for the contiguous word never matches — and re-run
    with the backend's verbose flag before reporting a failure.
 
-4. IF YOUR ERROR IS NOT FALLING UNDER REFINEMENT, diagnose in this order. The
-   median observed order among this campaign's wrong runs was 0.00 — the error
-   did not shrink at all — and 74-77% of them already knew they had not
-   converged. Cheapest test first; none needs a reference answer:
-     a. IS YOUR EVALUATOR SECOND ORDER? Push a function you KNOW (say
-        x(1-x)y(1-y)) through the SAME code that produces your probe values
-        and refine. Measured on a 44x44 probe grid at N = 8, 16, 32:
+4. THE MOST COMMON WAY A RUN FAILS IS THAT IT NEVER PRODUCES THE NUMBERS.
+   Measured over 464 single-code runs: 36% wrote NO probe output at all, and
+   the largest slice of that is a solve that SUCCEEDED and was then never read
+   back at the required points (13%) — the solver ran, wrote its native output,
+   and the values were never extracted. Next comes not managing to impose a
+   spatially varying source in the input language (10%, almost all in the two
+   deck-driven codes), then a toolchain that will not build or import (8%).
+   Getting values out is not the last step to leave until the end; it is the
+   step most likely to end the run. Do one coarse level end to end — solve,
+   extract at the prescribed points, write the file — before refining anything.
+
+5. IF YOU DID SUBMIT AND WANT TO KNOW WHETHER IT IS RIGHT, MEASURE, DO NOT
+   GUESS. Among submissions with a complete level set the self-convergence
+   order is a median 1.96 to 1.99 in both arms: the discretisation converges
+   cleanly. Two failures survive that, and neither shows up in a refinement
+   study — a solution converging beautifully TO THE WRONG FUNCTION (7% of all
+   runs), and a field off by orders of magnitude in its overall size.
+
+   YOUR OWN CONVERGENCE VERDICT DOES NOT SEPARATE THEM. Measured, a run's
+   MESH_INDEPENDENCE = NOT_CONVERGED catches about three quarters of the wrong
+   runs, but it also fires on HALF the correct ones, so on its own it says
+   almost nothing. What is falsifiable, with no reference answer:
+     a. DOES YOUR FIELD SATISFY THE EQUATION YOU WERE GIVEN? Pick a smooth
+        function v that vanishes on the boundary, and check the identity
+            integral of u * (L* v)  ==  integral of f * v
+        by quadrature on the probe values you already have, with the L and f
+        the task states (L* is the adjoint; for -div(K grad u) with symmetric
+        K, L* = L). Refine and watch it. Measured: fields that solve the stated
+        problem give 6.7e-2 -> 1.5e-2 -> 4.3e-3, falling at order 2; fields
+        that do not give 5.49 -> 5.62 -> 5.64, flat. It costs no solver run and
+        separated a third of all submissions.
+     b. IS YOUR EVALUATOR ITSELF SECOND ORDER? Push a function you KNOW (say
+        x(1-x)y(1-y)) through the SAME code that produces your probe values.
+        Measured on a 44x44 grid at N = 8, 16, 32:
             nearest-node lookup    5.39e-3 -> 2.66e-3 -> 1.34e-3   order ~1.0
             linear/shape function  1.09e-3 -> 2.73e-4 -> 6.85e-5   order ~2.0
-        Your evaluator's own order BOUNDS the order you can report, and no
-        improvement to the solve can lift it. One script, no solver run.
-     b. DO THE BOUNDARY VALUES COME BACK? Probe nearest a boundary where the
+        Your evaluator's own order BOUNDS the order you can report.
+     c. DO THE BOUNDARY VALUES COME BACK? Probe nearest a boundary where the
         value is prescribed. Values that are not right there mean the condition
         landed elsewhere, or your probe coordinates are in a different frame.
-     c. DID THE MESH CHANGE? The degree-of-freedom count must GROW per level.
-        Constant means one mesh was solved and submitted repeatedly.
-     d. ONLY THEN THE PHYSICS. A wrong sign or material converges CLEANLY to
-        the wrong function. Re-derive the source from your own strong form.
+        A common form of this: a source expression evaluated in ELEMENT-LOCAL
+        coordinates instead of global ones, which is silent and wrong
+        everywhere.
+     d. IS THE SIZE PLAUSIBLE? Compare the magnitude of your field against what
+        the source term and the domain size imply. Measured, 11 to 30% of
+        submissions are off by more than a factor of ten, including fields that
+        are all zero and fields of order 1e11.
+     e. DID THE MESH CHANGE? The degree-of-freedom count must GROW per level.
 
    Report what you measured either way: a run that states NOT_CONVERGED with
    its largest relative change scores better than one claiming a convergence
