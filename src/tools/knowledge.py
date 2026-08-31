@@ -269,6 +269,21 @@ def _find_reference_test_files(solver: str, physics: str) -> str:
 # took a lost run to notice. There is exactly one consumer of
 # backend.get_knowledge(), so this is the one place a cross-backend rule
 # cannot be missed.
+# ONE COPY, SERVED ON BOTH PATHS THAT NEED IT.
+#
+# This first went into the generic capture recipe, which lives in the full
+# block on the topic="physics" path — and coupled agents call topic="coupling".
+# Measured right after writing it: the physics reply carried it, the coupling
+# reply did not, which is the exact defect class this campaign keeps hitting.
+_PER_SIDE_NAMING = """ON A COUPLED TASK THE NAME CARRIES THE SIDE: run_level<k>_<side>.log, one per
+participant per level, each holding THAT participant's own solver output. Two
+codes writing into one file cannot be told apart, and a submission whose logs
+are named the single-code way is read as one code having produced everything.
+The same applies to solution_level<k>_<side>.csv and interface_level<k>_<side>.csv:
+copy the exact names out of the task's own output clause rather than the shape
+you saw in an example."""
+
+
 _UNIVERSAL = """
 BEFORE YOU CONCLUDE A SOLVER IS BROKEN ON THIS MACHINE
 ──────────────────────────────────────────────────────
@@ -424,6 +439,8 @@ The run log must carry the text YOUR SOLVER printed, not a line you wrote about
 it, because that text is what shows WHICH code ran. Redirect the run:
 
     <your run command>  > run_level<k>.log 2>&1        # keep 2>&1
+
+""" + _PER_SIDE_NAMING + """
 
 Four codes print nothing useful at their defaults, so this needs one extra line.
 Measured on this machine, per code:
@@ -656,6 +673,8 @@ an ingredient you correctly BUILT (a source function, a mixed formulation, a
 tightened tolerance) that the solve never actually USED. Check the wiring, not
 the ingredient.
 """
+
+
 
 
 

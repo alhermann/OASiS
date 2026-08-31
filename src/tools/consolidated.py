@@ -2117,7 +2117,8 @@ def _unsaved_work_notice(work_dir, out_files) -> str | None:
 # "verified 9/9 backends" through get_physics_knowledge, a tool the live
 # server does not expose. Agents call `knowledge` 2909 times in the campaign
 # transcripts and get_physics_knowledge zero times.
-import functools as _functools                                  # noqa: E402
+import functools as _functools
+from .knowledge import _PER_SIDE_NAMING  # one copy, served on both paths                                  # noqa: E402
 from .knowledge import _UNIVERSAL as _UNIVERSAL_BLOCK          # noqa: E402
 from .knowledge import _UNIVERSAL_CORE as _UNIVERSAL_CORE      # noqa: E402
 
@@ -6087,7 +6088,8 @@ _COUPLING_HEAD_LIMIT = 24000
 #
 # so the default max_iter = 50 is ALREADY SHORT at rho = 2, and the default
 # accelerator diverges on exactly the severe-contrast cells this campaign uses.
-_COUPLING_MUST_READ = """\
+_COUPLING_MUST_READ = _PER_SIDE_NAMING + """
+
 CHECK EACH SUBDOMAIN AGAINST ITS OWN EQUATION BEFORE YOU BELIEVE THE COUPLING.
 
 A converged interface residual says the two sides AGREE. It does not say either
