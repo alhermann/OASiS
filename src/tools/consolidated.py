@@ -4640,6 +4640,42 @@ def register_consolidated_tools(mcp: FastMCP):
                 " COVERAGE — these checks could NOT run on this coupling, so the "
                 "verdict above does not cover what they would have caught: "
                 + " | ".join(not_run))
+        # THE EXCHANGE POINTS ARE NOT THE REPORT POINTS, SAID WHERE THE AGENT
+        # IS HOLDING THEM.
+        #
+        # MEASURED across every coupled run in the tree: 11 submissions wrote an
+        # interface file containing a point the task explicitly excludes, and 10
+        # of the 11 are OASiS-arm runs — 13.7% of OASiS coupled runs against
+        # 1.2% of bare ones. Nine of them wrote exactly 9 rows, the level-1 mesh
+        # nodes at h = 1/8.
+        #
+        # The cause is this tool's own contract. Each participant writes
+        # exports.json with `coordinates`, `values` and `normal_fluxes` at its
+        # interface NODES, because that is what the exchange needs. Then the
+        # deliverable asks for a fixed list of points that are deliberately NOT
+        # nodes — and copying the file across is one line. C4_27b_MCP_seed5's
+        # submission is exports.json verbatim, down to the float noise
+        # -2.6927850894701087e-18 where the node sits at y = 0. The bare arm
+        # cannot make this mistake because it has no such file.
+        #
+        # The corpus does say "the points you exchange are not the points you
+        # report", ~700 lines away in a different payload. Saying it here, in
+        # the reply that accompanies the data, is the only place it arrives at
+        # the moment of the temptation.
+        result["reporting"] = (
+            "THE POINTS EXCHANGED ABOVE ARE NOT THE POINTS YOU REPORT. Each "
+            "participant's exports.json holds values at ITS OWN interface "
+            "NODES, which is what the exchange needs. If your task prescribes "
+            "interface output at a fixed list of coordinates, those are "
+            "deliberately not nodes: interpolate each side's converged "
+            "solution onto the listed points, with that side's own material "
+            "and its own outward normal. Copying exports.json into "
+            "interface_level<k>_<side>.csv is the single most common way an "
+            "otherwise working coupled run is made ungradeable — measured at "
+            "13.7% of OASiS-arm coupled runs against 1.2% of bare ones, "
+            "because only this arm has the file. A task that lists interior "
+            "points only has excluded the interface ENDS on purpose; do not "
+            "complete the list with them.")
         return json.dumps(result, indent=2)
 
     @mcp.tool()
