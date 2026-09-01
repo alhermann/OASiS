@@ -2119,6 +2119,7 @@ def _unsaved_work_notice(work_dir, out_files) -> str | None:
 # transcripts and get_physics_knowledge zero times.
 import functools as _functools
 from .knowledge import _PER_SIDE_NAMING  # one copy, served on both paths                                  # noqa: E402
+from .knowledge import _physics_tail                            # noqa: E402
 from .knowledge import _UNIVERSAL as _UNIVERSAL_BLOCK          # noqa: E402
 from .knowledge import _UNIVERSAL_CORE as _UNIVERSAL_CORE      # noqa: E402
 
@@ -2303,7 +2304,7 @@ def register_consolidated_tools(mcp: FastMCP):
                     f"(topic='postmortems', solver=..., signal=...)"
                     f" when a post-execution Signal needs lookup):\n"
                     + json.dumps(breadcrumbs, indent=2))
-            return result + _UNIVERSAL_BLOCK
+            return result + _physics_tail()
 
         elif topic == "postmortems":
             if _ABLATE_PITFALLS:

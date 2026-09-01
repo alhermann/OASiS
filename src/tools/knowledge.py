@@ -678,6 +678,42 @@ the ingredient.
 
 
 
+# LEAN MODE: the full block, or the core plus an offer of the rest.
+#
+# MEASURED, and this is why a switch exists rather than an edit. Served volume
+# is dominated by the topic="physics" reply: 51,402 characters for 4C, of which
+# `_UNIVERSAL` is 22,501 — and 93% of the Kratos reply, whose own knowledge is
+# 1,595 characters. The arm that receives all this carries 90,740 input tokens
+# per call against the unassisted arm's 58,626, takes 41 tool calls against 99,
+# and stops at 44% of its time budget while blaming the clock.
+#
+# Within the assisted arm the correlation is monotone: runs graded CORRECT
+# carry 70,273 tokens per call and make 52 calls; runs that give up carry
+# 87,523 and make 37. That is CORRELATION and the direction is not settled — a
+# run that solves quickly naturally makes fewer heavy knowledge calls, which is
+# reverse causation and equally consistent with the numbers.
+#
+# So this is an experiment, not a fix: with OASIS_LEAN_PHYSICS=1 the physics
+# reply carries the CORE plus a pointer to the elaboration, instead of the full
+# block. Default OFF, so nothing changes until the A/B has been run on the same
+# cells and seeds. The pattern itself is already measured elsewhere in this
+# server — the coupling payload front-loads a must-read and offers the rest.
+def _physics_tail() -> str:
+    """What a topic="physics" reply appends: the full block, or core + offer."""
+    import os
+    if os.environ.get("OASIS_LEAN_PHYSICS", "") not in ("1", "true", "TRUE"):
+        return _UNIVERSAL
+    return _UNIVERSAL_CORE + (
+        "\nTHE LONGER FORM OF THE ABOVE — how to evaluate at the graded probe\n"
+        "points in this backend, which norm converges at which order, the\n"
+        "quadrature and time-integration traps, and how to capture each\n"
+        "solver's own output — is available on request:\n"
+        "    knowledge(topic='physics', solver=<name>, physics=<name>,\n"
+        "              signal='probe evaluation')\n"
+        "Ask for it when a specific step has failed, not before: reading it\n"
+        "costs you actions, and actions are what the run is short of.\n")
+
+
 # ── THE CORE THAT MUST REACH EVERY knowledge() CALL ────────────────────────────
 # MEASURED, and this is why this constant exists. `_UNIVERSAL` was appended on
 # exactly ONE of the 31 return paths of tools.consolidated.knowledge() — the
@@ -802,7 +838,7 @@ def register_knowledge_tools(mcp: FastMCP):
         if not knowledge:
             return f"No knowledge available for '{physics}' in {backend.display_name()}"
 
-        result = json.dumps(knowledge, indent=2, default=str) + _UNIVERSAL
+        result = json.dumps(knowledge, indent=2, default=str) + _physics_tail()
 
         # Automatically append real test file examples for ALL solvers
         ref = _find_reference_test_files(solver, physics)
