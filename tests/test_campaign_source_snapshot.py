@@ -128,3 +128,15 @@ def test_problem_draw_hash_detects_mid_population_mutation(tmp_path):
     task.write_text("changed task\n")
     with pytest.raises(R.SourceBuildError, match="problem draw changed"):
         R.verify_problem_draw(problems, expected)
+
+
+def test_live_trajectory_stream_closes_explicitly_and_idempotently(tmp_path):
+    path = tmp_path / "trajectory_live.txt"
+    live = R.TrajLiveLog(path)
+    live.note("before close")
+
+    live.close()
+    live.close()
+
+    assert live._f.closed
+    assert path.read_text() == "before close\n"

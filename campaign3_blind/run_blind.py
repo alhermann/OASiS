@@ -638,6 +638,13 @@ class TrajLiveLog(BaseCallbackHandler):
         except Exception:
             pass
 
+    def close(self) -> None:
+        """Flush and close this cell's trajectory stream; safe to call twice."""
+        try:
+            self._f.close()
+        except Exception:
+            pass
+
 
 sys.path.insert(0, str(REPO / "src"))
 from blind_eval import keyvault as _kv                             # noqa: E402
@@ -1137,6 +1144,7 @@ def run_one(pid: str, model: str, cond: str, seed: int, timeout_s: int) -> dict:
     except Exception as e:
         err = f"{type(e).__name__}: {e}"
     finally:
+        live.close()
         _agent.cleanup_sandbox_scratch(work)
 
     # A RUN THAT HIT THE STEP CAP IS NOT A RUN THAT FINISHED. LangGraph does
