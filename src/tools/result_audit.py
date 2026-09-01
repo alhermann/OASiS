@@ -523,6 +523,60 @@ def contract_findings(work: Path) -> list[dict]:
                     f"NOW: at level 1 there is still time, at level 3 there "
                     f"is not.")})
 
+    # 1c. A SOURCE TERM BUILT FROM ELEMENT-LOCAL COORDINATES.
+    #
+    # This is a STATIC read of the agent's own script, which is a departure
+    # from the rest of this file, and it is here because it is the one failure
+    # that no numeric self-check can see. Measured on NG1_27b_MCP_seed101: the
+    # run bound `x` and `y` to specialcf.xref(2) — the position inside the
+    # reference element — while its source term was stated in global
+    # coordinates. Its own comment read "reference coordinates which equal
+    # physical coords for unit square". They do not.
+    #
+    # The consequence is invisible to every self-consistency test: the form
+    # assembles, the solve succeeds, the successive differences fall smoothly,
+    # the audit passed it, and the answer is wrong. Replaying its script
+    # unchanged reproduces 6.158955e-02 against the correct 7.196098e-02, and
+    # graded order 0.028 against 2.069.
+    #
+    # Only flagged when the run ALSO has a coordinate-indexed deliverable, so
+    # a legitimate use of xref (a per-element quantity, an error indicator) in
+    # a run that never claims a global field is left alone.
+    if levels:
+        for script in list(work.rglob("*.py"))[:40]:
+            if _SCRATCH & set(script.relative_to(work).parts[:-1]):
+                continue
+            try:
+                text = script.read_text(errors="ignore")
+            except OSError:
+                continue
+            if "specialcf.xref" not in text:
+                continue
+            rebinds = re.search(
+                r"^\s*(?:x|y)\s*=\s*\w*xref\w*\s*\[", text, re.M) or \
+                re.search(r"xref\s*=\s*specialcf\.xref", text)
+            if not rebinds:
+                continue
+            out.append({"sequence": "source coordinates", "values": [],
+                        "finding": (
+                f"{script.name} BUILDS AN EXPRESSION FROM specialcf.xref, "
+                f"WHICH IS THE POSITION INSIDE THE REFERENCE ELEMENT, NOT ON "
+                f"THE DOMAIN. If your source term, coefficient or boundary "
+                f"data was stated in global coordinates, this is silently a "
+                f"different function: it repeats the same small range in every "
+                f"element. Nothing raises — the form assembles, the solve "
+                f"succeeds, and the refinement study looks orderly while "
+                f"converging to the wrong answer. In NGSolve the `x` and `y` "
+                f"you get from `from ngsolve import *` ARE the global "
+                f"coordinates; do not rebind them. Check it in one line: your "
+                f"source evaluated at an interior point must equal the "
+                f"arithmetic you do by hand for that point, and must not "
+                f"change when you look at a different element containing it. "
+                f"Measured on a real submission: the xref form gave "
+                f"max|u| = 6.158955e-02 and graded order 0.028; the identical "
+                f"script using global x, y gave 7.196098e-02 and order 2.069.")})
+            break
+
     # 2. the same deliverable must not be submitted twice with different content
     by_name: dict[str, set] = {}
     for f in work.rglob("*.csv"):
