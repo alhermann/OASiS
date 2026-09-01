@@ -17,6 +17,19 @@ So this is a switch, default OFF, to be settled by running the same cells and
 seeds both ways — not a fix applied on a hunch. These tests pin that: the
 default is byte-identical to the full block, the lean form still carries every
 core rule, and it offers the elaboration rather than deleting it.
+
+THE EXPERIMENT HAS SINCE BEEN RUN AND IT REFUTED THE HYPOTHESIS. NG1, KR1 and
+FC1, one seed each per arm, only the flag differing:
+
+    FULL block   CORRECT, CORRECT, CORRECT   (orders 2.063, 2.005, 2.000)
+    LEAN         CONFIDENTLY_WRONG (0.071), MALFORMED, CONFIDENTLY_WRONG (-0.033)
+
+Total served tokens fell 4.2M -> 3.5M as designed; context per call moved only
+-9.3% and ACTIONS fell 7.7%, with FC1 reversing both signs. The correlation was
+at least partly reverse causation. The elaboration the lean form removes is
+LOAD-BEARING, so the default must stay as it is — which is what
+test_the_default_is_the_full_block_unchanged now protects with a reason rather
+than a precaution.
 """
 
 from __future__ import annotations

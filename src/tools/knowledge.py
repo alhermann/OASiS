@@ -693,11 +693,34 @@ the ingredient.
 # run that solves quickly naturally makes fewer heavy knowledge calls, which is
 # reverse causation and equally consistent with the numbers.
 #
-# So this is an experiment, not a fix: with OASIS_LEAN_PHYSICS=1 the physics
+# So this was an experiment, not a fix: with OASIS_LEAN_PHYSICS=1 the physics
 # reply carries the CORE plus a pointer to the elaboration, instead of the full
-# block. Default OFF, so nothing changes until the A/B has been run on the same
-# cells and seeds. The pattern itself is already measured elsewhere in this
-# server — the coupling payload front-loads a must-read and offers the rest.
+# block.
+#
+# THE EXPERIMENT HAS BEEN RUN AND IT REFUTED THE HYPOTHESIS. NG1, KR1 and FC1,
+# one seed each per arm:
+#
+#     FULL block   CORRECT, CORRECT, CORRECT   (orders 2.063, 2.005, 2.000)
+#     LEAN         CONFIDENTLY_WRONG (0.071), MALFORMED, CONFIDENTLY_WRONG
+#                  (-0.033)
+#
+# Total served tokens fell as designed, 4.2M -> 3.5M, and the hoped-for
+# consequence did not follow: context per call moved only -9.3% and ACTIONS
+# fell 7.7%, with one of the three cells reversing both signs (FC1 went
+# 80,780 -> 111,923 tokens per call and 52 -> 34 calls). One lean run of three
+# took up the offer of the removed material.
+#
+# So the correlation between heavy context and giving up was, at least in part,
+# reverse causation: a run that solves quickly makes fewer heavy calls. The
+# elaboration the lean form removes — how to evaluate at the graded probe
+# points in this backend, which norm converges at which order, the quadrature
+# and time-integration traps — is LOAD-BEARING, and 3/3 against 0/3 is the
+# evidence. n=3 per arm with different seeds, so this is suggestive rather than
+# conclusive; it is more than enough to stop the cut.
+#
+# The switch stays, OFF, so the experiment can be repeated at a larger n by
+# whoever wants to argue the other way. Do not make it the default on the
+# strength of a token count.
 def _physics_tail() -> str:
     """What a topic="physics" reply appends: the full block, or core + offer."""
     import os
