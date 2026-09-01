@@ -1,6 +1,5 @@
 """Coupling participant: slab B solved by REAL Kratos Multiphysics
-(ConvectionDiffusionApplication) — must run under /usr/bin/python3 on this
-machine (the .venv pip Kratos is GLIBC-broken).
+(ConvectionDiffusionApplication) under the campaign's solver virtualenv.
 
 Contract (see src/core/coupling_driver.py): runs in its work_dir, reads
 imports.json (partner exports), writes exports.json (InterfaceData dict).

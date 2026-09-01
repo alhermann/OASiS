@@ -202,6 +202,27 @@ def test_the_real_installs_are_still_available(monkeypatch, backend):
     assert status is BackendStatus.AVAILABLE, message
 
 
+def test_sparta_identity_probe_does_not_write_a_log(monkeypatch):
+    import subprocess
+    import backends.sparta.backend as sparta
+
+    seen = []
+
+    def fake_run(command, **kwargs):
+        seen.append((command, kwargs))
+        return subprocess.CompletedProcess(
+            command, 1, stdout=b"SPARTA (test build)\n", stderr=b"")
+
+    monkeypatch.setattr(sparta, "_find_sparta_binary", lambda: "/fake/sparta")
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    status, message = sparta.SpartaBackend().check_availability()
+
+    assert status is BackendStatus.AVAILABLE, message
+    assert seen[0][0] == ["/fake/sparta", "-log", "none", "-h"]
+    assert seen[0][1]["stdin"] is subprocess.DEVNULL
+
+
 def test_every_backend_identity_probe_closes_stdin():
     """Generalised from the 4C finding: an inherited stdin under an MCP stdio
     server is the JSON-RPC stream, and a probed program that reads it consumes

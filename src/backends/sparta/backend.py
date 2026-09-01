@@ -364,11 +364,13 @@ class SpartaBackend(SolverBackend):
         # it validated, which is worse than an obviously absent check.
         #
         # `-h` prints `SPARTA (<date>)` as its first line, measured on this
-        # build. stdin is closed: under an MCP stdio server an inherited stdin is
-        # the JSON-RPC stream, and a probed program that reads it consumes the
-        # protocol.
+        # build. Disable its default log: the MCP server runs from a read-only
+        # source mount, and an identity check must not need to create
+        # log.sparta. stdin is closed because under MCP stdio it is the JSON-RPC
+        # stream, and a probed program that reads it consumes the protocol.
         try:
-            r = subprocess.run([binpath, "-h"], capture_output=True, timeout=15,
+            r = subprocess.run([binpath, "-log", "none", "-h"],
+                               capture_output=True, timeout=15,
                                stdin=subprocess.DEVNULL)
             blob = (r.stdout + r.stderr).decode("utf-8", errors="replace")
         except (subprocess.TimeoutExpired, OSError) as e:

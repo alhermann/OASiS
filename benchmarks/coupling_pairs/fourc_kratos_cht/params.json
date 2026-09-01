@@ -12,5 +12,5 @@
   "T_if_initial_guess": 300.0,
   "fourc_binary": "/home/alexander/4C/build/4C",
   "fourc_ld_library_path": "/opt/4C-dependencies/lib",
-  "kratos_python": "/usr/bin/python3"
+  "kratos_python": "/home/alexander/Schreibtisch/open-fem-agent/.venv/bin/python"
 }

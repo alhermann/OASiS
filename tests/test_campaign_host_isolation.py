@@ -1,6 +1,7 @@
 """A blind cell must not read another cell's work through host tools."""
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -12,6 +13,34 @@ from langgraph_eval import agent as A  # noqa: E402
 
 def _tool(tools, name):
     return next(tool for tool in tools if tool.name == name)
+
+
+def test_mcp_pins_mounted_backend_runtimes_before_masking_home(tmp_path):
+    home = tmp_path / "home"
+    workspace = tmp_path / "workspace"
+    paths = {
+        "FENICS_PYTHON": home / "miniconda3/envs/fenics/bin/python",
+        "DUNE_PYTHON": home / "miniconda3/envs/dune-py313/bin/python",
+        "FEBIO_BINARY": home / "FEBio/bin/febio4",
+        "DEAL_II_DIR": home / "dealii/build",
+        "SPARTA_BINARY": workspace / "sparta/src/spa_serial",
+        "SPARTA_ROOT": workspace / "sparta",
+        "SPARTA_DATA_DIR": workspace / "sparta/data",
+    }
+    for key, path in paths.items():
+        if key in {"DEAL_II_DIR", "SPARTA_ROOT", "SPARTA_DATA_DIR"}:
+            path.mkdir(parents=True, exist_ok=True)
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("runtime")
+
+    env = {"FENICS_PYTHON": "/explicit/fenics/python"}
+    A._pin_backend_runtime_env(env, home=home, workspace=workspace)
+
+    assert env["FENICS_PYTHON"] == "/explicit/fenics/python"
+    for key, path in paths.items():
+        if key != "FENICS_PYTHON":
+            assert env[key] == str(path)
 
 
 def test_shell_cannot_read_an_adjacent_cell(tmp_path):
@@ -27,9 +56,14 @@ def test_shell_cannot_read_an_adjacent_cell(tmp_path):
     run_bash = A._bash_tool_for(work)
     runtime_python = (
         "/home/alexander/Schreibtisch/open-fem-agent/.venv/bin/python")
+    pair_params = json.loads((
+        ROOT / "benchmarks/coupling_pairs/fourc_kratos_cht/params.json"
+    ).read_text())
+    assert pair_params["kratos_python"] == runtime_python
     out = run_bash.invoke({
         "command": (
-            f"{runtime_python} -c 'print(\"runtime-ok\")'; "
+            f"{runtime_python} -c 'import KratosMultiphysics; "
+            "print(\"runtime-ok\")'; "
             f"cat {secret} 2>&1 || true"
         )
     })

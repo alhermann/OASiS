@@ -202,6 +202,30 @@ def _clean_subprocess_env() -> dict[str, str]:
     return clean
 
 
+def _pin_backend_runtime_env(env: dict[str, str], *,
+                             home: Path | None = None,
+                             workspace: Path | None = None) -> None:
+    """Expose mounted solver runtimes after the sandbox replaces ``HOME``."""
+    host_home = (home or Path.home()).resolve()
+    host_workspace = (workspace or REPO.parent).resolve()
+    defaults = (
+        ("FENICS_PYTHON",
+         host_home / "miniconda3/envs/fenics/bin/python", "file"),
+        ("DUNE_PYTHON",
+         host_home / "miniconda3/envs/dune-py313/bin/python", "file"),
+        ("FEBIO_BINARY", host_home / "FEBio/bin/febio4", "file"),
+        ("DEAL_II_DIR", host_home / "dealii/build", "dir"),
+        ("SPARTA_BINARY",
+         host_workspace / "sparta/src/spa_serial", "file"),
+        ("SPARTA_ROOT", host_workspace / "sparta", "dir"),
+        ("SPARTA_DATA_DIR", host_workspace / "sparta/data", "dir"),
+    )
+    for key, path, kind in defaults:
+        exists = path.is_file() if kind == "file" else path.is_dir()
+        if not env.get(key) and exists:
+            env[key] = str(path)
+
+
 def _time_left_note() -> str:
     """`[clock: N min left of M]`, or nothing when no deadline is set."""
     if _DEADLINE is None:
@@ -711,6 +735,7 @@ def _oasis_mcp_client(workdir: Path | None = None):
         "FOURC_BINARY", str(Path.home() / "4C/build/4C"))
     env["LD_LIBRARY_PATH"] = env.get(
         "LD_LIBRARY_PATH", "/opt/4C-dependencies/lib")
+    _pin_backend_runtime_env(env)
     source_repo = Path(os.environ.get(
         "OASIS_SOURCE_SNAPSHOT", str(REPO))).resolve()
     env["PYTHONPATH"] = str(source_repo / "src")

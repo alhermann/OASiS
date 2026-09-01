@@ -8,8 +8,8 @@ ConvectionDiffusion under /usr/bin/python3 (interface Neumann via
 FACE_HEAT_FLUX, exports interface temperature). See
 benchmarks/coupling_pairs/fourc_kratos_cht/.
 
-Skips cleanly when the 4C binary or the system-python Kratos install is
-absent (both are machine-local, not CI dependencies).
+Skips cleanly when the 4C binary or configured Kratos interpreter is absent
+(both are machine-local, not CI dependencies).
 """
 import json
 import shutil
