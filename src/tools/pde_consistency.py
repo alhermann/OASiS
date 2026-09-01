@@ -200,6 +200,22 @@ def check_levels(levels: dict, source_expr: str, coefficient,
         denom = max(abs(rhs), 1e-300)
         res.levels.append(LevelResult(lvl, len(rows), abs(lhs - rhs) / denom,
                                       f"lhs={lhs:.6e} rhs={rhs:.6e}"))
+    # A RESIDUAL OF 1e+297 IS NOT A VERDICT. Measured on real submissions
+    # outside this check's operator, the relative residual came back as
+    # 1.197e+297 and 5.190e+293 — the ratio of two quantities that have nothing
+    # to do with each other. The magnitudes were reported with a confident
+    # INCONSISTENT and CONSISTENT respectively. A number that large means the
+    # comparison is meaningless, not that the field is very wrong.
+    for r in res.levels:
+        if math.isfinite(r.residual) and abs(r.residual) > 1e6:
+            r.detail = (r.detail + " | REFUSED: relative residual "
+                        f"{r.residual:.3e} is far outside anything a "
+                        "discretisation produces, so the two sides of the "
+                        "identity are not comparable — check that the source "
+                        "term, the coefficient and the field are the ones the "
+                        "task states, and that this is a scalar "
+                        "-div(K grad u) = f problem at all")
+            r.residual = float("nan")
     good = [r for r in res.levels if math.isfinite(r.residual)]
     if len(good) < 2:
         res.verdict = "NOT_APPLICABLE"
@@ -215,7 +231,25 @@ def check_levels(levels: dict, source_expr: str, coefficient,
     if last > 0 and first > 0 and len(good) >= 2:
         span = len(good) - 1
         res.rate = math.log(first / last) / (span * math.log(2.0)) if last else None
-    if last < first / 3.0:
+    # A RESIDUAL AT ROUND-OFF IS THE IDENTITY HOLDING, NOT A FLAT FAILURE.
+    #
+    # The decay test asks whether the residual FALLS, which is the right
+    # question for a discretisation whose error shrinks with h. It has no
+    # answer when the residual is already zero: a field that satisfies the weak
+    # identity exactly gives 0.000e+00 at every level, `last < first/3` is
+    # false, and the verdict came out INCONSISTENT with the explanation "the
+    # weak residual is FLAT: 0.000e+00 -> 0.000e+00" — condemning the one
+    # field that could not be more right. Found by writing the test that asks
+    # whether a genuine scalar-diffusion case still passes.
+    if max(first, last) <= 1e-12:
+        res.verdict = "CONSISTENT"
+        res.explanation = (
+            f"the weak residual is at round-off ({first:.3e} -> {last:.3e}): "
+            f"the identity holds as exactly as double precision allows, so "
+            f"your field satisfies the equation you were given. Note that this "
+            f"is what an ANALYTIC or interpolated exact field also gives — it "
+            f"says the operator and source match, not that a solver ran.")
+    elif last < first / 3.0:
         res.verdict = "CONSISTENT"
         res.explanation = (
             f"the weak residual falls {first:.3e} -> {last:.3e} across "

@@ -3749,7 +3749,8 @@ def register_consolidated_tools(mcp: FastMCP):
     @mcp.tool()
     def verify_pde_consistency(solution_files: str, source_term: str,
                                coefficient: str = "1.0",
-                               domain: str = "[[0,1],[0,1]]") -> str:
+                               domain: str = "[[0,1],[0,1]]",
+                               equation: str = "") -> str:
         """Does your field actually satisfy the equation the task stated?
 
         A refinement study CANNOT answer this. Measured over 464 runs,
@@ -3782,10 +3783,75 @@ def register_consolidated_tools(mcp: FastMCP):
             coefficient: "2.5" for a scalar, or a symmetric tensor written as
                 "[[3,-1],[-1,2]]". Must match what the task prescribes.
             domain: the box the problem lives on, "[[x0,x1],[y0,y1]]".
+            equation: your task's equation, copied from its EQUATION line.
+                REQUIRED. This check implements the second-order scalar
+                diffusion form only, and it refuses anything else rather than
+                answering about an operator it does not model.
         """
         import csv as _csv
         import json as _json
         from .pde_consistency import check_levels
+
+        # IT MUST REFUSE OUTSIDE ITS OWN OPERATOR, AND IT DID NOT.
+        #
+        # Measured by handing real submissions to the unguarded version:
+        #
+        #   FC2 (linear elasticity, Lame lambda/mu)
+        #       -> "INCONSISTENT ... your field is converging to something that
+        #          is not the solution of the stated problem"
+        #   SK2 (the biharmonic equation, lap(lap(u)) = f)
+        #       -> "CONSISTENT ... Your field satisfies the equation you were
+        #          given" — at rate 2.09, for an operator this check does not
+        #          model at all
+        #
+        # The first tells an agent to throw away work that may be right. The
+        # second BLESSES a field on evidence that does not exist, which is
+        # worse. Of the 16 single-code cells, 13 are outside the implemented
+        # form — elasticity, Stokes, Navier-Stokes, biharmonic, transient heat,
+        # a nonlinear a(u), a variable a(x,y) — and FE1 (nonlinear) was
+        # observed calling this tool during round 9.
+        #
+        # The universal core advertises it on 100% of knowledge calls, so an
+        # unguarded verdict reaches every OASiS run that asks. A check that
+        # answers about an operator it does not implement is not a weak check;
+        # it is a source of wrong answers pointed at the arm under test.
+        _eq = "".join(str(equation).split()).lower()
+        _ok = ("-div(kgradu)=f", "-div(agradu)=f", "-lap(u)=f",
+               "-laplacian(u)=f", "-div(gradu)=f", "-nabla.(kgradu)=f")
+        if not _eq:
+            return (
+                "REFUSED: pass `equation=` exactly as your task states it.\n\n"
+                "This check implements ONE operator, the second-order scalar\n"
+                "diffusion form -div(K grad u) = f with a CONSTANT symmetric\n"
+                "K. It has no way to tell from your numbers alone whether that\n"
+                "is your problem, and answering anyway is how it blesses a\n"
+                "field it cannot judge: handed a biharmonic submission it\n"
+                "reported CONSISTENT at rate 2.09, and handed an elasticity\n"
+                "submission it reported that the field converges to the wrong\n"
+                "solution. Neither verdict meant anything.\n\n"
+                "If your equation is elasticity, Stokes, Navier-Stokes,\n"
+                "biharmonic, transient, or has a coefficient depending on u or\n"
+                "on position, this tool cannot check it and will say so. Use\n"
+                "audit_results(work_dir=...) instead — it is operator-agnostic,\n"
+                "reads only your own files, and catches a near-zero field, a\n"
+                "tolerance floor, an order below the one you are claiming and a\n"
+                "non-monotone sequence.")
+        if _eq not in _ok:
+            return (
+                f"REFUSED: this check implements -div(K grad u) = f with a "
+                f"constant symmetric K, and your equation is {equation!r}.\n\n"
+                f"It is not a weaker check outside that form, it is a wrong "
+                f"one: on a biharmonic submission it reported CONSISTENT at "
+                f"rate 2.09, and on an elasticity submission it reported that "
+                f"the field converges to the wrong solution. Both verdicts "
+                f"were meaningless and both would have changed what the run "
+                f"did next.\n\n"
+                f"What still works on your problem, with no reference "
+                f"solution: audit_results(work_dir=...) for a near-zero field, "
+                f"a tolerance floor, an order below the one you are claiming, "
+                f"and a non-monotone sequence; and for a vector problem, "
+                f"checking each component's boundary values against the "
+                f"prescribed ones.")
         try:
             coeff = _json.loads(coefficient)
         except Exception:
