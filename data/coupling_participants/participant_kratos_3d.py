@@ -119,8 +119,8 @@ CONSERVATION, with the face-area weights: interface area recovered as exactly
 1.000000 on both sides at every level; each side's discrete divergence theorem
 at round-off (1.7e-13 here, 7.3e-13 on the DUNE side, at n = 24); and the
 EXCHANGE balance — what this side says it sent against what the partner's own
-quadrature says it received — 3.89e-03 / 7.53e-04 / 1.71e-04, converging at
-order 2.1.  That one is NOT zero and cannot be: resampling between
+quadrature says it received — converging at second order.  That one is NOT
+zero and cannot be: resampling between
 non-matching interface grids is accurate, not conservative.  If you need it at
 round-off, match the interface meshes.
 """

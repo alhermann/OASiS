@@ -1,6 +1,6 @@
 """How to read a deal.II solution at a point that is not a mesh node.
 
-WHY THIS EXISTS. Measured over 464 single-code runs of this campaign, the
+WHY THIS EXISTS. Measured over 464 single-code runs, the
 largest single failure bucket is a solve that SUCCEEDED and was then never read
 back at the required points: 60 runs, 12.9%. Every task in the campaign says
 its probe points are "deliberately not mesh nodes", so getting a value at an
@@ -27,7 +27,7 @@ order the run can report. Reading the nearest vertex instead caps it at 1.
 DEALII_PROBE_RECIPE = """\
 READING YOUR SOLUTION AT A POINT THAT IS NOT A MESH NODE (deal.II).
 
-The largest single way a run is lost in this campaign is a solve that worked
+The largest single way a run is lost is a solve that worked
 and was never read back at the prescribed points. deal.II does this with
 `VectorTools::point_value`, which locates the cell containing the point and
 evaluates the finite element field there — second order for FE_Q(1), where

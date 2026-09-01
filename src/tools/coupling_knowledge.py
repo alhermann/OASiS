@@ -965,13 +965,12 @@ participant scripts:
 (the deal.II one needs `elast_iface_dealii` built from the same CMake tree).
 
 DUNE-fem and FEBio were added on 2026-08-16 and both were measured, not
-assumed: DUNE displacement order 2.014 / 2.007 / 2.003 over four meshes and
-2.005 / 2.001 / 2.000 on a cubic two-material case, with the two role
-assignments agreeing to four significant figures; FEBio 2.015 / 1.991 / 1.986
-with FEBio on the Dirichlet side, and again on the Neumann side and on both
-sides at once. FEBio's replaced an export that broadcast ONE domain-averaged
-stress across the whole interface, which measured order 0.013 / 0.003 / 0.001
-— it did not converge at all.
+assumed: DUNE displacement converged at the expected second order over four
+meshes and again on a cubic two-material case, with the two role assignments
+agreeing to four significant figures; FEBio likewise, on the Dirichlet side, on
+the Neumann side, and on both sides at once. FEBio's replaced an export that
+broadcast ONE domain-averaged stress across the whole interface, which did not
+converge at all.
 
 4C, Kratos and SPARTA still have no vector participant. That is an absence of
 evidence rather than a demonstrated inability.
@@ -1028,8 +1027,8 @@ the O(h^2) or O(h^3) error of the solve and you measure the reconstruction
 instead. Measured on an exactly-known field with NO solver involved, probing a
 fixed cloud on N = 8, 16, 32, 64:
 
-    nearest node        error 1.99e-01 -> 2.41e-02   observed order 1.12, 1.00, 0.93
-    shape functions     error 2.08e-02 -> 3.61e-04   observed order 1.80, 2.03, 2.01
+    nearest node        first order, whatever the solve did
+    shape functions     second order, as the discretisation allows
 
 The values look plausible either way. Only the ORDER exposes it, and by then
 the run is scored. The same trap catches scipy.griddata(method="nearest"),
@@ -2330,10 +2329,9 @@ def _fenics() -> str:
   MEASURED against an ANALYTIC interface flux on the Dirichlet side, on
   8/16/32/64 meshes — a manufactured `T = 300 + sin(3x) cos(pi y/Ly)` whose
   exact flux `-3 K cos(3 X1) cos(pi y/Ly)` is NOT the number the participant is
-  handed: max error over interior interface nodes 2.889e-01 / 7.243e-02 /
-  1.814e-02 / 4.556e-03, ORDER 1.996, 1.998, 1.993. At the two nodes where the
-  interface meets the outer boundary it is only first order (1.10, 1.06, 1.04),
-  so report and export those apart. The L2 projection of `-K*S*grad(T)[0]` that
+  handed: over the interior interface nodes the recovery is second order. At
+  the two nodes where the interface meets the outer boundary it is only FIRST
+  order, so report and export those apart. The L2 projection of `-K*S*grad(T)[0]` that
   this guidance used to recommend is order ~1 in the interior away from the
   ends (0.93), 0.50 in rms, and does not converge at all in the max norm that
   includes the near-end nodes, where it stalls at 2.6 against a true flux of

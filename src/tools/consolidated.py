@@ -3767,9 +3767,11 @@ def register_consolidated_tools(mcp: FastMCP):
         using ONLY the operator and source from your task and the values you
         already wrote. There is no reference solution in it.
 
-        Measured separation, by execution: fields that solve the stated problem
-        give 2.32e-02 -> 5.27e-03 -> 1.23e-03 -> 2.56e-04, falling at order
-        ~2.2; fields that do not give 6.25 -> 6.37 -> 6.40 -> 6.40, flat.
+        Measured separation, by execution: a field that solves the stated
+        problem drives this residual down by roughly a factor of four per
+        refinement, from 2.3e-02 to 2.6e-04 over four levels; a field that does
+        not leaves it FLAT, near 6.4 at every level. The verdict is decided by
+        whether it falls, not by any particular value.
 
         Args:
             solution_files: comma-separated paths to your solution CSVs, one

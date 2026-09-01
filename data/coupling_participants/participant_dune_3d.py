@@ -82,8 +82,8 @@ AS THE NEUMANN HALF, in a real Dirichlet-Neumann coupling through
 src/core/coupling_driver.run_coupling against participant_kratos_3d.py, on
 DELIBERATELY NON-MATCHING interface grids (m here against 3m/4 there).  Aitken,
 theta0 = 0.7, tol = 1e-9: converged in 31 / 31 / 32 iterations, both
-participants "responsive".  L2(T) over the WHOLE box (both subdomains):
-3.888e-01 / 1.019e-01 / 2.580e-02 at n = 6/12/24, order 1.93 then 1.98.
+participants "responsive".  L2(T) over the WHOLE box (both subdomains)
+converges at the expected second order over n = 6/12/24.
 
 AS THE DIRICHLET HALF, handed the exact interface trace on a non-matching
 partner grid, m = 8/16/32:
@@ -102,7 +102,7 @@ they are different questions.
 CONSERVATION: interface area recovered as exactly 1.000000 at every level; the
 discrete divergence theorem at round-off (1.6e-13 to 4.3e-12 — looser than the
 Kratos side because `scheme` solves with CG, not a direct solve); and the
-EXCHANGE balance against the partner 3.89e-03 / 7.53e-04 / 1.71e-04, order 2.1.
+EXCHANGE balance against the partner converging at second order.
 That one is NOT zero and cannot be: resampling between non-matching interface
 grids is accurate, not conservative.  If you need it at round-off, match the
 interface meshes.
