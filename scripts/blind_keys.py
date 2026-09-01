@@ -267,8 +267,28 @@ def cmd_exposure(args):
         return "".join(s.split())
 
     findings = []
+    # `.source_snapshots/` HOLDS BYTE-COPIES OF COMMITTED SOURCE, and scanning
+    # them makes this gate refuse every run.
+    #
+    # The reproducible-build work mounts a `git archive` of a specific commit
+    # under campaign3_blind/.source_snapshots/<sha>/, and its archive list
+    # includes `scripts/blind_keys.py` — THIS file. The structural rule fires on
+    # any .py under the campaign that contains "sympy" together with a
+    # derivation marker, and this file mentions `exact_solution` once, as a dict
+    # lookup (`k.get("exact_solution")`). It holds no solution expression, so
+    # the finding is a FALSE POSITIVE on the custody tool itself — and it was
+    # reported once per snapshot, four times when this was found, growing
+    # without bound as snapshots accumulate. Every paid run refused at
+    # preflight with "4 agent-readable file(s) expose a solution".
+    #
+    # Skipping the snapshots loses no coverage: each file in them is a copy of a
+    # committed file that is scanned in its real location. What it does not fix
+    # is the rule itself, which flags a marker WORD rather than a solution
+    # LITERAL — that is a separate change and is deliberately not made here.
     for p in sorted(root.rglob("*")):
         if not p.is_file() or KEYS in p.parents or p == KEYS:
+            continue
+        if ".source_snapshots" in p.parts:
             continue
         try:
             if p.stat().st_size > 8_000_000:
