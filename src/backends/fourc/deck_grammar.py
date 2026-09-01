@@ -117,6 +117,43 @@ three-level submission from the same binary.
 
 WHICH PROBLEM TYPE YOU PICK DECIDES WHETHER YOU CAN READ YOUR OWN ANSWER.
 Measured on this build:
+  * `SOLID` IS THE 3-D CONTINUUM ELEMENT; THE 2-D ONE IS CALLED `WALL`. Writing
+    `SOLID QUAD4` fails with
+
+        Element 'SOLID' does not seem to know cell type 'quad4'.
+
+    Measured on this build, from 4C's own grammar (`4C -p`):
+        SOLID        HEX8 HEX18 HEX20 HEX27 TET4 TET10 WEDGE6 PYRAMID5 NURBS27
+        WALL         QUAD4 QUAD8 QUAD9 TRI3 TRI6 NURBS4 NURBS9
+        THERMO       QUAD4 QUAD8 QUAD9 TRI3 TRI6 + the 3-D types
+    A WALL element line carries its own extra keywords, and this one RUNS
+    (exit 0, "processor 0 finished normally", num_dof 8 on a single element):
+
+        STRUCTURE ELEMENTS:
+          - "1 WALL QUAD4 1 2 3 4 MAT 1 KINEM linear EAS none THICK 1.0
+             STRESS_STRAIN plane_strain GP 2 2"
+
+  * 2-D THERMO_STRUCTURE_INTERACTION IS NOT AVAILABLE IN THIS BUILD, and the
+    error does not say so. A 2-D TSI deck fails with
+
+        4C_tsi_utils.cpp: Unsupported solid element type!
+
+    even after the element name is corrected to WALL. The reason is in the
+    source: `TSI::Utils::ThermoStructureCloneStrategy::set_element_data`
+    accepts ONLY a `SolidScatra` element and throws for anything else, and
+    SOLIDSCATRA's cell types are HEX8, HEX27, TET4, TET10 and NURBS27 — every
+    one of them three-dimensional. So the clone step can never succeed in 2-D,
+    whatever else the deck says.
+
+    For a two-dimensional thermoelastic subdomain, do NOT keep repairing the
+    TSI deck. Either solve the two fields as separate 4C problem types —
+    `Structure` with WALL elements and `Thermo` with THERMO elements, exchanging
+    temperature and thermal strain yourself — or build a three-dimensional slab
+    one element thick with SOLIDSCATRA and constrain the out-of-plane
+    displacement on both faces. Runs have lost their whole budget rewriting
+    section names against this, because the message names an element type and
+    not the dimension.
+
   * DESIGN ENTITY IDS START AT 1, AND A 0 IS A SEGMENTATION FAULT WITH NO
     MESSAGE. `E:` in a condition block and the `DLINE`/`DNODE`/`DSURF` number
     in the matching topology block are ONE-BASED. Writing `E: 0` with
