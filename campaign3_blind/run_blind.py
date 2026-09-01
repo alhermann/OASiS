@@ -109,8 +109,29 @@ def prepare_source_snapshot(repo: Path, cache: Path) -> dict:
                 }, indent=2) + "\n")
                 try:
                     building.rename(target)
-                except FileExistsError:
-                    shutil.rmtree(building)
+                except (FileExistsError, OSError) as exc:
+                    # LOSING THE RACE IS NORMAL; ENOTEMPTY IS HOW IT LOOKS.
+                    #
+                    # Renaming a directory onto an EXISTING NON-EMPTY directory
+                    # raises OSError(errno 39, ENOTEMPTY) on Linux, not
+                    # FileExistsError, so catching only FileExistsError made
+                    # every cell but the first crash on a cold cache. Measured:
+                    # launching six NG1 cells at once, five died with
+                    # "[Errno 39] Directory not empty: .extract-XXXX ->
+                    # <sha>" before a single paid call, and one survived.
+                    # A parallel round could therefore never populate a new
+                    # snapshot — the reproducibility mechanism was unusable in
+                    # exactly the case it exists for.
+                    #
+                    # The loser's copy is discarded and the winner's tree is
+                    # verified below, so this is safe. A real failure — no
+                    # space, no permission — leaves no target, and is re-raised.
+                    if not target.is_dir():
+                        shutil.rmtree(building, ignore_errors=True)
+                        raise SourceBuildError(
+                            f"could not install the source snapshot at "
+                            f"{target}: {type(exc).__name__}: {exc}") from exc
+                    shutil.rmtree(building, ignore_errors=True)
             except Exception:
                 shutil.rmtree(building, ignore_errors=True)
                 raise
