@@ -97,12 +97,33 @@ def test_a_genuine_duplicate_is_still_refused(tmp_path):
 
 
 def test_residual_history_is_not_treated_as_a_field(tmp_path):
-    """residual_level*.csv is an iteration history on no grid."""
+    """residual_level*.csv is an iteration history on no grid.
+
+    The assertion is about WHICH machinery looks at the file, not about whether
+    the file is ever named. It used to read "no finding may name a residual
+    file", which was a proxy: at the time the only way a residual file could
+    appear in a finding was the field-convergence path this test exists to
+    keep away from it. The audit now also runs residual-SPECIFIC checks — the
+    history must actually iterate, must not be a written-in sequence, must not
+    be identical across mesh levels — and those legitimately name the file.
+
+    So the check is narrowed to what it always meant: no finding about a
+    residual file may be phrased in the vocabulary of a field on a grid.
+    """
     from tools.result_audit import audit
     _coupled(tmp_path, zero=False)
     r = audit(str(tmp_path), claimed_order=None)
-    names = " ".join(f.get("sequence", "") for f in r.get("findings", []))
-    assert "residual" not in names.lower()
+    FIELD_ONLY = ("near-zero field", "not monotone", "observed order",
+                  "convergence order", "probe", "grid", "refinement ratio")
+    offenders = [
+        f for f in r.get("findings", [])
+        if "residual" in str(f.get("sequence", "")).lower()
+        and any(v in str(f.get("finding", "")).lower() for v in FIELD_ONLY)
+    ]
+    assert not offenders, (
+        "a residual history is being judged as if it were a field on a grid: "
+        + "; ".join(str(f.get("finding", ""))[:90] for f in offenders)
+    )
 
 
 def test_a_submission_written_into_level_subdirectories_is_seen(tmp_path):

@@ -159,7 +159,7 @@ def _hits(d, needle):
 def test_a_correct_coupling_is_verified_and_produces_no_findings(tmp_path):
     d = _couple(_parts(tmp_path))
     assert d["converged"] is True
-    assert abs(d["exports"]["A"]["values"][0] - 8 / 3) < 1e-6
+    assert abs(d["exports"]["A"]["first_values"][0] - 8 / 3) < 1e-6
     assert d["validation"] == [], d["validation"]
     assert d["trustworthy_result"] is True
     assert d["responsiveness"] == {"A": "responsive", "B": "responsive"}
@@ -655,7 +655,7 @@ def test_monolithic_check_catches_a_coupling_that_passes_everything_else(tmp_pat
     assert clean["converged"] is True
     assert clean["validation"] == [], clean["validation"]
     assert clean["trustworthy_result"] is True          # nothing else objects
-    assert abs(clean["exports"]["A"]["values"][0] - 8 / 3) > 1.0
+    assert abs(clean["exports"]["A"]["first_values"][0] - 8 / 3) > 1.0
 
     checked = _couple(_parts(tmp_path / "m", b_body=_b(offset=-5.0)),
                       monolithic=_mono_spec(tmp_path))
@@ -932,13 +932,13 @@ def test_rewriting_a_participant_script_after_review_is_refused(tmp_path):
     parts = _parts(tmp_path)
     ok = _couple(parts)
     assert ok["trustworthy_result"] is True
-    x_reviewed = ok["exports"]["A"]["values"][0]
+    x_reviewed = ok["exports"]["A"]["first_values"][0]
 
     # same file name, same command, same work_dir — different physics
     (parts[1].work_dir / "run.py").write_text(_b(offset=900.0))
     swapped = _couple(parts, reviewed=False)
     assert swapped["converged"] is True
-    assert abs(swapped["exports"]["A"]["values"][0] - x_reviewed) > 100.0
+    assert abs(swapped["exports"]["A"]["first_values"][0] - x_reviewed) > 100.0
     assert swapped["trustworthy_result"] is False
     assert "changed after it was reviewed" in swapped["critic_review"]
 
