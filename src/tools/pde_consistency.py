@@ -1,6 +1,6 @@
 """Does the submitted field actually satisfy the equation the task stated?
 
-WHY THIS EXISTS. Measured over 464 single-code runs of this campaign, among
+WHY THIS EXISTS. Measured over 464 single-code runs, among
 submissions with a complete level set the SELF-convergence order — computed
 from the agent's own numbers, no reference — has a median of 1.96 (bare) and
 1.99 (OASiS). The discretisations converge cleanly. So a graded order near zero
@@ -28,7 +28,7 @@ come from the agent's own submission. No exact solution is used, none is
 revealed, and nothing here can be run backwards to obtain one — a single
 scalar identity per test function cannot reconstruct a field.
 
-MEASURED SEPARATION, by execution on this campaign's NG1 runs, whose probe grid
+MEASURED SEPARATION, by execution on 26 anisotropic-Poisson runs, whose probe grid
 is a 44x44 midpoint rule so the quadrature is exact to O(h^2):
 
     solves the stated PDE   2.32e-02 -> 5.27e-03 -> 1.23e-03 -> 2.56e-04

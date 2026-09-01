@@ -287,7 +287,7 @@ you saw in an example."""
 _UNIVERSAL = """
 BEFORE YOU CONCLUDE A SOLVER IS BROKEN ON THIS MACHINE
 ──────────────────────────────────────────────────────
-Two runs of this campaign gave up entirely -- zero output files, at a quarter of
+Two measured runs gave up entirely -- zero output files, at a quarter of
 their time budget -- after deciding the 4C binary did not work. It worked. The
 same binary produced a complete three-level submission in the same minutes for
 another agent. What they saw was this:
@@ -429,7 +429,7 @@ you and invisible to the assessment, which looks for the files the task names.
     answer -- and it is rejected as malformed rather than guessed at. Overwrite
     the copy at the top, or delete the superseded directory.
 
-Measured on this campaign: 16 runs were rejected for exactly this, every one of
+Measured: 16 runs were rejected for exactly this, every one of
 them in the tool-using arm and none in the arm that wrote straight to the
 sandbox. It costs you the whole cell for a file-copy.
 
@@ -475,7 +475,7 @@ Every cell is graded at a FIXED set of points that does not move with your
 mesh, so the points sit INSIDE elements, not on nodes.
 
 READING THE NEAREST NODE'S VALUE CAPS YOUR MEASURED ORDER AT 1, whatever your
-solver did. It is the most common scoring defect in this campaign -- 144 runs
+solver did. It is the most common scoring defect measured -- 144 runs
 did it, and their observed orders cluster at 0 and 1. Nearest-node lookup is a
 piecewise-CONSTANT reconstruction with O(h) error, which swamps the O(h^2) or
 O(h^3) error of the solve, so you measure the reconstruction. Measured on an

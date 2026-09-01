@@ -3751,7 +3751,7 @@ def register_consolidated_tools(mcp: FastMCP):
                                domain: str = "[[0,1],[0,1]]") -> str:
         """Does your field actually satisfy the equation the task stated?
 
-        A refinement study CANNOT answer this. Measured over this campaign,
+        A refinement study CANNOT answer this. Measured over 464 runs,
         submissions with a complete level set self-converge at a median order
         of 1.96 to 1.99 — the discretisation is fine — while a field that
         converges cleanly to the WRONG function looks identical in that study.
@@ -6124,67 +6124,7 @@ _COUPLING_HEAD_LIMIT = 24000
 #
 # so the default max_iter = 50 is ALREADY SHORT at rho = 2, and the default
 # accelerator diverges on exactly the severe-contrast cells this campaign uses.
-_COUPLING_MUST_READ = _PER_SIDE_NAMING + """
-
-CHECK EACH SUBDOMAIN AGAINST ITS OWN EQUATION BEFORE YOU BELIEVE THE COUPLING.
-
-A converged interface residual says the two sides AGREE. It does not say either
-of them is right, and the two failures are independent. Measured on two runs of
-the same coupled cell, hours apart:
-
-    one run   interface written at the prescribed points, iteration converged
-              to 8e-07 in 16 steps -- and its subdomain field was TEN TIMES too
-              small and shrinking with refinement, so the graded order was
-              -0.02 against a band starting at 0.8.
-    the other its field satisfied the stated equation to within 0.2 to 1.2%,
-              both codes independently PROVEN, the iteration converged -- and
-              it wrote its own mesh nodes into the interface file, so nothing
-              could be graded at all.
-
-Neither defect is visible in the other's symptom. Run
-verify_pde_consistency(...) on EACH side separately, with THAT side's own
-source term and THAT side's own coefficient, before spending your remaining
-budget on the iteration. It needs no reference answer, and a field that fails
-it cannot be rescued by any amount of coupling.
-
-THE INTERFACE FILE IS WRITTEN AT THE POINTS THE TASK LISTS, NOT AT YOUR NODES.
-
-This is the single most common way a coupled run that WORKED is still scored
-unusable. Measured on runs whose 4C execution, Kratos execution and coupling
-iteration were all independently PROVEN, and whose residual fell to 1e-7: the
-submissions were rejected anyway, because interface_level<k>_<side>.csv held
-the agent's own interface MESH NODES.
-
-    what was written   level 1: 7 rows   level 2: 15 rows   level 3: 23 rows
-    what was asked     the same fixed list of points at EVERY level
-
-You almost certainly already get this right for the solution file: those runs
-wrote exactly the prescribed probe rows there. THE INTERFACE FILE OBEYS THE
-SAME RULE. Its rows are the coordinates the task names, in the order the task
-names them, identical at every mesh level.
-
-WHY IT IS FATAL RATHER THAN UNTIDY. An order of convergence is a comparison of
-the SAME quantity across levels. Mesh nodes move and multiply with every
-refinement, so a set of node values at level 1 and another at level 2 have no
-point in common to compare — there is no order to compute, and no partial
-credit for a beautifully converged iteration. A grader also cannot tell your
-node values from a different problem's node values.
-
-WHAT TO DO. Interpolate your solution to each listed coordinate, exactly as you
-already do for the solution probe points — the same shape-function evaluation,
-not the value at the nearest node. Write one row per listed point, all of them,
-in the listed order, and nothing else: extra rows, missing rows, duplicated
-rows and a different ordering are each enough to make the file unreadable to
-the grader. If the task says the interface points are a subset of the solution
-probe points, the cheapest correct implementation is to select those rows from
-the file you have already written.
-
-THE ENDS OF THE INTERFACE ARE USUALLY EXCLUDED ON PURPOSE. Where the interface
-meets the outer boundary, a Dirichlet-Neumann split has a corner at which the
-recovered flux does not converge under refinement. A task that lists interior
-points only is not an oversight and the list must not be "completed" with the
-end points.
-
+_COUPLING_MUST_READ = """
 THE GRADED ARTEFACT IS THE ITERATION HISTORY, AND `couple` IS WHAT PRODUCES IT.
 
 The coupled task asks you to write `residual_level<k>.csv` — one row per
@@ -6251,7 +6191,35 @@ interface refinement.
     reaching for this: the remedy above is for the case where you are free to
     choose.
 
+
+THE INTERFACE FILE IS WRITTEN AT THE POINTS THE TASK LISTS, NOT AT YOUR NODES.
+
+Its rows are the coordinates the task names, in that order, IDENTICAL at every
+mesh level. Runs with both solvers and the iteration independently PROVEN, and
+the residual down to 1e-7, were still scored unusable for writing their own
+interface MESH NODES instead:
+
+    what was written   level 1: 7 rows   level 2: 15 rows   level 3: 23 rows
+    what was asked     the same fixed list of points at EVERY level
+
+An order compares the SAME quantity across levels, and node sets move under
+refinement, so there is nothing to compare. Interpolate onto each listed
+coordinate with the shape-function evaluation you already use for the solution
+probes — not the nearest node — all of them, in order, nothing else.
+
+THE ENDS OF THE INTERFACE ARE EXCLUDED ON PURPOSE: a Dirichlet-Neumann split
+has a corner there whose recovered flux does not converge. Do not "complete"
+the list with them.
+
+CHECK EACH SUBDOMAIN AGAINST ITS OWN EQUATION FIRST. A converged interface
+residual says the two sides AGREE, not that either is right, and the two
+failures are independent: one run converged to 8e-07 in 16 steps with a field
+TEN TIMES too small, graded order -0.02. Run verify_pde_consistency(...) on
+EACH side, with that side's own source and coefficient, before spending budget
+on the iteration.
+
 """
+_COUPLING_MUST_READ += "\n" + _PER_SIDE_NAMING
 
 
 def _front_load_coupling(payload: str, solver: str = "") -> str:
@@ -6302,7 +6270,7 @@ def _front_load_coupling(payload: str, solver: str = "") -> str:
             f"diverging iteration, a sign convention, a flux that will not "
             f"balance, a participant that will not start.\n"
             f"WHY IT IS CUT. Reading all of it costs you the actions you need "
-            f"to solve the problem. Measured on this campaign: coupled runs "
+            f"to solve the problem. Measured over many coupled runs: those "
             f"that read the full coupling corpus got a median 39 tool calls "
             f"and wrote no output file 60% of the time; runs with no coupling "
             f"text at all got 95 calls and a median 10 output files. The text "
