@@ -465,6 +465,64 @@ def contract_findings(work: Path) -> list[dict]:
                 f"carrying that exact line, and states that a level without it "
                 f"counts as NOT RUN. Write it from the solver's own dof count.")})
 
+    # 1b. IS THE DISCRETISATION THE ONE THE TASK ASKED FOR?
+    #
+    # Both numbers come from the agent's own two files, so this needs no key,
+    # no spec and no backend knowledge: the NDOF the run printed at its
+    # COARSEST level, against the number of rows in that level's solution file.
+    #
+    # Measured over the 336 single-code runs on disk that wrote both files:
+    #
+    #     highest ratio among runs graded CORRECT        0.50
+    #     threshold NDOF/rows > 2 fires on 8 runs        0 of them CORRECT
+    #                                                   8 of 8 timed out or
+    #                                                   fell short of the
+    #                                                   prescribed levels
+    #
+    # The failure it names is specific and fatal, and it is visible at LEVEL
+    # ONE while there is still time to fix it. SK1's OASiS arm hits it at seeds
+    # 14, 40 AND 96 with an identical NDOF of 592,387 against a 1936-point
+    # probe grid — a Stokes solve two orders of magnitude larger than the
+    # prescribed coarsest mesh, which completes level 1 and then cannot finish
+    # level 2 inside the clock. Three seeds, one cause, no warning.
+    #
+    # It fires on the mirror-image defect too, and says so: FE2 seed 4 wrote a
+    # solution file with 2 rows, which trips the same ratio from below.
+    if levels:
+        k0 = min(levels)
+        sol0 = [f for f in sols if f.name == f"solution_level{k0}.csv"] or \
+               [f for f in sols if re.match(rf"solution_level{k0}_[AB]\.csv$",
+                                            f.name)]
+        nd = None
+        for p in work.rglob(f"run_level{k0}*.log"):
+            m = re.search(r"NDOF\s*=\s*(\d+)", p.read_text(errors="ignore"))
+            if m:
+                nd = int(m.group(1))
+                break
+        if nd and sol0:
+            try:
+                rows = sum(1 for _ in open(sol0[0], errors="ignore")) - 1
+            except OSError:
+                rows = 0
+            if rows > 0 and nd > 2 * rows:
+                out.append({"sequence": "discretisation size", "values": [],
+                            "finding": (
+                    f"AT YOUR COARSEST LEVEL YOUR OWN NDOF IS {nd} AGAINST "
+                    f"{rows} ROWS in {sol0[0].name} — a ratio of "
+                    f"{nd / rows:.0f}. Across every run measured here, no "
+                    f"submission graded correct exceeds 0.5, and every run "
+                    f"above 2 either ran out of time or never reached the "
+                    f"finer levels. Two causes produce this, and they need "
+                    f"opposite fixes: (a) the mesh is far larger than the "
+                    f"coarsest level the task prescribes, so level 1 is "
+                    f"already an expensive solve and the finer levels cannot "
+                    f"finish — re-read the prescribed mesh sizes and start at "
+                    f"the coarsest one; or (b) the solution file has far fewer "
+                    f"rows than the task's probe grid, so the deliverable is "
+                    f"short whatever the solve did. Check which one you have "
+                    f"NOW: at level 1 there is still time, at level 3 there "
+                    f"is not.")})
+
     # 2. the same deliverable must not be submitted twice with different content
     by_name: dict[str, set] = {}
     for f in work.rglob("*.csv"):
