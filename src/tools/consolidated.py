@@ -2500,9 +2500,38 @@ def register_consolidated_tools(mcp: FastMCP):
                 if index:
                     return pitfall_index.index_summary(all_pitfalls, solver)
                 if physics or signal or category:
+                    # RESOLVE THE AGENT'S WORDS TO THE BUCKET NAME FIRST.
+                    #
+                    # `all_pitfalls` is keyed by the backend's canonical
+                    # physics names, and narrow() matches the requested string
+                    # against those keys. A backend that aliases — ngsolve maps
+                    # "anisotropic diffusion" onto its `poisson` knowledge —
+                    # therefore answered the alias with nothing: measured on
+                    # NG1, physics='anisotropic_diffusion' served 5,685 chars
+                    # against 7,047 unfiltered, and the entry that decides that
+                    # cell was unreachable by any phrase in its task text.
+                    #
+                    # Identity of the returned dict is the test, so this works
+                    # for any backend that aliases, without this file knowing
+                    # any backend's alias table.
+                    p_req = physics
+                    if physics and backend:
+                        try:
+                            target = backend.get_knowledge(physics)
+                            if target:
+                                for _p in backend.supported_physics():
+                                    if backend.get_knowledge(_p) is target:
+                                        p_req = _p
+                                        break
+                        except Exception:            # noqa: BLE001
+                            p_req = physics
                     narrowed = pitfall_index.narrow(
-                        all_pitfalls, physics=physics, signal=signal,
+                        all_pitfalls, physics=p_req, signal=signal,
                         category=category)
+                    if p_req != physics:
+                        narrowed.setdefault("filters_applied", []).append(
+                            f"physics={physics!r} resolved to the backend's "
+                            f"{p_req!r} knowledge")
                     return pitfall_index.render(narrowed, solver)
                 # AN UNFILTERED DUMP IS NOT A PAYLOAD, IT IS A DENIAL OF
                 # SERVICE ON THE AGENT'S OWN CONTEXT.

@@ -533,6 +533,12 @@ def _strings_under(value: Any) -> list[str]:
     return []
 
 
+# How many "closest related" entries a physics filter may add. Small on
+# purpose: the point is to rescue the ONE decisive entry the agent could
+# not name, not to hand back the corpus it was trying to narrow.
+_RELATED_CAP = 8
+
+
 def narrow(all_pitfalls: dict[str, Any], *, physics: str = "",
            signal: str = "", category: str = "") -> dict[str, Any]:
     """Apply the requested filters and report exactly what was held back.
@@ -553,6 +559,18 @@ def narrow(all_pitfalls: dict[str, Any], *, physics: str = "",
         # the agent asks for `elasticity`, or the reverse.
         sel = [e for e in kept
                if want in e["physics"].lower() or e["physics"].lower() in want]
+        # TOKEN OVERLAP, because substring matching punishes the agent for
+        # using the TASK's vocabulary. NG1's task says "anisotropic diffusion";
+        # the backend's buckets are `poisson` and `convection_diffusion`.
+        # Neither substring test fires, so `physics='anisotropic_diffusion'`
+        # selected NOTHING and the reply was 5,685 chars against 7,047 for the
+        # unfiltered call — the agent got LESS knowledge for being specific in
+        # the words it was given.
+        if not sel:
+            want_tok = {t for t in _tokens(want) if len(t) > 3}
+            sel = [e for e in kept
+                   if want_tok & {t for t in _tokens(e["physics"].lower())
+                                  if len(t) > 3}]
         # Physics-independent buckets stay in — they apply to every problem, and
         # dropping them is how an agent misses the input-format pitfall that was
         # going to bite it.
@@ -560,8 +578,46 @@ def narrow(all_pitfalls: dict[str, Any], *, physics: str = "",
                    if e["physics"] in ("general_input_format", "element_types",
                                        "community_contributed")
                    and e not in sel]
-        kept = sel + general
-        applied.append(f"physics={physics!r}")
+        # A FILTER THAT MATCHES NOTHING MUST NOT EMPTY THE ANSWER.
+        #
+        # This function's own docstring promises that "narrowing can never make
+        # knowledge unreachable or make a miss look like an empty database",
+        # and the code broke that promise: an unrecognised physics name left
+        # only the physics-independent buckets, so the agent read a near-empty
+        # reply as "OASiS knows nothing about my problem". Measured on NG1,
+        # where the one fact that decides CORRECT from CONFIDENTLY_WRONG lives
+        # under `poisson` and the task calls the problem anisotropic diffusion.
+        #
+        # The first repair here returned EVERYTHING when nothing matched, which
+        # traded a false-empty answer for a 130,283-char flood — the exact
+        # failure this module's own comment calls "a denial of service on the
+        # agent's own context". So the fallback is RANKED and BOUNDED: score
+        # every remaining entry against the physics phrase with the same
+        # signal matcher used below, keep the best few, and say plainly that
+        # the name matched no bucket. Bounded and relevant beats both empty
+        # and everything.
+        related: list = []
+        pool = [e for e in kept if e not in sel]
+        scored_rel = []
+        for e in pool:
+            mode, score = match_signal(e, physics)
+            if mode:
+                scored_rel.append((score, len(_tokens(e.get("text", ""))), e))
+        scored_rel.sort(key=lambda t: (-t[0], t[1]))
+        related = [e for _s, _n, e in scored_rel[:_RELATED_CAP]]
+        if not sel:
+            kept = related + general
+            applied.append(
+                f"physics={physics!r} MATCHED NO BUCKET for this backend; "
+                f"showing the {len(related)} entries whose text is closest to "
+                f"that phrase, because a filter that matches nothing must not "
+                f"look like an empty knowledge base — ask again with "
+                f"index=True to see the bucket names")
+        else:
+            kept = sel + related + general
+            applied.append(f"physics={physics!r}"
+                           + (f" (plus {len(related)} closest related)"
+                              if related else ""))
 
     if category:
         want = CANONICAL_CATEGORIES.get(category.strip().lower(),

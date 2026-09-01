@@ -214,8 +214,44 @@ class NgsolveBackend(SolverBackend):
             ),
         ]
 
+    # THE TASK'S WORDS MUST RESOLVE TO THE BUCKET THAT HOLDS THE FACT.
+    #
+    # NG1's task says "anisotropic diffusion" and "constant symmetric
+    # positive-definite tensor K". The knowledge that decides that cell — a
+    # constant matrix coefficient must be written
+    # CoefficientFunction(..., dims=(2,2)), because the nested-list spelling
+    # silently becomes a scalar — lives under `poisson`. Measured before this
+    # map: get_knowledge("anisotropic_diffusion") returned {}, so
+    # knowledge(topic='pitfalls', physics='anisotropic_diffusion') served
+    # 5,685 chars, LESS than the 7,047 an unfiltered call gives, and the fact
+    # was unreachable by any phrase in the task text.
+    #
+    # Aliases only, never a fallback to a default bucket: an unknown name still
+    # returns {} so a genuinely unsupported physics is not answered with
+    # confident advice about a different equation.
+    _ALIASES = {
+        "anisotropic_diffusion": "poisson",
+        "anisotropic diffusion": "poisson",
+        "diffusion": "poisson",
+        "laplace": "poisson",
+        "laplacian": "poisson",
+        "steady_diffusion": "poisson",
+        "conduction": "heat",
+        "elasticity": "linear_elasticity",
+        "linear elasticity": "linear_elasticity",
+        "advection_diffusion": "convection_diffusion",
+        "advection-diffusion": "convection_diffusion",
+        "biharmonic": "hdivdiv",
+    }
+
     def get_knowledge(self, physics: str) -> dict:
-        return KNOWLEDGE.get(physics, {})
+        key = (physics or "").strip()
+        if key in KNOWLEDGE:
+            return KNOWLEDGE[key]
+        alias = self._ALIASES.get(key.lower().replace("-", "_"))
+        if alias is None:
+            alias = self._ALIASES.get(key.lower())
+        return KNOWLEDGE.get(alias, {}) if alias else {}
 
     def generate_input(self, physics: str, variant: str, params: dict) -> str:
         key = f"{physics}_{variant}"
