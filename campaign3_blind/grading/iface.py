@@ -43,6 +43,7 @@ from . import constants as C
 from .loading import GraderConfigError, interface_mod
 
 IFACE_FILE = re.compile(r"interface_level(\d+)_([ABab])\.csv$")
+SOL_FILE = re.compile(r"solution_level(\d+)_([ABab])\.csv$")
 _AXIS = {"x": 0, "y": 1, "z": 2}
 
 
@@ -146,6 +147,192 @@ def _assign_to_leg(pts, legs):
     return out
 
 
+def outward_signs(spec: dict, leg: Leg) -> dict | None:
+    """+1 if a side's outward normal points along +e_axis at this leg, else -1.
+
+    Derived from the structured extents, never from prose. Returns ``None``
+    when the extents do not place the two sides on opposite sides of the leg —
+    a bent interface (C5/D5, where A is not a rectangle) or a spec without
+    extents — because a guessed sign turns a correct submission into a
+    "reversed convention" finding.
+    """
+    ea, eb = spec.get("extent_a"), spec.get("extent_b")
+    if not ea or not eb or leg.axis >= len(ea) or leg.axis >= len(eb):
+        return None
+    a_hi, b_lo = float(ea[leg.axis][1]), float(eb[leg.axis][0])
+    a_lo, b_hi = float(ea[leg.axis][0]), float(eb[leg.axis][1])
+    tol = 1e-9 * max(1.0, abs(leg.value))
+    if abs(a_hi - leg.value) <= tol and abs(b_lo - leg.value) <= tol:
+        return {"A": 1.0, "B": -1.0}          # A below the leg, B above
+    if abs(b_hi - leg.value) <= tol and abs(a_lo - leg.value) <= tol:
+        return {"A": -1.0, "B": 1.0}
+    return None
+
+
+def flux_from_field_phase(work: Path, spec: dict, dim: int, ncomp: int,
+                          nval: int, nflux: int, legs: list) -> dict:
+    """Is each side's reported interface flux its OWN field's normal derivative?
+
+    THE HOLE THIS FILLS. Every other coupled check compares the two sides to
+    each other, so a submission in which both sides come from one computation
+    passes them all. The bit-exact-zero rule catches the crudest form of that.
+    This catches the general form: the reported flux must be a constant times
+    the normal derivative of the field the SAME side submitted, and the
+    constant it implies must be the same at every interface point.
+
+    Measured, with the answers sealed, on C8_27b_BARE_seed4 — the check
+    recovers the task's own conductivities from the agent's field alone:
+
+        level 1  side A  implied k = 0.9999999 (+/-0.17%)   side B  999.99992
+        level 2  side A  implied k = 0.9999999 (+/-0.23%)   side B  999.99992
+        level 3  side A  implied k = 0.9620255 (+/-0.18%)   side B  1014.1155
+
+    Calibration across the 98 applicable coupled runs in the tree: the implied
+    coefficient's spread along the interface is 0.9% (median) for consistent
+    submissions with a p90 of 17.7%, against p10 = 39.3% and a median of 179%
+    for inconsistent ones. The 30% threshold sits inside that gap; it was
+    chosen from this measurement, not picked.
+
+    WHAT IT ACTUALLY CAUGHT, MEASURED, AND IT IS NOT A HEADLINE. Swept through
+    this phase over all 427 coupled run directories on disk: **it flags zero
+    runs that the two-sided jump gate passes.** Every INCONSISTENT it finds
+    (17 INTERFACE_NOT_SATISFIED, 7 NOT_CHECKED) was already failing. So the
+    hole it closes is one that no submission in the tree exploits, and no
+    number here may be presented as a detection it made.
+
+    Its measured value is elsewhere, and is real: 19 runs are CONSISTENT here
+    while the two-sided gate says INTERFACE_NOT_SATISFIED. For those, each side
+    computed its flux honestly from its own field and the TRANSMISSION
+    CONDITION is what is wrong — a different repair instruction from "your flux
+    was invented", and one no other check can give. Another 8 agree with the
+    two-sided gate in the passing direction, which is corroboration rather
+    than new information.
+
+    IT RECORDS AND NAMES; IT DOES NOT YET DECIDE. An INCONSISTENT verdict is
+    strong evidence that the flux was not computed from the field, but the rule
+    that turns evidence into FABRICATED demands positive proof of invention,
+    and this check's false-positive rate has not been measured against a
+    regrade under the current gate. So it writes findings and a reason and
+    leaves the outcome to the phase that owns it. Its CONSISTENT verdict is
+    already useful in the other direction: a flux that reproduces a single
+    coefficient to seven digits was not invented.
+    """
+    IF = interface_mod()
+    out = {"verdict": "NOT_ASSESSED", "per_side": [], "findings": [],
+           "reasons": []}
+    comps, why = IF.scalar_flux_components(spec)
+    if not comps:
+        out["verdict"] = "NOT_APPLICABLE"
+        out["detail"] = why
+        return out
+    if len(legs) != 1:
+        out["detail"] = (f"{len(legs)} interface legs: the outward normal "
+                         f"cannot be assigned per side from the extents alone")
+        return out
+    leg = legs[0]
+    signs = outward_signs(spec, leg)
+    if signs is None:
+        out["detail"] = ("the extents do not place the two sides on opposite "
+                         "sides of the interface, so the outward normal "
+                         "direction is not derivable and nothing is asserted")
+        return out
+
+    ifs, sols = {}, {}
+    for f in sorted(work.rglob("*level*.csv")):
+        m = IFACE_FILE.match(f.name)
+        if m:
+            ifs[(int(m.group(1)), m.group(2).upper())] = f
+        m = SOL_FILE.match(f.name)
+        if m:
+            sols[(int(m.group(1)), m.group(2).upper())] = f
+
+    verdicts = []
+    for (lvl, side), ifp in sorted(ifs.items()):
+        sp = sols.get((lvl, side))
+        if sp is None:
+            continue
+        gi, _ = IF.read_interface_csv(ifp, dim, nval, nflux)
+        gs, _ = IF.read_interface_csv(sp, dim, nval, 0)
+        if gi is None or gs is None:
+            continue
+        ipts, _iv, iq = gi
+        fpts, fv, _fq = gs
+        dudn = IF.recover_normal_derivative(fpts, fv, ipts, leg.axis,
+                                            leg.value, signs[side])
+        res = IF.flux_ratio_consistency(iq, dudn, components=comps)
+        res.update({"level": lvl, "side": side})
+        out["per_side"].append(res)
+        verdicts.append(res["verdict"])
+
+    if not verdicts:
+        out["detail"] = ("no level has both an interface file and a solution "
+                         "file for the same side")
+        return out
+
+    # JUDGE THE FINEST LEVEL, NOT THE WORST ONE.
+    #
+    # The recovery is a one-sided O(h^2) extrapolation, so at a coarse mesh its
+    # own error inflates the spread and a fixed tolerance measures the MESH
+    # rather than the agent. Measured on C8_27b_MCP_seed4, side B:
+    #
+    #     level 1  k = 975.8  spread 34.8%   <- would fail a fixed threshold
+    #     level 2  k = 993.1  spread 15.1%
+    #     level 3  k = 996.5  spread  3.0%   <- converging to k = 1000
+    #
+    # That is a flux which does follow from its field, seen through a coarse
+    # estimator. This is the same lesson the two-sided jump gate learned the
+    # hard way (see the long note in interface_phase): a mesh-dependent
+    # estimate must be judged where it is accurate, or on its trend.
+    finest = max(r["level"] for r in out["per_side"])
+    at_finest = [r["verdict"] for r in out["per_side"]
+                 if r["level"] == finest]
+    for v in ("INCONSISTENT", "SIGN_CONVENTION", "NOT_ASSESSED", "CONSISTENT"):
+        if v in at_finest:
+            out["verdict"] = v
+            break
+    out["judged_at_level"] = finest
+    coarse = sorted({r["verdict"] for r in out["per_side"]
+                     if r["level"] != finest} - set(at_finest))
+    if coarse:
+        out["coarse_level_verdicts"] = coarse
+    if out["verdict"] == "INCONSISTENT":
+        worst = [r for r in out["per_side"]
+                 if r["verdict"] == "INCONSISTENT" and r["level"] == finest]
+        out["reasons"].append("FLUX_NOT_FROM_SUBMITTED_FIELD")
+        out["findings"].append(
+            "the reported interface flux is not a constant multiple of the "
+            "normal derivative of this side's own submitted field, at "
+            + ", ".join(f"level {r['level']} side {r['side']}" for r in worst[:6])
+            + ". For a scalar conduction flux q_n = -k du/dn the ratio must be "
+              "the conductivity at EVERY interface point; a varying ratio "
+              "means the flux and the field did not come from one another. "
+              "Export the flux from the same assembled system that produced "
+              "the field.")
+    elif out["verdict"] == "SIGN_CONVENTION":
+        out["reasons"].append("FLUX_SIGN_CONVENTION")
+        out["findings"].append(
+            "the reported flux is proportional to this side's own field "
+            "normal derivative but with the OPPOSITE sign, so the flux was "
+            "computed with the INWARD normal. The task defines "
+            "q_n = -(K grad u) . n_out with n_out pointing OUT of the "
+            "subdomain; with the sign reversed the two sides' fluxes appear "
+            "to sum to zero when they do not, and vice versa.")
+    elif out["verdict"] == "NOT_ASSESSED":
+        flat = [r for r in out["per_side"]
+                if any("flat at the interface" in (d.get("detail") or "")
+                       for d in r.get("per_component", []))]
+        if flat:
+            out["findings"].append(
+                "the submitted FIELD is flat at the interface — its normal "
+                "derivative is identically zero — at "
+                + ", ".join(f"level {r['level']} side {r['side']}"
+                            for r in flat[:6])
+                + ". A field with no gradient at the interface transports "
+                  "nothing across it, so whatever flux was reported cannot "
+                  "have come from it.")
+    return out
+
+
 def interface_phase(work: Path, spec: dict, key: dict, dim: int,
                     ncomp: int, mesh_N, legs: list | None = None) -> dict:
     """Grade the interface submission. Returns
@@ -168,6 +355,24 @@ def interface_phase(work: Path, spec: dict, key: dict, dim: int,
            "findings": [], "per_level": [], "legs": [
                {"axis": leg.axis, "value": leg.value, "band": leg.band}
                for leg in legs]}
+
+    # ONE-SIDED evidence: does each side's flux follow from its OWN field?
+    # Every other check here is two-sided, so a submission whose two sides come
+    # from a single computation satisfies all of them. Computed for every
+    # coupled run, recorded whatever it says, and never allowed to raise: a
+    # diagnostic that can abort grading is worse than no diagnostic.
+    # Its FINDINGS surface on the cell; its REASONS deliberately do NOT join
+    # `out["reasons"]`, because the caller feeds those straight into the
+    # outcome (`all_reasons = list(iface_reasons)` in grade_blind_v2). Until
+    # this check's false-positive rate is measured against a regrade under the
+    # current gate, it must not be able to change a grade — the promise in
+    # flux_from_field_phase's docstring is kept here or nowhere.
+    try:
+        out["flux_from_field"] = flux_from_field_phase(
+            work, spec, dim, ncomp, nval, nflux, legs)
+        out["findings"].extend(out["flux_from_field"]["findings"])
+    except Exception as exc:                                   # noqa: BLE001
+        out["flux_from_field"] = {"verdict": "ERROR", "detail": repr(exc)}
 
     lvls: dict[int, dict[str, Path]] = {}
     # RECURSIVE, like submission._submission_candidates. This was a

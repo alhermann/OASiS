@@ -174,6 +174,281 @@ def recover_flux_from_field(field_pts, field_vals, iface_pts, k_normal,
     return out
 
 
+def _lagrange3(xs, ys, x: float) -> float:
+    """Three-point Lagrange value at x. The nodes need not be equispaced."""
+    tot = 0.0
+    for i in range(3):
+        term = ys[i]
+        for j in range(3):
+            if i != j:
+                term *= (x - xs[j]) / (xs[i] - xs[j])
+        tot += term
+    return tot
+
+
+def _interp_tangential(column: dict, target: tuple, ncomp: int):
+    """Value at an arbitrary tangential point inside one normal column.
+
+    ``column`` maps a tangential key (tuple of the non-normal coordinates) to a
+    value tuple.  Interpolation is tensor-product three-point Lagrange, applied
+    one tangential axis at a time, so it works in 2-D (one tangential axis) and
+    3-D (two) without special-casing either.
+    """
+    if not column:
+        return None
+    if not target:                                  # nothing left to reduce
+        return next(iter(column.values()))
+    axis_vals = sorted({k[0] for k in column})
+    if len(axis_vals) < 3:
+        return None
+    near = sorted(axis_vals, key=lambda a: abs(a - target[0]))[:3]
+    near.sort()
+    sub = []
+    for a in near:
+        red = {k[1:]: v for k, v in column.items() if k[0] == a}
+        got = _interp_tangential(red, target[1:], ncomp)
+        if got is None:
+            return None
+        sub.append(got)
+    return tuple(_lagrange3(near, [s[c] for s in sub], target[0])
+                 for c in range(ncomp))
+
+
+def recover_normal_derivative(field_pts, field_vals, iface_pts,
+                              normal_axis: int, iface_coord: float,
+                              outward_sign: float):
+    """``-du/dn`` at the interface probes, from the agent's own FIELD file.
+
+    WHY THIS EXISTS AND `recover_flux_from_field` DOES NOT SUFFICE. That
+    function keys the field columns on the EXACT tangential coordinate of each
+    interface probe, so it only works when the interface probes sit on the
+    field grid's tangential lines.  They do not, and by construction: measured
+    on ``C8_27b_BARE_seed4``, the field grid for side A is the 44x44 midpoint
+    rule on (0, 0.625) x (0, 1), giving y = (j+0.5)/44, while the interface
+    probes are y = 1/4 + (i+0.5)/88 — **0 of 44 interface probes share a
+    tangential coordinate with the field grid.**  So the recovery returned
+    ``None`` for every point of every coupled submission ever graded, and the
+    consistency check downstream could only ever answer NOT_ASSESSED.
+
+    That is the sixth time in this campaign a mechanism was built, documented
+    with measured numbers, and could not reach the case it was built for.  It
+    is also the real reason issue #78 sat open behind "needs a key-schema
+    field": the blocker was geometric, not schematic.
+
+    METHOD. The field probes form a tensor grid, so for each of the three
+    normal columns nearest the interface the value at the probe's tangential
+    position is obtained by three-point Lagrange interpolation (error
+    ``O(h_t^3)``), and the normal derivative at the interface is then the
+    derivative of the quadratic through those three columns (``O(h_n^2)``,
+    one-sided).  Ample for its purpose, which is catching an ``O(1)``
+    invention, and far short of grading an order.
+
+    Returns one value per interface point: ``-du/dn`` in the OUTWARD direction
+    of this subdomain, or ``None`` where three columns were not available.
+    """
+    if not field_pts or not iface_pts:
+        return [None] * len(iface_pts)
+    ncomp = len(field_vals[0])
+    cols: dict = {}
+    for p, v in zip(field_pts, field_vals):
+        n = round(p[normal_axis], 9)
+        t = tuple(round(c, 9) for i, c in enumerate(p) if i != normal_axis)
+        cols.setdefault(n, {})[t] = v
+    normals = sorted(cols)
+    if len(normals) < 3:
+        return [None] * len(iface_pts)
+    near = sorted(normals, key=lambda a: abs(a - iface_coord))[:3]
+    near.sort()
+    out = []
+    for p in iface_pts:
+        t = tuple(round(c, 9) for i, c in enumerate(p) if i != normal_axis)
+        vals = [_interp_tangential(cols[a], t, ncomp) for a in near]
+        if any(v is None for v in vals):
+            out.append(None)
+            continue
+        est = []
+        for c in range(ncomp):
+            y0, y1, y2 = (v[c] for v in vals)
+            x0, x1, x2 = near
+            d01 = (y1 - y0) / (x1 - x0)
+            d12 = (y2 - y1) / (x2 - x1)
+            d012 = (d12 - d01) / (x2 - x0)
+            dv = d01 + d012 * (2 * iface_coord - x0 - x1)
+            est.append(-dv * outward_sign)          # = -du/dn, coefficient-free
+        out.append(tuple(est))
+    return out
+
+
+def scalar_flux_components(spec: dict) -> tuple:
+    """Which transmitted components ARE a scalar conduction flux ``-k du/dn``?
+
+    The ratio test below assumes the reported flux is a CONSTANT times the
+    normal derivative of the reported field. That is true for an isotropic
+    scalar conduction flux and false for three families that this campaign
+    contains, so applying it everywhere would invent defects:
+
+    * **elasticity / thermoelastic traction** — ``t = sigma . n`` carries
+      tangential derivatives (``t_x = (lam+2mu) du_x/dx + lam du_y/dy``), so
+      ``t_x / (du_x/dx)`` is not constant even for a perfect solve. Measured on
+      the runs on disk, C7/C9/C11/C12 produce 71 INCONSISTENT triples under the
+      unrestricted test; the physics, not the agent, makes the ratio vary.
+    * **anisotropic conduction** — ``q_n = -(K_xx du/dx + K_xy du/dy)`` has the
+      same problem for any off-diagonal ``K`` (C6, D1).
+    * **DSMC and FSI interfaces** (C13, C14) — the transmitted quantity is not
+      a gradient of the reported field at all.
+
+    Returns ``(components, reason)``. An UNKNOWN physics family returns no
+    components and says so: a grader may abstain, never guess.
+    """
+    fam = (spec.get("physics_family") or "").strip()
+    coeff = str(spec.get("coefficients") or "") + str(spec.get("subdomain_a") or "")
+    anisotropic = "[[" in coeff
+    scalar_families = {"diffusion", "reaction_diffusion", "transient_diffusion"}
+    if fam in scalar_families and not anisotropic:
+        return (0,), f"{fam} with an isotropic scalar conductivity"
+    if fam in scalar_families and anisotropic:
+        return (), (f"{fam} but the conductivity is a full tensor, so the "
+                    f"normal flux mixes in the tangential derivative")
+    if fam == "conjugate_heat_transfer":
+        return ((), "anisotropic conjugate heat transfer: the normal flux "
+                    "mixes in the tangential derivative") if anisotropic else \
+               ((0,), "conjugate heat transfer with an isotropic conductivity")
+    if fam == "thermo_mechanical":
+        # component 0 is the temperature, whose flux IS -k dT/dn; the traction
+        # components that follow are not
+        return ((0,), "thermoelasticity: the temperature flux only, not the "
+                      "traction") if not anisotropic else \
+               ((), "anisotropic thermoelasticity")
+    if fam in ("elasticity", "fem_dsmc", "fluid_structure_interaction"):
+        return (), f"{fam}: the transmitted quantity is not -k du/dn"
+    return (), (f"unknown physics family {fam!r}: the check abstains rather "
+                f"than assume the transmitted flux is a scalar conduction flux")
+
+
+def flux_ratio_consistency(reported, dudn, spread_tol: float = 0.30,
+                           floor_frac: float = 0.05, components=None):
+    """Is the reported flux the agent's own field times a CONSTANT?
+
+    WHY NOT COMPARE AGAINST ``k * du/dn`` DIRECTLY. That needs the per-side
+    conductivity as structured data, which the specs carry only as prose
+    ("thermal conductivity k = 1 in subdomain A"), and prose parsing in a
+    grader is how a grader starts inventing.  It is also unnecessary: for a
+    flux the agent really computed from its own solution,
+
+        q_n(x) / (-du/dn)(x)  ==  k   for every interface point,
+
+    so the RATIO IS CONSTANT ALONG THE INTERFACE whatever k is.  A reported
+    profile that was not computed from the submitted field has no reason to
+    hold that ratio, and the test needs no coefficient, no key, and no
+    reference solution — it runs with the answers sealed.
+
+    Points where ``|du/dn|`` is below ``floor_frac`` of its own RMS are
+    dropped: there the ratio is a small number over a smaller one and says
+    nothing.  A NEGATIVE implied coefficient is reported separately — that is
+    not invention but a violated sign convention, which the task states and
+    the gate is entitled to grade.
+    """
+    pairs = [(r, g) for r, g in zip(reported, dudn) if g is not None]
+    if not pairs:
+        return {"verdict": "NOT_ASSESSED",
+                "detail": "the field could not be interpolated to the "
+                          "interface probes (fewer than three probe columns, "
+                          "or the field probes are not a tensor grid)"}
+    ncomp = min(len(pairs[0][0]), len(pairs[0][1]))
+    if components is not None:
+        want = [c for c in components if 0 <= c < ncomp]
+        if not want:
+            return {"verdict": "NOT_APPLICABLE",
+                    "detail": "no transmitted component of this problem is a "
+                              "scalar conduction flux, so a constant ratio to "
+                              "the normal derivative is not expected and "
+                              "nothing is asserted"}
+    else:
+        want = list(range(ncomp))
+    rms = [_rms([abs(g[c]) for _r, g in pairs]) for c in range(ncomp)]
+    rep_rms = [_rms([abs(r[c]) for r, _g in pairs]) for c in range(ncomp)]
+    per_comp = []
+    for c in want:
+        # A REPORTED FLUX OF ZERO IS NOT A CONSTANT RATIO. Measured on real
+        # submissions: C10_27b_BARE_seed4 and C1_27b_BARE_seed4 export fluxes
+        # that are identically zero, so every ratio is 0/x = 0, the spread is
+        # exactly 0.0, and the first version of this function called them
+        # CONSISTENT — blessing the one case the coupled grader elsewhere
+        # refuses outright. C3_27b_BARE_seed6's side B does the same and came
+        # out INCONSISTENT with a spread of 1e299, which accuses the agent of
+        # invention when the honest statement is that it reported nothing.
+        if rep_rms[c] <= 0.0:
+            per_comp.append({
+                "component": c, "verdict": "NOT_ASSESSED",
+                "detail": "the reported flux is identically zero, so there is "
+                          "no profile to compare with the field: nothing is "
+                          "checked and nothing passes"})
+            continue
+        keep = [(r[c], g[c]) for r, g in pairs
+                if abs(g[c]) >= floor_frac * max(rms[c], 1e-300)]
+        if len(keep) < 3:
+            # A submitted field with no gradient at the interface is not an
+            # abstention for want of geometry — it is a statement about the
+            # field, and the grader should say which of the two it means.
+            flat = rms[c] <= 0.0 or all(abs(g[c]) <= 0.0 for _r, g in pairs)
+            per_comp.append({"component": c, "verdict": "NOT_ASSESSED",
+                             "detail": ("the submitted field is flat at the "
+                                        "interface: its normal derivative is "
+                                        "identically zero, so there is nothing "
+                                        "for the reported flux to follow from"
+                                        if flat else
+                                        "fewer than three interface points "
+                                        "carry a normal derivative above 5% of "
+                                        "its own RMS")})
+            continue
+        ratios = sorted(q / d for q, d in keep)
+        n = len(ratios)
+        med = ratios[n // 2]
+        lo = ratios[max(0, int(0.10 * n))]
+        hi = ratios[min(n - 1, int(0.90 * n))]
+        spread = (hi - lo) / max(abs(med), 1e-300)
+        per_comp.append({
+            "component": c, "implied_coefficient": med, "spread": spread,
+            "n_points": n,
+            "verdict": ("SIGN_CONVENTION" if med < 0 else
+                        "CONSISTENT" if spread <= spread_tol else
+                        "INCONSISTENT")})
+    # WORST ACROSS COMPONENTS, never best. Each transmitted component is a
+    # separate physical condition: C1 transmits a temperature and two traction
+    # components. The first version reported CONSISTENT whenever ANY component
+    # was consistent, so a component with a reversed sign was absorbed by a
+    # healthy neighbour — 262 triples were booked CONSISTENT and their spreads
+    # went up to 2.54, which is only possible if a flipped component was hiding
+    # inside a passing verdict.
+    bad = [d for d in per_comp if d["verdict"] == "INCONSISTENT"]
+    flipped = [d for d in per_comp if d["verdict"] == "SIGN_CONVENTION"]
+    ok = [d for d in per_comp if d["verdict"] == "CONSISTENT"]
+    if bad:
+        verdict, detail = "INCONSISTENT", (
+            "the reported interface flux is not a constant multiple of the "
+            "normal derivative of the submitted field, so the two were not "
+            "computed from each other: implied coefficient varies by "
+            + ", ".join(f"{d['spread']:.0%} (component {d['component']})"
+                        for d in bad))
+    elif flipped:
+        verdict, detail = "SIGN_CONVENTION", (
+            "the reported flux is proportional to the field's normal "
+            "derivative but with the OPPOSITE sign on component(s) "
+            + ", ".join(str(d["component"]) for d in flipped)
+            + ": the outward-normal convention the task states was not "
+              "followed")
+    elif ok:
+        verdict, detail = "CONSISTENT", (
+            "the reported flux is the submitted field's normal derivative "
+            "times a constant, as it must be: implied coefficient "
+            + ", ".join(f"{d['implied_coefficient']:.4g} (+/-{d['spread']:.1%})"
+                        for d in ok))
+    else:
+        verdict, detail = "NOT_ASSESSED", "no component could be assessed"
+    return {"verdict": verdict, "detail": detail, "per_component": per_comp,
+            "spread_tolerance": spread_tol}
+
+
 def flux_consistency(reported, recovered, rtol: float = 0.25):
     """Does the reported interface flux match one recomputed from the field?"""
     pairs = [(r, g) for r, g in zip(reported, recovered) if g is not None]

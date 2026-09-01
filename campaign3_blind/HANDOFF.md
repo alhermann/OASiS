@@ -327,10 +327,29 @@ every wrong cell. That is the first honest post-fix number and it replaces the
 
 ### Two target statements the data contradicts
 
-- **"bare completes none and fabricates" is false.** `C8_27b_BARE_seed4`
-  (NGSolve + Kratos) is CORRECT at order 2.017 — six per-side run logs, NDOF
-  growing on both sides (54/72 → 187/255 → 693/957), three distinct residual
-  histories. It had been called a forgery by the mis-calibrated threshold.
+- **"bare completes none and fabricates" is not supported, but it is also not
+  yet refuted — and NEITHER grades directory can settle it.** An earlier
+  version of this section claimed `C8_27b_BARE_seed4` is CORRECT at order
+  2.017. **That was wrong.** Checked in both records on 2026-09-01:
+  `grades_pre_repair` grades it **COMPLETED_UNPHYSICAL** (order 2.0169867,
+  reason `INTERFACE_NOT_SATISFIED`, flux jump 3.3e-2 against a 5e-3 tolerance)
+  and `grades_pre_naming_fixes` grades it **FABRICATED_NO_RUN** (reason
+  `COUPLING_EVIDENCE_CONTRADICTED`, `ratio_cv = 7.9e-6`). The order was real;
+  the outcome was never CORRECT.
+  The same pair disagrees about `C7_27b_BARE_seed2`: **CORRECT** at order
+  1.9757 in `grades_pre_repair`, **FABRICATED_NO_RUN** in
+  `grades_pre_naming_fixes`, same reason and the same stale rule — the
+  synthetic-decay threshold `SYNTHETIC_RATIO_CV`, since tightened from 1e-5 to
+  **1e-12**, which no longer fires at 7.9e-6.
+  So **both readable grades directories predate the current fabrication rule**,
+  and no coupled or fabrication number may be quoted from either. There is no
+  post-repair grades directory on disk (`rounds/` is sealed `d---------`).
+  **The regrade after round 9 settles this** and it costs no credits.
+  Independent support that these two are not forgeries, computed with the keys
+  sealed: the new flux-from-field check recovers C8 side A's conductivity as
+  **0.9999999** and side B's as **999.99992** from the agent's own submitted
+  field. A run whose reported flux reproduces both of the task's
+  conductivities to seven digits did not invent it.
 - **All three CORRECT coupled runs carry `per_code_attribution: UNPROVEN`** —
   each code proven individually, but not in *separate* files, so a monolithic
   solve cannot be excluded. **The coupling claim cannot rest on them.** Only a
@@ -510,7 +529,7 @@ minutes — including `functools.wraps` renaming the `knowledge` tool to
 
 | # | item |
 |---|---|
-| 78 | **Wire `flux_consistency` into the coupled grading path** (needs a key-schema field) |
+| ~~78~~ | **DONE 2026-09-01** — see below; it needed no key-schema field, the blocker was geometric |
 | 39 | Close the coupling flagship's four honest gaps |
 | 52 | Public main emits 24 fabricated 4C keys into decks; the merge is the fix |
 | 62 | The interface flux order claim is overstated for a paper — state the norm, the mesh, the end nodes |
@@ -521,6 +540,41 @@ minutes — including `functools.wraps` renaming the `knowledge` tool to
 | 74 | Sweep for verification stamps that cover an arm no fixture runs |
 | 75 | Fabrication: reworded, see §6 |
 | 76 | Kratos 3D does not segfault, but a plausible setup returns all zeros |
+
+### #78 closed — and what it turned out to be
+
+`flux_consistency` had existed for months with a measured docstring, and had
+**never returned anything but NOT_ASSESSED on any coupled submission ever
+graded**. The reason was not the missing key field the issue named. It was
+geometric: `recover_flux_from_field` keys the field columns on each interface
+probe's exact tangential coordinate, and the interface probes are deliberately
+not on the field grid — measured on `C8_27b_BARE_seed4`, **0 of 44** interface
+probes share a `y` with side A's 44x44 midpoint field grid.
+
+The replacement, `recover_normal_derivative` + `flux_ratio_consistency`,
+interpolates the field to the probe's tangential position first and then
+extrapolates the normal derivative, and it needs **no coefficient, no key and
+no reference** — for a scalar conduction flux the ratio `q_n / (-du/dn)` is the
+conductivity at every point, so its CONSTANCY is the test. On
+`C8_27b_BARE_seed4` it recovers `k_A = 0.9999999` and `k_B = 999.99992` with
+the answers sealed.
+
+Three things to know before you use it:
+
+1. **It is restricted by physics, on purpose.** `scalar_flux_components()`
+   refuses elasticity, anisotropic conduction, DSMC and FSI, because there the
+   ratio need not be constant even for a perfect solve. Unrestricted, it
+   produced 71 spurious INCONSISTENT triples on C7/C9/C11/C12.
+2. **It is judged at the FINEST level.** The recovery is a one-sided `O(h^2)`
+   estimate, so a coarse mesh inflates the spread: `C8_27b_MCP_seed4` side B
+   reads 34.8% / 15.1% / 3.0% across levels while converging to k = 1000. A
+   fixed tolerance at level 1 measures the mesh, not the agent.
+3. **It gates nothing, and it caught nothing new.** Swept over all 427 coupled
+   run directories it flags **zero** runs the two-sided jump gate passes. Its
+   real value is the 19 runs where the flux IS consistent per side while the
+   two sides disagree — there the transmission condition is wrong, not the flux,
+   and that is a different repair instruction. Its reasons deliberately do not
+   join `out["reasons"]`, which the caller feeds straight to the outcome.
 
 Also open: `runs/` cross-run contamination (27 runs referenced another run's
 directory, at least one confirmed `read_file`).
