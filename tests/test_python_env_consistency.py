@@ -43,9 +43,18 @@ from core.backend import BackendStatus
 FAKE_PYTHON_SCRIPT = """#!/bin/sh
 # Fake dune-fem Python: answers `-c "import dune.fem; ..."` probes with OK
 # and records its own path when executing a script (run() path).
+# The resolver's probe is NOT `import dune.fem`. It was deliberately changed to
+# `from dune.grid import structuredGrid; structuredGrid(...)` so that an
+# interpreter whose dune imports but whose JIT path is poisoned is rejected —
+# and this fake was never updated, so it answered exit 1 to the real probe,
+# failed verification, and let the resolver fall through to whatever
+# interpreter was running the suite. On a host where that interpreter has dune
+# the fall-through succeeds, and eleven tests failed for a stale fixture rather
+# than a defect. Match on either spelling so a future probe change is visible
+# as one failing assertion, not eleven.
 if [ "$1" = "-c" ]; then
     case "$2" in
-        *dune.fem*) echo OK; exit 0;;
+        *dune.fem*|*dune.grid*) echo OK; exit 0;;
         *) exit 1;;
     esac
 fi
@@ -325,7 +334,21 @@ class TestDuneNotInstalled(_DuneEnvTestCase):
              mock.patch.object(dune_mod, "get_python_executable", return_value=None):
             status, msg = DuneBackend().check_availability()
         self.assertEqual(status, BackendStatus.NOT_INSTALLED)
-        self.assertIn("conda create -n ofa-dune", msg)
+        # ASSERT THAT IT IS ACTIONABLE, NOT THAT IT NAMES ONE CHANNEL.
+        #
+        # This pinned "conda create -n ofa-dune". The backend's message was
+        # later changed to recommend PyPI and to state that conda-forge has no
+        # dune-fem package, so the test failed for advice that had moved.
+        # Verified here rather than assumed: `pip download dune-fem --no-deps`
+        # fetches dune_fem-2.12.0.2.tar.gz, so the PyPI route is real. The
+        # conda-forge half could not be checked from this host (no network for
+        # `conda search`), so nothing is asserted about it either way.
+        #
+        # What must hold whichever channel wins: a concrete install command and
+        # the override for an existing install.
+        self.assertTrue(
+            "pip install dune-fem" in msg or "conda create -n ofa-dune" in msg,
+            f"the message names no install command: {msg}")
         self.assertIn("DUNE_PYTHON", msg)
 
     def test_run_fails_cleanly_with_same_hint(self):
