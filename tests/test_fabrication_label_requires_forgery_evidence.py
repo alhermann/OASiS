@@ -106,9 +106,10 @@ def _patched_code_evidence(files_a, files_b, matches_a=CANON, matches_b=CANON):
         ev.code_evidence = real
 
 
-def _assess(work):
+def _assess(work, task_txt=""):
+    """task_txt matters now: the per-code gate is conditional on what it asks."""
     return assess_execution(work, ["febio", "dealii"], coupled=True,
-                            task_txt="", mesh_N=[8, 16, 32], dim=2,
+                            task_txt=task_txt, mesh_N=[8, 16, 32], dim=2,
                             iface_tol=1e-6, claimed_iters=None)
 
 
@@ -195,30 +196,58 @@ class TestDeficiencyIsNotCalledForgery(unittest.TestCase):
         self.assertEqual(got["verdict"], "NOT_PROVEN")
         self.assertFalse(got["forged"], got["forged_detail"])
 
-    def test_canonical_only_evidence_grades_malformed_not_fabricated(self):
-        """102 runs. The task asked for `NDOF = <n>` and they wrote it."""
+    # THE GATE IS NOW CONDITIONAL ON WHAT THE TASK ASKED FOR, AND SO IS THIS.
+    #
+    # These two tests used to assert the gate fires unconditionally. Measured
+    # afterwards: 0 of 47 task files in the main draw demand the solver's own
+    # captured output — they ask for a run log "containing at least the line
+    # NDOF = <integer>" — while 1 of 1 does in each newer draw. 173 coupled
+    # runs, 86 bare and 87 OASiS, were being rejected for writing exactly what
+    # they were told to, and the gate's own comment already said "until the
+    # task asks, the grader may not punish".
+    #
+    # The concern the second test encoded is real and is NOT dropped: an
+    # unattributable coupled run does become gradeable. It is answered by
+    # making the unprovenness COUNTABLE rather than by punishing compliance,
+    # so any coupling claim can exclude those runs and a reader can see how
+    # many there were. Both branches are asserted below.
+    def test_where_the_task_demanded_own_output_it_is_still_fatal(self):
+        task = ("EXECUTION LOG: write run_level<k>_<side>.log containing "
+                "(a) THE CONSOLE OUTPUT THAT SUBDOMAIN'S SOLVER ITSELF "
+                "PRODUCED, captured verbatim -- redirect the run into the "
+                "file, and (b) the line NDOF = <integer>.")
         with _tmp() as work:
             for lvl in (1, 2, 3):
                 _write_history(work, lvl, _honest_converging())
             with _patched_code_evidence(SHARED, list(SHARED)):
-                out = _assess(work)
+                out = _assess(work, task_txt=task)
         self.assertEqual(out["fatal"], "MALFORMED_SUBMISSION", out["reasons"])
         self.assertEqual(out["reasons"], ["NO_PER_CODE_EXECUTION_EVIDENCE"])
-        self.assertTrue(
-            any("never asked which code" in n for n in out["notes"]),
-            f"the note explaining the label is missing: {out['notes']}")
 
-    def test_the_cell_is_still_not_a_success(self):
-        """Relabelling must not turn a failure into a pass."""
+    def test_where_it_did_not_the_run_is_marked_unproven_not_rejected(self):
+        task = ("EXECUTION LOG: for every mesh level write run_level<k>.log "
+                "containing at least the line NDOF = <integer>.")
         with _tmp() as work:
             for lvl in (1, 2, 3):
                 _write_history(work, lvl, _honest_converging())
             with _patched_code_evidence(SHARED, list(SHARED)):
-                out = _assess(work)
-        self.assertIsNotNone(
-            out["fatal"],
-            "the shared-evidence defect stopped being fatal; an unattributable "
-            "coupled run would now be gradeable as CORRECT")
+                out = _assess(work, task_txt=task)
+        # Assert the REASON, not merely that nothing was fatal: naming
+        # run_level/NDOF in the task legitimately turns on the run-log contract
+        # gate, and this fixture writes no NDOF lines, so a fatal from THAT is
+        # correct and unrelated.
+        self.assertNotIn(
+            "NO_PER_CODE_EXECUTION_EVIDENCE", out.get("reasons") or [],
+            "a submission is being rejected for doing exactly what its task "
+            "asked; the task never required per-code output")
+        self.assertEqual(
+            out.get("per_code_attribution"), "UNPROVEN",
+            "the hole must be COUNTABLE: a note in prose is invisible to "
+            "anything that tallies outcomes, and a coupling claim has to be "
+            "able to exclude these runs")
+        self.assertTrue(
+            any("ATTRIBUTION UNPROVEN" in n for n in out["notes"]),
+            f"the explaining note is missing: {out['notes']}")
 
 
 class TestBitIdenticalHistoriesAcrossMeshLevels(unittest.TestCase):
@@ -318,8 +347,23 @@ class TestTheRowFloorNoLongerHidesShortForgeries(unittest.TestCase):
             "a 5-row exactly-geometric history still escapes the ratio test")
 
     def test_the_floor_is_where_the_measurement_put_it(self):
+        # RECALIBRATED, and the old value did not survive re-measurement.
+        #
+        # 1e-5 was placed in "the empty valley" between forged histories "up to
+        # 8.8e-6" and "the nearest honest history above the band ... 2.2e-5".
+        # Re-measured over every testable history in the tree: 8.803e-06 and
+        # 2.193e-05 are the SAME RUN, C8_27b_BARE_seed10, at levels 1 and 2 —
+        # one submission's own level-to-level scatter, separating nothing.
+        #
+        # The physics agrees: a Dirichlet-Neumann iteration with fixed
+        # relaxation on a LINEAR problem contracts at the dominant eigenvalue,
+        # so a smooth rate is the prescribed scheme working. What a real
+        # computation cannot do is be exactly geometric FROM THE FIRST STEP,
+        # because a real initial error carries several modes. The re-measured
+        # distribution is bimodal and empty between 1e-14 and 1e-12, so the
+        # threshold sits at machine precision now.
         self.assertEqual(ev.MIN_RATIOS_FOR_DECAY_TEST, 3)
-        self.assertEqual(ev.SYNTHETIC_RATIO_CV, 1e-5)
+        self.assertLessEqual(ev.SYNTHETIC_RATIO_CV, 1e-12)
 
     def test_a_short_honest_history_is_still_not_flagged(self):
         """Four ratios that WANDER must survive; only near-identical ones fail."""

@@ -277,6 +277,15 @@ def assess_execution(work: Path, codes: list, coupled: bool, task_txt: str,
                 "cannot be established. The coupled claim is unproven, not "
                 "shown to be invented.")
             return out
+        # MACHINE-READABLE, NOT ONLY PROSE.
+        #
+        # A note in `notes` is invisible to anything that counts outcomes, and
+        # the test that guarded this gate said exactly why that matters: "an
+        # unattributable coupled run would now be gradeable as CORRECT". It
+        # would. The repair is not to punish compliance again — it is to make
+        # the hole countable, so any coupling claim can exclude these runs and
+        # a reader can see how many there were.
+        out["per_code_attribution"] = "UNPROVEN"
         out["notes"].append(
             "PER-CODE ATTRIBUTION UNPROVEN, NOT PUNISHED: the only execution "
             "evidence is the code-agnostic `NDOF = <integer>` line, which is "
@@ -310,6 +319,7 @@ def assess_execution(work: Path, codes: list, coupled: bool, task_txt: str,
             "invention (no closed-form residual decay)")
         return out
 
+    out.setdefault("per_code_attribution", "PROVEN")
     required = task_prescribes_run_logs(task_txt)
     fatal_missing, violations, notes, table = ndof_growth(
         ndofs, mesh_N, dim, required)         # read once, above
