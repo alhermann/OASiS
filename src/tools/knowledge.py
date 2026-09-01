@@ -757,7 +757,7 @@ def _physics_tail() -> str:
 _UNIVERSAL_CORE = """
 
 ────────────────────────────────────────────────────────────────────────────────
-FOUR RULES THAT APPLY WHATEVER YOU ASKED FOR
+SEVEN RULES THAT APPLY WHATEVER YOU ASKED FOR
 ────────────────────────────────────────────────────────────────────────────────
 
 1. THE DELIVERABLE GOES IN THE DIRECTORY YOU WERE GIVEN. Write your results
@@ -785,8 +785,8 @@ FOUR RULES THAT APPLY WHATEVER YOU ASKED FOR
    and the values were never extracted. Next comes not managing to impose a
    spatially varying source in the input language (10%, almost all in the two
    deck-driven codes), then a toolchain that will not build or import (8%).
-   Getting values out is not the last step to leave until the end; it is the
-   step most likely to end the run. Do one coarse level end to end — solve,
+   Getting values out is not the last step; it is the step most likely to end
+   the run. Do one coarse level end to end — solve,
    extract at the prescribed points, write the file — before refining anything.
 
 5. IF YOU DID SUBMIT AND WANT TO KNOW WHETHER IT IS RIGHT, MEASURE, DO NOT
@@ -838,8 +838,38 @@ FOUR RULES THAT APPLY WHATEVER YOU ASKED FOR
        component carrying `type="math"`. Without that attribute the expression
        is silently truncated to its numeric prefix.
 
+7. REFINEMENT COUNTS HALVINGS, NOT CELLS. `refined(k)` (scikit-fem),
+   `refine_global(k)` (deal.II), `globalRefine(k)` (DUNE) give 2^k cells per
+   side, so a prescribed N needs k = log2(N): N=8 is k=3, not 8. Measured in
+   both arms: k=8 built 256 cells/side, 592,387 DOFs, and the run died at
+   level 2 with one level delivered.
+
 Full detail, per backend: knowledge(topic="physics", solver=..., physics=...)
 """
+
+
+# THE PHYSICS PATH MUST NOT CARRY A STALE COPY OF THE CORE.
+#
+# `_UNIVERSAL` and `_UNIVERSAL_CORE` were two independent literals, and the
+# core was the one that kept being updated. Measured on 2026-09-01, these facts
+# were in the core and ABSENT from the 22,501-char block:
+#
+#     verify_pde_consistency   the name of the verification tool itself
+#     E: 0                     4C's one-based design ids, which segfault at 0
+#     refine_global            refinement counts halvings, not cells
+#     13% / 36%                the measured decomposition of how runs fail
+#
+# and `topic="physics"` is the path that returns `_UNIVERSAL` — so the reply an
+# agent asks for when it is stuck on exactly these things was the one reply
+# without them, while the other 88.5% of calls got the core and did have them.
+# Seventh instance of the same shape: the mechanism existed, was maintained,
+# and did not reach the case it was built for.
+#
+# Concatenating rather than copying makes the two paths agree BY CONSTRUCTION,
+# so the next core edit cannot miss one. The core goes FIRST because truncation
+# cuts tails.
+_UNIVERSAL = _UNIVERSAL_CORE + _UNIVERSAL
+
 
 def register_knowledge_tools(mcp: FastMCP):
 

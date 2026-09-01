@@ -185,10 +185,44 @@ def test_the_core_is_cheap_enough_to_send_every_time(knowledge_tool):
     assert len(_UNIVERSAL_CORE) < len(_UNIVERSAL), "the core must be a subset"
 
 
-def test_both_blocks_are_never_sent_at_once(knowledge_tool):
+def test_the_core_rules_arrive_exactly_once_on_the_physics_path(knowledge_tool):
+    """ONCE — not zero, and not twice.
+
+    This test used to demand ZERO, on the reasoning that the physics path
+    carries the long block and appending the core would repeat the rules. The
+    two blocks were independent literals, so what actually happened is that the
+    long block went stale: measured 2026-09-01, `verify_pde_consistency` (the
+    name of the verification tool), 4C's `E: 0` segfault, the halvings-not-cells
+    refinement rule and the 13%/36% failure decomposition were ALL in the core
+    and NONE of them in the 22,501-char block — and topic="physics" is the reply
+    an agent asks for when it is stuck on precisely those things.
+
+    `_UNIVERSAL` is now `_UNIVERSAL_CORE + <detail>`, so the paths agree by
+    construction. The property worth testing is what the AGENT ends up with:
+    the rules present, and present once.
+    """
     from tools.knowledge import _UNIVERSAL_CORE
     out = knowledge_tool(topic="physics", solver="fourc", physics="heat")
-    assert out.count(_UNIVERSAL_CORE) == 0, (
-        "the physics path carries the full block AND got the core appended, "
-        "so the agent reads the same rules twice"
+    assert out.count(_UNIVERSAL_CORE) == 1, (
+        f"the core rules appear {out.count(_UNIVERSAL_CORE)} times in the "
+        f"physics reply; they must appear exactly once — zero means this path "
+        f"is served a stale copy, twice means the agent reads them twice"
     )
+
+
+def test_the_long_block_cannot_go_stale_against_the_core(knowledge_tool):
+    """The guard that makes the defect above unrepeatable.
+
+    A future edit that turns `_UNIVERSAL` back into its own copy of the rules
+    would restore exactly the divergence this replaced, and no behavioural test
+    would notice until an agent needed the missing fact.
+    """
+    from tools.knowledge import _UNIVERSAL, _UNIVERSAL_CORE
+    assert _UNIVERSAL.startswith(_UNIVERSAL_CORE), (
+        "the long physics block must BEGIN with the core verbatim: by "
+        "construction so it cannot drift, and first because truncation cuts "
+        "tails"
+    )
+    for fact in ("verify_pde_consistency", "E: 0", "refine_global",
+                 "REFINEMENT COUNTS HALVINGS"):
+        assert fact in _UNIVERSAL, f"{fact!r} reaches only one of the two paths"
