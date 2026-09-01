@@ -51,12 +51,16 @@ def seal_state(d: Path) -> str:
 
 
 def shield(action: str) -> str:
-    script = keys_dir().parent / "shield_keys.sh"
+    script = HERE / "shield_keys.sh"
     if not script.is_file():
         sys.exit(f"no shield script at {script}")
     r = subprocess.run(["bash", str(script), action], capture_output=True,
                        text=True)
-    return (r.stdout + r.stderr).strip()
+    output = (r.stdout + r.stderr).strip()
+    if r.returncode != 0:
+        raise RuntimeError(
+            f"shield_keys.sh {action} failed ({r.returncode}): {output}")
+    return output
 
 
 def arm_reseal_on_signals() -> None:
@@ -118,6 +122,12 @@ def main() -> int:
         print(f"REFUSING: keys are not sealed ({before}). If they were left "
               f"open, custody is already in question and that must be "
               f"recorded, not papered over by unsealing again.")
+        return 2
+    try:
+        shield("status")
+    except RuntimeError as exc:
+        print(f"REFUSING: a sibling key store is open or the repository "
+              f"shield failed: {exc}")
         return 2
     print(f"  keys before: {before}  SEALED")
 

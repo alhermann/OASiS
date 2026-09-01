@@ -9,3 +9,4 @@ build_extra.py
 build_coupled.py
 __pycache__/
 FROZEN.json
+.source_snapshots/

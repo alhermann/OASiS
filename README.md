@@ -69,7 +69,7 @@ Then just ask, e.g.: *"Solve the Poisson equation on a unit square with a known 
 
 ### Option B: drive it from your own code with ANY API model (LangGraph)
 
-If you prefer an API key over an app subscription — OpenAI, OpenRouter, Anthropic, a local vLLM or Ollama server — this repository ships a working **LangGraph agent harness** in [`langgraph_eval/`](langgraph_eval/). It attaches every OASiS tool to a LangGraph agent via `langchain-mcp-adapters` and works with any OpenAI-compatible endpoint. The shipped scaffold (`langgraph_eval/agent.py`) builds the complete agent — model client, host-side tools, OASiS MCP tools — as a reusable function you call from your own driver script; pointing it at any provider is a one-line change to the model client:
+If you prefer an API key over an app subscription — OpenAI, OpenRouter, Anthropic, a local vLLM or Ollama server — this repository ships a working **LangGraph agent harness** in [`langgraph_eval/`](langgraph_eval/). It attaches OASiS tools to a LangGraph agent via `langchain-mcp-adapters` and works with any OpenAI-compatible endpoint. The shipped scaffold builds the model client, host-side tools, and a persistent OASiS MCP session; pointing it at any provider is a one-line change to the model client:
 
 ```python
 import os
@@ -85,7 +85,14 @@ llm = ChatOpenAI(base_url="https://openrouter.ai/api/v1",
 # Ollama:      base_url="http://localhost:11434/v1", api_key="not-needed"
 ```
 
-The harness spawns the OASiS server as an MCP subprocess (see `_load_oasis_mcp_tools()` in `langgraph_eval/agent.py` for the exact launch configuration), gives the model file/shell/web tools alongside the solver tools, and even lets it spawn a sub-agent to criticize its own setup before running. Install the extra dependencies with `pip install -r langgraph_eval/requirements-langgraph.txt` (a separate virtualenv, e.g. `.venv-lg`, is recommended).
+Keep the returned context open for the complete agent run so stateful checks, including critic-review tokens, survive between tool calls:
+
+```python
+async with build_mcp_agent(size="27b", seed=0, workdir=workdir) as agent:
+  result = await agent.ainvoke({"messages": [("user", task)]})
+```
+
+The harness spawns one OASiS subprocess for that context, exposes an explicit campaign-safe tool set, and gives the model isolated file/shell/web tools alongside the solver tools. It can also spawn a sub-agent to criticize its setup before running. Install the extra dependencies with `pip install -r langgraph_eval/requirements-langgraph.txt` (a separate virtualenv, e.g. `.venv-lg`, is recommended).
 
 ### Subscription or API key?
 

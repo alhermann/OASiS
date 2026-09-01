@@ -1,0 +1,110 @@
+"""A blind cell must not read another cell's work through host tools."""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from langgraph_eval import agent as A  # noqa: E402
+
+
+def _tool(tools, name):
+    return next(tool for tool in tools if tool.name == name)
+
+
+def test_shell_cannot_read_an_adjacent_cell(tmp_path):
+    campaign = tmp_path / "campaign"
+    work = campaign / "runs" / "cell_a" / "work"
+    sibling = campaign / "runs" / "cell_b" / "work"
+    work.mkdir(parents=True)
+    sibling.mkdir(parents=True)
+    marker = "CROSS_CELL_MARKER_91f226"
+    secret = sibling / "solution.txt"
+    secret.write_text(marker)
+
+    run_bash = A._bash_tool_for(work)
+    runtime_python = (
+        "/home/alexander/Schreibtisch/open-fem-agent/.venv/bin/python")
+    out = run_bash.invoke({
+        "command": (
+            f"{runtime_python} -c 'print(\"runtime-ok\")'; "
+            f"cat {secret} 2>&1 || true"
+        )
+    })
+
+    assert "runtime-ok" in out
+    assert marker not in out
+
+
+def test_read_file_refuses_an_adjacent_cell(tmp_path):
+    campaign = tmp_path / "campaign"
+    work = campaign / "runs" / "cell_a" / "work"
+    sibling = campaign / "runs" / "cell_b" / "work"
+    work.mkdir(parents=True)
+    sibling.mkdir(parents=True)
+    marker = "CROSS_CELL_MARKER_5c37a8"
+    secret = sibling / "solution.txt"
+    secret.write_text(marker)
+
+    read_file = _tool(A._read_write_tools_for(work), "read_file")
+    out = read_file.invoke({"path": str(secret)})
+
+    assert marker not in out
+    assert "outside" in out.lower() and "refused" in out.lower()
+
+
+def test_dune_baseline_compiler_script_is_relocated(tmp_path, monkeypatch):
+    baseline = tmp_path / "baseline"
+    script = baseline / "python/dune/generated/buildScript.sh"
+    script.parent.mkdir(parents=True)
+    script.write_text(
+        "DUNE_CXX_COMPILER_LAUNCHER=/baseline/dune-py/compiler_launcher.sh\n"
+        "/usr/bin/c++ -c /baseline/dune-py/python/dune/generated/$1.cc\n")
+    (baseline / "compiler_launcher.sh").write_text(
+        "/baseline/dune-py/dune-compiler_launcher.sh $@\n")
+    work = tmp_path / "work"
+    work.mkdir()
+    monkeypatch.setenv("OASIS_DUNE_CACHE_BASELINE", str(baseline))
+
+    scratch = A.sandbox_scratch_for(work)
+    try:
+        copied = scratch / "dune-cache/dune-py/python/dune/generated/buildScript.sh"
+        text = copied.read_text()
+        assert "/baseline/dune-py" not in text
+        assert "/tmp/dune-cache/dune-py/compiler_launcher.sh" in text
+        assert "/tmp/dune-cache/dune-py/python/dune/generated/$1.cc" in text
+        nested = (scratch / "dune-cache/dune-py/compiler_launcher.sh").read_text()
+        assert "/baseline/dune-py" not in nested
+        assert "/tmp/dune-cache/dune-py/dune-compiler_launcher.sh" in nested
+    finally:
+        A.cleanup_sandbox_scratch(work)
+
+
+def test_shell_sees_neither_credentials_nor_host_processes(tmp_path,
+                                                           monkeypatch):
+    marker = "OPENROUTER_SECRET_MARKER_1f86d3"
+    monkeypatch.setenv("OPENROUTER_API_KEY", marker)
+    sensitive_names = (
+        "GIT_ASKPASS",
+        "VSCODE_GIT_ASKPASS_EXTRA_ARGS",
+        "VSCODE_GIT_ASKPASS_MAIN",
+        "VSCODE_GIT_ASKPASS_NODE",
+        "SSH_AUTH_SOCK",
+        "XAUTHORITY",
+    )
+    for name in sensitive_names:
+        monkeypatch.setenv(name, marker)
+    run_bash = A._bash_tool_for(tmp_path)
+    out = run_bash.invoke({
+        "command": (
+            "env; printf 'PID_COUNT='; "
+            "find /proc -maxdepth 1 -regex '/proc/[0-9]+' | wc -l"
+        )
+    })
+    assert marker not in out
+    assert "OPENROUTER_API_KEY" not in out
+    assert all(name not in out for name in sensitive_names)
+    count = int(out.split("PID_COUNT=", 1)[1].splitlines()[0])
+    assert count < 10, out

@@ -632,7 +632,35 @@ covered by a hash commitment so they cannot be silently edited either.
   not change the kind. The defensible claim is unchanged and narrow: no
   instance hands over its solution, and none is one algebraic step away.
 * **The evidence gate is not proof of execution.** See §6.
-* **The seal is still not a sandbox.** The agent runs as the directory's owner.
+* **The task itself remains mathematically invertible.** Runtime isolation keeps
+  sealed files and prior runs out of reach; it cannot stop an agent deriving a
+  low-parameter manufactured field from the public right-hand side.
+
+### Runtime and build controls added after the round-9 audit
+
+The seal is no longer the only isolation boundary. Both host shell commands and
+the persistent MCP server run under bubblewrap with a private PID/proc namespace,
+a private per-cell `/tmp`, a fully masked home directory, read-only mounts for
+the explicitly advertised solver runtimes, and the current cell work directory
+as the only writable host tree. `read_file` resolves only inside that directory.
+Secret-bearing environment variables and the key-vault path are removed before
+either process starts. Executed boundary tests show that host commands and code
+submitted through `run_simulation` cannot read an adjacent cell or the OpenRouter
+credential while all nine solver backends remain runnable.
+
+The source build is also data, not an assumption. Before a run, the runner
+refuses uncommitted changes in the agent-facing tree, creates a content-addressed
+`git archive` snapshot, verifies the extracted bytes, mounts it read-only into
+the MCP namespace, and records its commit and SHA-256 in every ledger. A
+model/phase/seed population lock refuses a second source hash, and a post-run
+integrity check marks the run `INVALID_INFRA` if the snapshot changed. Legacy
+ledgers without these fields are `LEGACY_UNPINNED`; mtimes are not treated as
+source provenance.
+
+These are OS namespace and provenance controls, not a claim that the host owner
+is cryptographically unable to interfere. A privileged host administrator can
+always change processes or mounts; the recorded hashes and post-run checks make
+such drift detectable within this campaign's threat model.
 
 ## 9. Every instance was solved before it was allowed near a paid run
 

@@ -11,6 +11,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 SANDBOX_ROOT = REPO / "eval_interactive"
 SESSION_DIR = REPO / "data" / "webui_sessions"
+SANDBOX_ROOT.mkdir(parents=True, exist_ok=True)
 SESSION_DIR.mkdir(parents=True, exist_ok=True)
 
 # Each entry: id used in the API → human label, serving endpoint port,

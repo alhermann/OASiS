@@ -23,17 +23,315 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tarfile
+import tempfile
 import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
+
+SOURCE_ARCHIVE_PATHS = (
+    "src",
+    "data",
+    "langgraph_eval/agent.py",
+    "campaign3_blind/host_hygiene.py",
+    "campaign3_blind/phase.py",
+    "campaign3_blind/run_blind.py",
+    "scripts/blind_keys.py",
+)
+
+
+class SourceBuildError(RuntimeError):
+    """The agent-facing build cannot be pinned reproducibly."""
+
+
+def prepare_source_snapshot(repo: Path, cache: Path) -> dict:
+    """Materialize and identify the committed agent-facing source build."""
+    repo = repo.resolve()
+    status = subprocess.run(
+        ["git", "status", "--porcelain=v1", "--untracked-files=all", "--",
+         *SOURCE_ARCHIVE_PATHS],
+        cwd=repo, capture_output=True, text=True)
+    if status.returncode != 0:
+        raise SourceBuildError(status.stderr.strip() or "git status failed")
+    if status.stdout.strip():
+        raise SourceBuildError(
+            "uncommitted agent-facing source would make the build mutable:\n"
+            + status.stdout.rstrip())
+
+    commit_result = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=repo,
+        capture_output=True, text=True)
+    if commit_result.returncode != 0:
+        raise SourceBuildError(
+            commit_result.stderr.strip() or "cannot resolve git HEAD")
+    commit = commit_result.stdout.strip()
+
+    cache.mkdir(parents=True, exist_ok=True)
+    archive_fd, archive_name = tempfile.mkstemp(
+        prefix=".source-", suffix=".tar", dir=cache)
+    os.close(archive_fd)
+    archive = Path(archive_name)
+    try:
+        with archive.open("wb") as stream:
+            made = subprocess.run(
+                ["git", "archive", "--format=tar", commit, "--",
+                 *SOURCE_ARCHIVE_PATHS],
+                cwd=repo, stdout=stream, stderr=subprocess.PIPE)
+        if made.returncode != 0:
+            raise SourceBuildError(
+                made.stderr.decode(errors="replace").strip()
+                or "git archive failed")
+        with archive.open("rb") as stream:
+            source_sha = hashlib.file_digest(stream, "sha256").hexdigest()
+        tree_sha = _tar_tree_sha256(archive)
+
+        target = cache / source_sha
+        manifest = target / "SOURCE_BUILD.json"
+        if not target.exists():
+            building = Path(tempfile.mkdtemp(prefix=".extract-", dir=cache))
+            try:
+                with tarfile.open(archive, "r") as packed:
+                    packed.extractall(building, filter="data")
+                (building / "SOURCE_BUILD.json").write_text(json.dumps({
+                    "git_commit": commit,
+                    "source_sha256": source_sha,
+                    "tree_sha256": tree_sha,
+                    "paths": list(SOURCE_ARCHIVE_PATHS),
+                }, indent=2) + "\n")
+                try:
+                    building.rename(target)
+                except FileExistsError:
+                    shutil.rmtree(building)
+            except Exception:
+                shutil.rmtree(building, ignore_errors=True)
+                raise
+
+        try:
+            recorded = json.loads(manifest.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            raise SourceBuildError(
+                f"source snapshot {target} has no valid manifest: {exc}") from exc
+        if (recorded.get("git_commit") != commit or
+                recorded.get("source_sha256") != source_sha or
+                recorded.get("tree_sha256") != tree_sha or
+                _tree_sha256(target, ignore={"SOURCE_BUILD.json"}) != tree_sha):
+            raise SourceBuildError(
+                f"source snapshot cache integrity failure at {target}")
+        return {
+            "git_commit": commit,
+            "source_sha256": source_sha,
+            "snapshot_path": str(target),
+        }
+    finally:
+        archive.unlink(missing_ok=True)
+
+
+def verify_source_snapshot(snapshot: Path) -> dict:
+    """Verify an extracted build still matches its recorded committed tree."""
+    manifest = snapshot / "SOURCE_BUILD.json"
+    try:
+        recorded = json.loads(manifest.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SourceBuildError(
+            f"source snapshot {snapshot} has no valid manifest: {exc}") from exc
+    actual = _tree_sha256(snapshot, ignore={"SOURCE_BUILD.json"})
+    if actual != recorded.get("tree_sha256"):
+        raise SourceBuildError(
+            f"source snapshot changed after creation: expected "
+            f"{recorded.get('tree_sha256')}, found {actual}")
+    return recorded
+
+
+def lock_population_source(lock_path: Path, source_build: dict) -> None:
+    """Bind one model/phase/seed population to exactly one source hash."""
+    import fcntl
+
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    guard = lock_path.with_suffix(lock_path.suffix + ".lock")
+    with guard.open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        expected = {
+            "source_git_commit": source_build["git_commit"],
+            "source_sha256": source_build["source_sha256"],
+            "dune_cache_sha256": source_build.get("dune_cache_sha256"),
+            "dune_runtime_fingerprint": source_build.get(
+                "dune_runtime_fingerprint"),
+            "problems_root": source_build.get("problems_root"),
+            "problems_sha256": source_build.get("problems_sha256"),
+        }
+        if lock_path.exists():
+            try:
+                recorded = json.loads(lock_path.read_text())
+            except (OSError, json.JSONDecodeError) as exc:
+                raise SourceBuildError(
+                    f"population build lock is unreadable: {lock_path}: "
+                    f"{exc}") from exc
+            if recorded != expected:
+                raise SourceBuildError(
+                    f"population is already locked to "
+                    f"{recorded.get('source_git_commit')} / "
+                    f"{recorded.get('source_sha256')}; current build is "
+                    f"{expected['source_git_commit']} / "
+                    f"{expected['source_sha256']}. Use a new seed or archive "
+                    f"and deliberately remove {lock_path.name}; never mix the "
+                    f"two builds in one population.")
+            return
+        tmp = lock_path.with_suffix(lock_path.suffix + ".tmp")
+        tmp.write_text(json.dumps(expected, indent=2) + "\n")
+        tmp.replace(lock_path)
+
+
+def acquire_cell_lock(run_dir: Path):
+    """Refuse a duplicate process for the same cell before files can collide."""
+    import fcntl
+
+    lock_dir = run_dir.parent / ".cell_locks"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    handle = (lock_dir / f"{run_dir.name}.lock").open("w")
+    try:
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError as exc:
+        handle.close()
+        raise SourceBuildError(
+            f"another process is already running {run_dir.name}") from exc
+    return handle
+
+
+def _tree_sha256(root: Path, ignore: set[str] | None = None) -> str:
+    """Hash paths, symlink targets, and file bytes in a directory tree."""
+    digest = hashlib.sha256()
+    for path in sorted(root.rglob("*"), key=lambda p: str(p.relative_to(root))):
+        relative_text = str(path.relative_to(root))
+        if relative_text in (ignore or set()):
+            continue
+        relative = relative_text.encode()
+        digest.update(len(relative).to_bytes(4, "big"))
+        digest.update(relative)
+        if path.is_symlink():
+            digest.update(b"L" + os.readlink(path).encode())
+        elif path.is_file():
+            digest.update(b"F")
+            with path.open("rb") as stream:
+                while chunk := stream.read(1024 * 1024):
+                    digest.update(chunk)
+        elif path.is_dir():
+            digest.update(b"D")
+    return digest.hexdigest()
+
+
+def _tar_tree_sha256(archive: Path) -> str:
+    """Hash archive members in the same form as their extracted tree."""
+    digest = hashlib.sha256()
+    with tarfile.open(archive, "r") as packed:
+        members = sorted(packed.getmembers(), key=lambda m: m.name.rstrip("/"))
+        for member in members:
+            relative = member.name.rstrip("/").encode()
+            digest.update(len(relative).to_bytes(4, "big"))
+            digest.update(relative)
+            if member.issym():
+                digest.update(b"L" + member.linkname.encode())
+            elif member.isfile():
+                digest.update(b"F")
+                stream = packed.extractfile(member)
+                if stream is None:
+                    raise SourceBuildError(
+                        f"cannot read {member.name} from source archive")
+                while chunk := stream.read(1024 * 1024):
+                    digest.update(chunk)
+            elif member.isdir():
+                digest.update(b"D")
+            else:
+                raise SourceBuildError(
+                    f"unsupported source archive member: {member.name}")
+    return digest.hexdigest()
+
+
+def verify_problem_draw(root: Path, expected_sha256: str | None) -> str:
+    """Return the draw hash or refuse when its public bytes have changed."""
+    actual = _tree_sha256(root.resolve())
+    if not expected_sha256 or actual != expected_sha256:
+        raise SourceBuildError(
+            "public problem draw changed after the population was locked: "
+            f"expected {expected_sha256}, found {actual}")
+    return actual
+
+
+def prepare_dune_cache_baseline(interpreter: Path, cache: Path) -> dict:
+    """Build one task-neutral DUNE JIT cache for private per-cell copies."""
+    import fcntl
+
+    probe = subprocess.run(
+        [str(interpreter), "-c",
+         "import importlib.metadata,sys; "
+         "print(sys.version); "
+         "print(importlib.metadata.version('dune-fem'))"],
+        capture_output=True, text=True)
+    if probe.returncode != 0:
+        raise SourceBuildError(
+            "cannot identify the DUNE runtime: " + probe.stderr[-500:])
+    fingerprint = hashlib.sha256(
+        (str(interpreter.resolve()) + "\n" + probe.stdout).encode()).hexdigest()
+    cache.mkdir(parents=True, exist_ok=True)
+    target = cache / fingerprint
+    manifest = cache / f"{fingerprint}.json"
+    lock_path = cache / f"{fingerprint}.lock"
+
+    with lock_path.open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if target.is_dir():
+            try:
+                recorded = json.loads(manifest.read_text())
+            except (OSError, json.JSONDecodeError):
+                recorded = {}
+            tree_sha = _tree_sha256(target)
+            if recorded.get("tree_sha256") == tree_sha:
+                return {"baseline_path": str(target),
+                        "dune_cache_sha256": tree_sha,
+                        "runtime_fingerprint": fingerprint}
+            shutil.rmtree(target)
+        manifest.unlink(missing_ok=True)
+
+        building = cache / f".build-{fingerprint}"
+        shutil.rmtree(building, ignore_errors=True)
+        building.mkdir()
+        env = os.environ.copy()
+        env["DUNE_PY_DIR"] = str(building)
+        try:
+            made = subprocess.run(
+                [str(interpreter), "-c",
+                 "from dune.grid import structuredGrid; "
+                 "grid=structuredGrid([0,0],[1,1],[2,2]); "
+                 "assert grid.size(0) == 4"],
+                env=env, capture_output=True, text=True, timeout=900)
+            if made.returncode != 0:
+                raise SourceBuildError(
+                    "neutral DUNE cache build failed: "
+                    + (made.stdout + made.stderr)[-1500:])
+            generated = building / "dune-py"
+            if not generated.is_dir():
+                raise SourceBuildError(
+                    f"DUNE created no cache under {building}")
+            generated.rename(target)
+            tree_sha = _tree_sha256(target)
+            manifest.write_text(json.dumps({
+                "runtime_fingerprint": fingerprint,
+                "tree_sha256": tree_sha,
+                "probe": "structuredGrid([0,0],[1,1],[2,2])",
+            }, indent=2) + "\n")
+            return {"baseline_path": str(target),
+                    "dune_cache_sha256": tree_sha,
+                    "runtime_fingerprint": fingerprint}
+        finally:
+            shutil.rmtree(building, ignore_errors=True)
 
 _envf = ROOT / ".env"
 if _envf.exists():
@@ -529,6 +827,11 @@ def preflight_or_die(problems: list) -> None:
 
     failures = []
 
+    if shutil.which("bwrap") is None:
+        failures.append(
+            "bubblewrap is unavailable, so shell and MCP solver processes "
+            "cannot be isolated from sibling runs")
+
     # A SEALED PRIMARY SAYS NOTHING ABOUT A COPY BESIDE IT.
     #
     # Measured: keys/ was d--------- while keys_backup_20260816/ next to it was
@@ -673,6 +976,17 @@ def run_one(pid: str, model: str, cond: str, seed: int, timeout_s: int) -> dict:
         print(f"[{pid} {model} {cond} s{seed}] SKIP: ledger exists", flush=True)
         return json.loads(ledger.read_text())
 
+    try:
+        cell_lock = acquire_cell_lock(run_dir)
+    except SourceBuildError as exc:
+        sys.exit(f"REFUSING DUPLICATE CELL: {exc}")
+
+    expected_problems = os.environ.get("OASIS_PROBLEMS_SHA256")
+    try:
+        verify_problem_draw(_problems_root(), expected_problems)
+    except SourceBuildError as exc:
+        sys.exit(f"REFUSING TO RUN — {exc}")
+
     work = run_dir / "work"
     work.mkdir(parents=True, exist_ok=True)
     # THE RUNNER MUST READ THE SAME PROBLEMS ROOT THE GRADER READS.
@@ -702,7 +1016,13 @@ def run_one(pid: str, model: str, cond: str, seed: int, timeout_s: int) -> dict:
     import hashlib as _hl
     _task_meta = {"problems_root": str(_problems_root()),
                   "task_path": str(_task_path),
-                  "task_sha256": _hl.sha256(task.encode()).hexdigest()}
+                  "task_sha256": _hl.sha256(task.encode()).hexdigest(),
+                  "source_git_commit": os.environ.get(
+                      "OASIS_SOURCE_GIT_COMMIT"),
+                  "source_sha256": os.environ.get("OASIS_SOURCE_SHA256"),
+                  "problems_sha256": expected_problems,
+                  "dune_cache_sha256": os.environ.get(
+                      "OASIS_DUNE_CACHE_SHA256")}
     # STATE THE BUDGET. Round 1: 13 of 14 coupled OASiS runs stopped
     # VOLUNTARILY at a mean of 37% of the wall budget (floor 11.8%, 24 calls,
     # zero solver runs), and 47 statements across those transcripts invoke
@@ -723,8 +1043,8 @@ def run_one(pid: str, model: str, cond: str, seed: int, timeout_s: int) -> dict:
 
     _USAGE_CB.usage_metadata.clear()
     _TRUNC_CB.hits = 0
-    ag = (build_bare_agent if cond == "BARE" else build_mcp_agent)(
-        size=model, seed=seed, workdir=work)
+    ag = (build_bare_agent(size=model, seed=seed, workdir=work)
+          if cond == "BARE" else None)
 
     # Hand the agent a clock. Both arms: _bash_tool_for is shared, and knowing
     # the time is not an OASiS capability. Two C9 runs threw away 59% of their
@@ -773,7 +1093,7 @@ def run_one(pid: str, model: str, cond: str, seed: int, timeout_s: int) -> dict:
         "stopped. If you have genuinely exhausted what you can do, write {f} "
         "containing COULD_NOT_COMPLETE and one line saying why.")
 
-    async def _invoke():
+    async def _drive(agent):
         nonlocal conts
         answer = work / "RESULT.txt"
         deadline = time.time() + timeout_s
@@ -783,8 +1103,9 @@ def run_one(pid: str, model: str, cond: str, seed: int, timeout_s: int) -> dict:
             if left <= 5:
                 raise asyncio.TimeoutError
             out = await asyncio.wait_for(
-                ag.ainvoke(state, config={"recursion_limit": RECURSION_LIMIT,
-                                          "callbacks": [live]}),
+                agent.ainvoke(
+                    state, config={"recursion_limit": RECURSION_LIMIT,
+                                   "callbacks": [live]}),
                 timeout=left)
             msgs = (out or {}).get("messages", []) if isinstance(out, dict) else []
             last = msgs[-1] if msgs else None
@@ -802,12 +1123,21 @@ def run_one(pid: str, model: str, cond: str, seed: int, timeout_s: int) -> dict:
                 ("user", _NUDGE.format(f="RESULT.txt",
                                        m=max(1, int((deadline - time.time()) // 60))))]}
 
+    async def _invoke():
+        if ag is not None:
+            return await _drive(ag)
+        async with build_mcp_agent(
+                size=model, seed=seed, workdir=work) as mcp_agent:
+            return await _drive(mcp_agent)
+
     try:
         final = asyncio.run(_invoke())
     except asyncio.TimeoutError:
         err = f"TimeoutError: exceeded {timeout_s}s"
     except Exception as e:
         err = f"{type(e).__name__}: {e}"
+    finally:
+        _agent.cleanup_sandbox_scratch(work)
 
     # A RUN THAT HIT THE STEP CAP IS NOT A RUN THAT FINISHED. LangGraph does
     # not raise here — it returns a normal state whose last message is
@@ -881,6 +1211,16 @@ def run_one(pid: str, model: str, cond: str, seed: int, timeout_s: int) -> dict:
         # so far: 1 occurrence in 109 runs, in the BARE arm, so no bias yet —
         # but it is worth counting per arm at every tier.
         rec["outcome"] = "CONTEXT_EXHAUSTED"
+    try:
+        verify_source_snapshot(Path(os.environ["OASIS_SOURCE_SNAPSHOT"]))
+    except (KeyError, SourceBuildError) as exc:
+        rec["outcome"] = "INVALID_INFRA"
+        rec["error"] = f"SourceSnapshotIntegrity: {exc}"
+    try:
+        verify_problem_draw(_problems_root(), expected_problems)
+    except SourceBuildError as exc:
+        rec["outcome"] = "INVALID_INFRA"
+        rec["error"] = f"ProblemDrawIntegrity: {exc}"
     rec.update(_task_meta)
     ledger.write_text(json.dumps(rec, indent=2))
     print(f"[{pid} {model} {cond} s{seed}] done  calls={n_calls} "
@@ -893,6 +1233,7 @@ def run_one(pid: str, model: str, cond: str, seed: int, timeout_s: int) -> dict:
         sys.exit(f"HALTING AFTER {run_dir.name}: the answer keys became "
                  f"readable during the run. Every later cell would be "
                  f"unarguably non-blind.")
+    cell_lock.close()
     return rec
 
 
@@ -911,6 +1252,18 @@ def main():
     ap.add_argument("--timeout", type=int, default=2700,
                     help="per-run wall-clock cap in seconds")
     a = ap.parse_args()
+
+    try:
+        source_build = prepare_source_snapshot(
+            REPO, HERE / ".source_snapshots")
+    except SourceBuildError as exc:
+        sys.exit(f"REFUSING TO RUN — source build is not immutable:\n{exc}")
+    os.environ["OASIS_SOURCE_SNAPSHOT"] = source_build["snapshot_path"]
+    os.environ["OASIS_SOURCE_GIT_COMMIT"] = source_build["git_commit"]
+    os.environ["OASIS_SOURCE_SHA256"] = source_build["source_sha256"]
+    sys.path.insert(0, str(Path(source_build["snapshot_path"]) / "src"))
+    print(f"[source build] {source_build['git_commit'][:12]} "
+          f"sha256={source_build['source_sha256'][:16]}... (immutable)")
 
     preflight_or_die(a.problems)
 
@@ -935,6 +1288,34 @@ def main():
     else:
         print("[phase: development] results are for post-mortems and "
               "convergence checking, NOT for the paper's evaluation table.")
+
+    try:
+        dune_build = prepare_dune_cache_baseline(
+            Path(_IMPORT_CHECKS["DUNE-fem"][0]),
+            HERE / ".source_snapshots" / "dune-cache")
+    except SourceBuildError as exc:
+        sys.exit(f"REFUSING TO RUN — DUNE cache baseline failed:\n{exc}")
+    os.environ["OASIS_DUNE_CACHE_BASELINE"] = dune_build["baseline_path"]
+    os.environ["OASIS_DUNE_CACHE_SHA256"] = dune_build["dune_cache_sha256"]
+    print(f"[DUNE cache] sha256="
+          f"{dune_build['dune_cache_sha256'][:16]}... "
+          f"(neutral, private copy per cell)")
+
+    population_build = dict(
+        source_build,
+        dune_cache_sha256=dune_build["dune_cache_sha256"],
+        dune_runtime_fingerprint=dune_build["runtime_fingerprint"],
+        problems_root=str(_problems_root().resolve()),
+        problems_sha256=_tree_sha256(_problems_root().resolve()),
+    )
+    os.environ["OASIS_PROBLEMS_SHA256"] = \
+        population_build["problems_sha256"]
+    population_lock = (HERE / "runs" /
+                       f".source_build_{a.phase}_{a.model}_seed{a.seed}.json")
+    try:
+        lock_population_source(population_lock, population_build)
+    except SourceBuildError as exc:
+        sys.exit(f"REFUSING TO RUN — mixed source population:\n{exc}")
 
     for pid in a.problems:
         for cond in a.conditions:

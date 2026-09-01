@@ -8,6 +8,8 @@ from .stokes import GENERATORS as _stokes_gen, KNOWLEDGE as _stokes_kn
 from .reaction_diffusion import GENERATORS as _rxn_gen, KNOWLEDGE as _rxn_kn
 from .nonlinear import GENERATORS as _nonlinear_gen, KNOWLEDGE as _nonlinear_kn
 from .dg_advection import GENERATORS as _dg_gen, KNOWLEDGE as _dg_kn
+from .dg_advection_diffusion import (
+    GENERATORS as _dg_diffusion_gen, KNOWLEDGE as _dg_diffusion_kn)
 from .adaptive_poisson import GENERATORS as _adaptive_gen, KNOWLEDGE as _adaptive_kn
 from .advanced import GENERATORS as _advanced_gen, KNOWLEDGE as _advanced_kn
 from .verified_api import EXECUTED_API as _executed_api
@@ -16,7 +18,7 @@ from .verified_api import EXECUTED_API as _executed_api
 GENERATORS: dict[str, callable] = {}
 for _g in [
     _poisson_gen, _poisson3d_gen, _heat_gen, _elast_gen, _stokes_gen,
-    _rxn_gen, _nonlinear_gen, _dg_gen, _adaptive_gen,
+    _rxn_gen, _nonlinear_gen, _dg_gen, _dg_diffusion_gen, _adaptive_gen,
     _advanced_gen,
 ]:
     GENERATORS.update(_g)
@@ -25,7 +27,7 @@ for _g in [
 KNOWLEDGE: dict[str, dict] = {}
 for _k in [
     _poisson_kn, _poisson3d_kn, _heat_kn, _elast_kn, _stokes_kn,
-    _rxn_kn, _nonlinear_kn, _dg_kn, _adaptive_kn,
+    _rxn_kn, _nonlinear_kn, _dg_kn, _dg_diffusion_kn, _adaptive_kn,
     _advanced_kn,
 ]:
     KNOWLEDGE.update(_k)
@@ -175,7 +177,7 @@ gridView.writeVTK("result", pointdata={"u": uh})
             "knowledge(topic='physics', solver='dune', physics=X) "
             "returns a COMPLETE runnable script plus the pitfalls for "
             "that physics. X is one of: adaptive_poisson, dg_advection, "
-            "eigenvalue, heat, helmholtz, hyperelasticity, "
+            "dg_advection_diffusion, eigenvalue, heat, helmholtz, hyperelasticity, "
             "linear_elasticity, maxwell, mixed_methods, navier_stokes, "
             "nonlinear, poisson, poisson_mms, reaction_diffusion, "
             "stokes, time_dependent_heat. "
@@ -307,9 +309,9 @@ gridView.writeVTK("result", pointdata={"u": uh})
             "DG spaces (dglagrange, dglegendre, dgonb, and the hp "
             "variants) and interior-facet integrals (dS) in the "
             "ORDINARY galerkin scheme. That is enough for SIPG, upwind "
-            "advection and LDG written by hand — see "
+            "advection and LDG written by hand — for SIPG with advection see "
             "knowledge(topic='physics', solver='dune', "
-            "physics='dg_advection') for a complete working one."),
+            "physics='dg_advection_diffusion') for a complete working one."),
         "what_is_NOT_here": (
             "dune-fem-dg. FALSIFIED 2026-08-03: 'import dune.femdg' "
             "and 'import dune.fem.dg' both raise ModuleNotFoundError "

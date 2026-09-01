@@ -44,7 +44,7 @@ def test_consistent_submission_gets_clean_note(tmp_path):
         # contract check correctly reports "NO `NDOF = <integer>` LINE", and
         # the fixture was asserting "clean" on a submission that was not.
         (tmp_path / f"run_level{lvl}.log").write_text(
-            f"NDOF = {9 * 4 ** lvl}\n")
+                f"NDOF = {4 * 4 ** (lvl - 1)}\n")
     out = _write(_read_write_tools_for(tmp_path, audit_on_submit=True),
                  "RESULT.txt", "LEVELS = 3\nORDER = 2.0\n")
     assert "auto-audit: clean" in out or "AUTO-AUDIT" not in out, out[:400]

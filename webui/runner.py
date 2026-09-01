@@ -25,6 +25,7 @@ import sys
 import time
 import traceback
 import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, AsyncIterator, Awaitable, Callable
 
@@ -163,7 +164,8 @@ def build_agent_for_session(*, model: str, mcp_on: bool,
                             workdir: Path,
                             emitter,
                             get_mode,
-                            gate: ApprovalGate):
+                            gate: ApprovalGate,
+                            _mcp_tools=None):
     """Build a LangGraph ReAct agent with all WebUI hooks wired in.
 
     * ``model`` is a key from ``config.MODELS``. ``mock`` skips vLLM.
@@ -196,24 +198,13 @@ def build_agent_for_session(*, model: str, mcp_on: bool,
             disable_streaming=True,
         )
 
-    # ── OASiS MCP tools (optional).
-    # ``_load_oasis_mcp_tools`` does ``asyncio.run()`` internally, so we
-    # cannot call it from a running event loop. The WebUI is normally
-    # invoked from inside the WebSocket handler's loop; offload to a
-    # worker thread which gets its own loop.
-    mcp_tools = []
-    if mcp_on:
-        try:
-            running = asyncio.get_running_loop()
-        except RuntimeError:
-            running = None
-        if running:
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-                mcp_tools = ex.submit(la._load_oasis_mcp_tools).result(
-                    timeout=120)
-        else:
-            mcp_tools = la._load_oasis_mcp_tools()
+    # Stateful MCP tools must be supplied by open_agent_for_session(), whose
+    # context stays alive until the WebSocket session closes.
+    if mcp_on and _mcp_tools is None:
+        raise RuntimeError(
+            "MCP-enabled WebUI agents must be built with "
+            "open_agent_for_session() so server state persists across calls")
+    mcp_tools = list(_mcp_tools or [])
 
     # ── Host tools (bash/read/write/web_search/spawn_subagent)
     host = []
@@ -299,6 +290,23 @@ def build_agent_for_session(*, model: str, mcp_on: bool,
     # bug to paper over.
     prompt = (la.MCP_SYSTEM if mcp_on else la.BARE_SYSTEM)
     return create_react_agent(llm, tools=gated, prompt=prompt)
+
+
+@asynccontextmanager
+async def open_agent_for_session(**kwargs):
+    """Yield one WebUI agent and keep its MCP process alive across turns."""
+    import agent as la
+
+    workdir = kwargs["workdir"]
+    try:
+        if kwargs.get("mcp_on"):
+            async with la.oasis_mcp_tools_session(workdir) as mcp_tools:
+                yield build_agent_for_session(
+                    **kwargs, _mcp_tools=mcp_tools)
+        else:
+            yield build_agent_for_session(**kwargs)
+    finally:
+        la.cleanup_sandbox_scratch(workdir)
 
 
 # ───────────────────────────────────────────────────────────────────

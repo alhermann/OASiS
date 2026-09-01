@@ -7014,12 +7014,19 @@ _FENICS_KNOWLEDGE = {'element_catalog': {'description': 'Complete catalog of fin
                                                      'incompressible elasticity (nu -> '
                                                      '0.5) to avoid volumetric '
                                                      'locking.',
-                                      'weak_form': '2*mu*inner(eps_dev(u),eps(v))*dx + '
-                                                   'p*div(v)*dx + (div(u) - '
-                                                   'p/kappa)*q*dx = dot(f,v)*dx',
-                                      'function_space': 'Mixed: Vector Lagrange for '
-                                                        'displacement + DG(k-1) for '
-                                                        'pressure',
+                                      'weak_form': 'For p = -lambda*div(u), use the '
+                                                   'symmetric form '
+                                                   '2*mu*inner(eps(u),eps(v))*dx - '
+                                                   'p*div(v)*dx - q*div(u)*dx - '
+                                                   '(1/lambda)*p*q*dx = dot(f,v)*dx. '
+                                                   'Multiplying the entire pressure '
+                                                   'constraint row by -1 changes no '
+                                                   'solution; changing only one sign '
+                                                   'changes the PDE.',
+                                      'function_space': 'Taylor-Hood mixed element: '
+                                                        'continuous vector Lagrange P2 '
+                                                        'for displacement + continuous '
+                                                        'scalar Lagrange P1 for pressure',
                                       'approach': {'displacement_pressure': 'u-p '
                                                                             'formulation: '
                                                                             'displacement '
@@ -7035,10 +7042,27 @@ _FENICS_KNOWLEDGE = {'element_catalog': {'description': 'Complete catalog of fin
                                                                   'pressure + '
                                                                   'dilatation (for '
                                                                   'Neo-Hookean)'},
-                                      'solver': 'MinRes or GMRES with block '
-                                                'preconditioner (saddle-point '
-                                                'structure)',
-                                      'pitfalls': ['[Numerical] Low-order displacement '
+                                      'solver': 'Direct MUMPS for moderate problems; '
+                                                'MINRES or GMRES with a block '
+                                                'preconditioner at scale '
+                                                '(saddle-point structure)',
+                                      'pitfalls': ['[API] A Dirichlet condition on the '
+                                                   'displacement leg of a mixed space '
+                                                   'must retain the map to the PARENT '
+                                                   'space. Use W0 = W.sub(0); V0, _ = '
+                                                   'W0.collapse(); then '
+                                                   'locate_dofs_topological((W0, V0), '
+                                                   'fdim, facets) and '
+                                                   'dirichletbc(u0, dofs, W0). Locating '
+                                                   'dofs on V0 alone and passing a V0 '
+                                                   'BC into a problem assembled on W '
+                                                   'does not constrain the intended '
+                                                   'parent unknowns. Signal: a fully '
+                                                   'clamped problem solves to '
+                                                   'displacements of order 1e12-1e13 '
+                                                   'and changes wildly under refinement '
+                                                   'although the load is bounded.',
+                                                   '[Numerical] Low-order displacement '
                                                    'formulations LOCK as nu -> 0.5 — a '
                                                    'mixed (u, p) method is the robust '
                                                    'fix. Signal: [MEASURED 2026-08-03, '

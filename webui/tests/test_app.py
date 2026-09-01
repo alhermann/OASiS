@@ -114,9 +114,10 @@ def test_session_lifecycle(client):
 # ───────────────────────────────────────────────────────────────────
 import asyncio
 import tempfile
+from contextlib import asynccontextmanager
 
 from webui.runner import (ApprovalGate, build_agent_for_session,
-                          stream_turn)
+                          open_agent_for_session, stream_turn)
 
 
 def _run_turn(*, mode, prompt, approve_first=False):
@@ -174,3 +175,66 @@ def test_runner_mock_plan_mode_pending_then_approve():
     # turn must have terminated (done).
     assert any(e["type"] == "tool_result" for e in events)
     assert "done" in seen, f"missing done in {set(seen)}"
+
+
+def test_webui_keeps_mcp_context_open_for_agent_lifetime(monkeypatch):
+    import agent as langgraph_agent
+
+    lifecycle = []
+
+    @asynccontextmanager
+    async def fake_mcp_session(_workdir):
+        lifecycle.append("opened")
+        try:
+            yield []
+        finally:
+            lifecycle.append("closed")
+
+    monkeypatch.setattr(
+        langgraph_agent, "oasis_mcp_tools_session", fake_mcp_session)
+
+    async def main():
+        async def emitter(_event):
+            return None
+
+        with tempfile.TemporaryDirectory() as directory:
+            async with open_agent_for_session(
+                    model="mock", mcp_on=True, workdir=Path(directory),
+                    emitter=emitter, get_mode=lambda: "accept",
+                    gate=ApprovalGate()) as built:
+                assert built is not None
+                assert lifecycle == ["opened"]
+            assert lifecycle == ["opened", "closed"]
+
+    asyncio.run(main())
+
+
+def test_webui_cancels_active_turn_before_closing_agent():
+    from webui.app import WSSession
+
+    lifecycle = []
+
+    class Context:
+        async def __aexit__(self, *_args):
+            lifecycle.append("context-closed")
+
+    async def main():
+        session = object.__new__(WSSession)
+        session.agent = object()
+        session.agent_context = Context()
+
+        async def turn():
+            try:
+                await asyncio.Event().wait()
+            finally:
+                lifecycle.append("turn-stopped")
+
+        session.turn_task = asyncio.create_task(turn())
+        await asyncio.sleep(0)
+        await session.close_agent()
+        assert session.turn_task is None
+        assert session.agent is None
+        assert session.agent_context is None
+
+    asyncio.run(main())
+    assert lifecycle == ["turn-stopped", "context-closed"]

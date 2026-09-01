@@ -23,6 +23,7 @@ outbound event types and :func:`_handle_inbound` for the inbound set.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 from pathlib import Path
@@ -34,7 +35,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import config, files, sessions, viz
 from .runner import (ApprovalGate, _session_workdir,
-                     build_agent_for_session, stream_turn)
+                     open_agent_for_session, stream_turn)
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -184,6 +185,7 @@ class WSSession:
         self.state = sessions.load(sid)
         self.gate = ApprovalGate()
         self.agent = None
+        self.agent_context = None
         self.workdir = _session_workdir(sid)
         # The active agent turn runs as a background task so we can keep
         # processing approve/reject messages from the WS while the gated
@@ -210,9 +212,9 @@ class WSSession:
         except Exception:
             pass
 
-    def ensure_agent(self):
+    async def ensure_agent(self):
         if self.agent is None:
-            self.agent = build_agent_for_session(
+            self.agent_context = open_agent_for_session(
                 model=self.state.get("model", config.DEFAULT_MODEL),
                 mcp_on="oasis" in self.state.get("mcp_servers", []),
                 workdir=self.workdir,
@@ -220,7 +222,20 @@ class WSSession:
                 get_mode=self.mode,
                 gate=self.gate,
             )
+            self.agent = await self.agent_context.__aenter__()
         return self.agent
+
+    async def close_agent(self):
+        turn, self.turn_task = self.turn_task, None
+        if (turn is not None and not turn.done()
+                and turn is not asyncio.current_task()):
+            turn.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await turn
+        context, self.agent_context = self.agent_context, None
+        self.agent = None
+        if context is not None:
+            await context.__aexit__(None, None, None)
 
 
 @app.websocket("/ws/{sid}")
@@ -259,6 +274,10 @@ async def ws_endpoint(ws: WebSocket, sid: str):
             pass
     finally:
         try:
+            await ses.close_agent()
+        except Exception:
+            log.exception("could not close agent session")
+        try:
             sessions.save(ses.state)
         except Exception:
             pass
@@ -277,7 +296,7 @@ async def _handle_inbound(ses: WSSession, msg: dict):
                             "message": "previous turn is still running"})
             return
         await ses.emit({"type": "user_msg", "text": text})
-        ses.ensure_agent()
+        await ses.ensure_agent()
 
         async def _run():
             try:
@@ -285,7 +304,8 @@ async def _handle_inbound(ses: WSSession, msg: dict):
                                   emitter=ses.emit)
             except Exception:
                 pass
-            sessions.save(ses.state)
+            finally:
+                sessions.save(ses.state)
 
         ses.turn_task = asyncio.create_task(_run())
     elif t == "approve":
@@ -299,13 +319,13 @@ async def _handle_inbound(ses: WSSession, msg: dict):
                         "message": f"mode → {ses.state['mode']}"})
     elif t == "set_model":
         ses.state["model"] = msg["model"]
-        ses.agent = None
+        await ses.close_agent()
         sessions.save(ses.state)
         await ses.emit({"type": "status",
                         "message": f"model → {ses.state['model']}"})
     elif t == "set_mcp":
         ses.state["mcp_servers"] = msg.get("servers", [])
-        ses.agent = None
+        await ses.close_agent()
         sessions.save(ses.state)
         await ses.emit({"type": "status",
                         "message": "MCP servers updated; agent will "
@@ -314,7 +334,7 @@ async def _handle_inbound(ses: WSSession, msg: dict):
         ses.state["events"] = []
         ses.state["tokens_in"] = 0
         ses.state["tokens_out"] = 0
-        ses.agent = None
+        await ses.close_agent()
         sessions.save(ses.state)
         await ses.emit({"type": "status", "message": "session restarted"})
     else:

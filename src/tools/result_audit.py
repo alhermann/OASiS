@@ -450,7 +450,7 @@ def contract_findings(work: Path) -> list[dict]:
         if m:
             levels.add(int(m.group(1)))
     if levels:
-        ndof_re = re.compile(r"^\s*NDOF\s*=\s*\d{2,}\s*$", re.M)
+        ndof_re = re.compile(r"^\s*NDOF\s*=\s*\d+\s*$", re.M)
         missing = []
         for k in sorted(levels):
             logs = list(work.rglob(f"run_level{k}*.log"))

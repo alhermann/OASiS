@@ -156,14 +156,22 @@ def run_scenario(sid: str, seed: int) -> dict:
     res = work / "result.txt"
     prompt = spec["prompt"].replace("{OUT}", str(res))
 
-    ag = build_mcp_agent(size="27b", seed=seed, workdir=work)
     t0 = time.time()
     err, final = None, None
     try:
-        final = asyncio.run(ag.ainvoke({"messages": [("user", prompt)]},
-                                       config={"recursion_limit": 200}))
+        async def invoke():
+            async with build_mcp_agent(
+                    size="27b", seed=seed, workdir=work) as agent:
+                return await agent.ainvoke(
+                    {"messages": [("user", prompt)]},
+                    config={"recursion_limit": 200})
+
+        final = asyncio.run(invoke())
     except Exception as e:
         err = f"{type(e).__name__}: {e}"
+    finally:
+        import agent as agent_module
+        agent_module.cleanup_sandbox_scratch(work)
 
     # transcript + tool-call ledger (mirrors run_single.py conventions)
     lines, tool_calls, mi_calls = [], [], []

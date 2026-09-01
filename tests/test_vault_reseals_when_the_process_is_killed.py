@@ -12,12 +12,9 @@ the finally block never ran, and the vault was found drwxr-xr-x. Nothing could
 read it (the round had finished; no agent process existed) but the custody
 claim was false for about two minutes, and nothing announced it.
 
-This test does not read the code. It starts a real process that unseals a
-throwaway vault, kills it the way the harness did, and looks at the
-directory's mode afterwards.
-
-The real vault is never touched: everything happens under tmp_path with its
-own shield_keys.sh.
+This test starts a real process that uses the repository shield against a
+throwaway vault, kills it the way the harness did, and looks at the directory's
+mode afterwards. The real vault is never touched.
 """
 
 from __future__ import annotations
@@ -35,17 +32,6 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[1]
 GRADE_ROUND = REPO / "campaign3_blind" / "grade_round.py"
-
-SHIELD = """#!/bin/bash
-# throwaway stand-in for the campaign's shield_keys.sh
-set -u
-d="$(dirname "$0")/keys"
-case "$1" in
-  seal)   chmod 000 "$d"; echo "SEALED $(stat -c %A "$d")" ;;
-  unseal) chmod 755 "$d"; echo "UNSEALED $(stat -c %A "$d")" ;;
-  *) echo "unknown action $1" >&2; exit 2 ;;
-esac
-"""
 
 VICTIM = """
 import os, sys, time
@@ -67,9 +53,6 @@ def vault(tmp_path):
     keys.mkdir()
     (keys / "T1").mkdir()
     (keys / "T1" / "key.json").write_text("{}")
-    sh = tmp_path / "shield_keys.sh"
-    sh.write_text(SHIELD)
-    sh.chmod(0o755)
     keys.chmod(0o000)
     yield keys
     # pytest cannot remove a chmod-000 directory; leave the tree deletable
@@ -97,7 +80,7 @@ def _start_victim(vault: Path) -> subprocess.Popen:
 def test_the_vault_is_sealed_again_after_a_kill(vault, sig):
     """The case the finally block could not reach."""
     p = _start_victim(vault)
-    assert _mode(vault) == "drwxr-xr-x", "the victim did not actually unseal"
+    assert _mode(vault) == "drwx------", "the victim did not actually unseal"
     p.send_signal(sig)
     p.wait(timeout=30)
     assert _mode(vault) == "d---------", (

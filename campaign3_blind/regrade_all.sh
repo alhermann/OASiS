@@ -48,7 +48,10 @@ LOG=campaign3_blind/regrade_2026_09_01.log
 
 # Every seed carrying a full or near-full matrix. Singleton seeds are scatter
 # re-runs of one cell and are graded with the round that owns them.
-SEEDS="2 3 4 5 6 7 8 9 10 11 14 15 34 35 40 43 50 60 96 97"
+# Round 9 (96/97) is deliberately absent: its launcher was stopped after live
+# source edits mixed builds, and those legacy ledgers predate per-run source
+# hashes. It is diagnostic material, not a quotable population.
+SEEDS="2 3 4 5 6 7 8 9 10 11 14 15 34 35 40 43 50 60"
 
 exec 9>/tmp/oasis_regrade.lock
 flock -n 9 || { echo "REFUSING: another regrade holds the lock" >&2; exit 1; }
@@ -90,9 +93,9 @@ unset PHRASE
 
 state=$(stat -c %A "$OASIS_BLIND_KEYS")
 echo ">>> keys after: $state" | tee -a "$LOG"
-if [ "$state" != "d---------" ]; then
-  chmod 000 "$OASIS_BLIND_KEYS"
-  echo ">>> RESEALED BY THE WRAPPER — the grader should have done this" | tee -a "$LOG"
+if ! bash campaign3_blind/shield_keys.sh status >> "$LOG" 2>&1; then
+  bash campaign3_blind/shield_keys.sh seal | tee -a "$LOG"
+  echo ">>> RESEALED ALL KEY STORES BY THE WRAPPER — the grader should have done this" | tee -a "$LOG"
 fi
 echo ">>> regrade done rc=$rc $(date '+%F %T')" | tee -a "$LOG"
 exit "$rc"

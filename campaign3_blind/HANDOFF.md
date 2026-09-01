@@ -5,10 +5,66 @@
 > contains internal status and unpublished numbers. It carries **no secrets** —
 > credentials are named by location only (§2) — but it is not for publication.
 
-Written 2026-09-01 against branch `consolidation/v2`, HEAD `7e15a627`.
+Written 2026-09-01 against branch `consolidation/v2`; the late addendum below
+records the tested development patch committed alongside it.
 Every number was checked against the tree that day. Where something could not
 be re-measured it says so. **If the tree contradicts this file, the tree wins:
 fix the file and record what changed.**
+
+---
+
+## Late addendum: round 9 and root-cause repair
+
+Round 9 is diagnostic material, not a population. Claude committed agent-facing
+source while it was running; all seed-96 ledgers predate per-run source hashes.
+The parent launcher has been terminated after its children exited, no
+`run_blind.py` process remains, and all three live key stores are sealed. Do not
+resume the launcher or include seeds 96/97 in a quotable regrade.
+
+Measured causes of low performance:
+
+- Every MCP call spawned a new OASiS process. Critic reviews and every other
+  in-memory gate vanished before the next call. One persistent stdio session now
+  spans the complete campaign, validation, or WebUI agent lifetime.
+- Host `read_file`, shell commands, and MCP-launched code could read sibling
+  runs and shared `/tmp`. Round-96 C4 demonstrably copied prior participant
+  scripts from `/tmp` and then ran FEniCS on both prescribed-code sides. Both
+  execution routes now share a fail-closed bubblewrap namespace with private
+  scratch, masked home/proc, scrubbed credentials, and explicit read-only solver
+  runtimes.
+- The runner used live source and inferred build drift from ledger mtimes. It
+  now mounts a verified content-addressed committed snapshot, records its hash,
+  locks each model/phase/seed population to one hash, and checks it again after
+  the run. Old ledgers are `LEGACY_UNPINNED`, not guessed into a build.
+- The live MCP surface exposed all 21 registered tools, including deprecated and
+  environment-mutating entries. The campaign contract is now an explicit 16-tool
+  allowlist and fails if one is missing.
+- Natural method-qualified requests were routed to plausible but wrong generic
+  templates: DUNE SIPG advection-diffusion to reaction-diffusion, and 4C
+  Crank-Nicolson heat to generic heat. Both routes are fixed; DUNE now has a real
+  runtime-verified steady SIPG capability rather than a renamed pure-advection
+  template.
+- All 18 observed FE2 MCP runs asked for generic `linear_elasticity`, never the
+  existing mixed recipe. Its canonical knowledge was also stale and contradicted
+  its generator. The prompt now preserves method qualifiers, and the live
+  Taylor-Hood recipe states the correct pressure convention and mixed-subspace
+  boundary mapping seen to fail in seed 96.
+- In 136 historical grade-1 MCP coupled runs, 71 wrote participant
+  `exports.json`, but only 19 completed the full solution/interface/residual/log
+  contract. The driver discarded native participant stdout/stderr; it now
+  persists bounded `participant_output.log` files and returns their paths.
+
+Claude's focused repairs were checked independently: 10/10 flux-from-field
+tests, 5/5 PDE-scope tests, and 17/17 knowledge-rule propagation tests pass. The
+flux diagnostic is correctly non-gating and currently adds diagnosis rather
+than a headline detection count.
+
+No current-build success rate is available yet. The existing grade JSONs were
+regenerated while grading logic was changing and round 9 is unpinned. Commit the
+tested patch, run a small non-blind path check through the namespace, then use a
+new seed for the next paid development probe. Regrade only after confirming no
+agent process exists; the vault passphrase never belongs in argv, a file, or an
+environment variable.
 
 ---
 

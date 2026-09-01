@@ -329,6 +329,14 @@ class DuneBackend(SolverBackend):
                 template_variants=["2d"],
             ),
             PhysicsCapability(
+                name="dg_advection_diffusion",
+                description=("Steady advection-diffusion with upwind flux and "
+                             "SIPG diffusion on triangles"),
+                spatial_dims=[2],
+                element_types=["DG-Lagrange-P1", "DG-Lagrange-P2"],
+                template_variants=["2d"],
+            ),
+            PhysicsCapability(
                 name="adaptive_poisson",
                 description="h-adaptive Poisson with residual error estimator",
                 spatial_dims=[2],

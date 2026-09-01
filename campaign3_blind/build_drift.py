@@ -11,21 +11,23 @@ That makes the round's OASiS number a MIXTURE of two builds. The bare arm is
 unaffected — it calls no OASiS tool — so the damage is one-sided, which is the
 worse kind: it moves the uplift without moving the control.
 
-The rule this exists to enforce is simple and was broken by inattention, not by
-disagreement: **do not commit to src/ while a round is in flight.** When it
-happens anyway, the drift must be COUNTABLE rather than invisible, in the same
-spirit as `per_code_attribution: UNPROVEN` — a number you can see and correct is
-worth more than a caveat in prose.
+Current ledgers carry the SHA-256 of the immutable source snapshot actually
+mounted into the run. This script groups on that field. Older ledgers carry no
+such proof and are reported as ``LEGACY_UNPINNED``; their build is never guessed
+from a file mtime. A timestamp says when a ledger was written, not which bytes a
+long-lived process imported.
 
     python build_drift.py 96 97
 
-prints, per seed, which runs predate the newest agent-facing commit and are
-therefore due a re-run before the round's OASiS figure is quoted.
+prints, per seed, the exact build groups and any runs whose provenance cannot be
+established.
 """
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
+from collections import defaultdict
 from pathlib import Path
 
 D = Path(__file__).resolve().parent
@@ -34,7 +36,15 @@ REPO = D.parent
 # What an AGENT is actually served. `campaign3_blind/grading/` and the reading
 # tools are excluded on purpose: the grader runs offline, after the fact, so
 # changing it does not change what any run received.
-AGENT_FACING = ["src/tools", "src/backends", "src/core", "langgraph_eval"]
+AGENT_FACING = [
+    "src",
+    "data",
+    "langgraph_eval/agent.py",
+    "campaign3_blind/host_hygiene.py",
+    "campaign3_blind/phase.py",
+    "campaign3_blind/run_blind.py",
+    "scripts/blind_keys.py",
+]
 
 
 def newest_agent_facing_commit() -> tuple[int, str]:
@@ -46,39 +56,59 @@ def newest_agent_facing_commit() -> tuple[int, str]:
 
 
 def main(seeds) -> int:
-    cut, desc = newest_agent_facing_commit()
-    import datetime as _dt
-    print(f"newest agent-facing commit: {desc}")
-    print(f"                            "
-          f"{_dt.datetime.fromtimestamp(cut):%Y-%m-%d %H:%M:%S}\n")
-    total_stale = 0
+    _cut, desc = newest_agent_facing_commit()
+    print(f"current agent-facing commit: {desc}\n")
+    all_builds = defaultdict(list)
+    total_unpinned = 0
     for seed in seeds:
-        stale, fresh, unfinished = [], [], 0
+        builds = defaultdict(list)
+        unpinned, unfinished = [], []
         for d in sorted((D / "runs").glob(f"*_seed{seed}")):
             led = d / "ledger.json"
             if not led.is_file():
-                unfinished += 1
+                unfinished.append(d.name)
                 continue
-            (stale if led.stat().st_mtime < cut else fresh).append(d.name)
-        mcp_stale = [n for n in stale if "_MCP_" in n]
-        print(f"seed {seed}: {len(fresh)} on the current build, "
-              f"{len(stale)} on an earlier one, {unfinished} unfinished")
-        if mcp_stale:
-            total_stale += len(mcp_stale)
-            print(f"   OASiS-arm runs to re-run before quoting this round "
-                  f"({len(mcp_stale)}):")
-            for n in mcp_stale:
-                print(f"     {n}")
-        bare_stale = len(stale) - len(mcp_stale)
-        if bare_stale:
-            print(f"   {bare_stale} bare-arm run(s) also predate it; those need "
-                  f"no re-run, the bare arm calls no OASiS tool")
-    if total_stale:
-        print(f"\n{total_stale} OASiS-arm run(s) were served a different build "
-              f"from the rest of the round. Re-run exactly those, then the "
-              f"round is a single-build measurement again.")
+            try:
+                record = json.loads(led.read_text())
+            except (OSError, json.JSONDecodeError):
+                unpinned.append(d.name + " (invalid ledger)")
+                continue
+            source_sha = record.get("source_sha256")
+            commit = record.get("source_git_commit")
+            if not source_sha:
+                unpinned.append(d.name)
+                continue
+            label = f"{source_sha[:16]} ({str(commit)[:12] or 'no commit'})"
+            builds[label].append(d.name)
+            all_builds[label].append(d.name)
+        total_unpinned += len(unpinned)
+        print(f"seed {seed}: {sum(map(len, builds.values()))} pinned, "
+              f"{len(unpinned)} LEGACY_UNPINNED, {len(unfinished)} unfinished")
+        for label, names in sorted(builds.items()):
+            print(f"   build {label}: {len(names)} run(s)")
+        if unpinned:
+            print("   no source hash; provenance cannot be reconstructed:")
+            for name in unpinned:
+                print(f"     {name}")
+        if unfinished:
+            print("   unfinished:")
+            for name in unfinished:
+                print(f"     {name}")
+
+    if total_unpinned:
+        print(f"\n{total_unpinned} completed run(s) predate source hashing. "
+              "Their build cannot be proven from mtimes; do not quote them as "
+              "a single-build round.")
+    if len(all_builds) > 1:
+        print(f"\nMIXED BUILD: {len(all_builds)} source hashes occur across "
+              "the selected seeds. Re-run until one hash remains.")
+        return 1
+    if total_unpinned:
+        return 1
+    if all_builds:
+        print("\nno drift: every completed run carries the same source hash")
     else:
-        print("\nno drift: every run in these seeds saw the current build")
+        print("\nno completed pinned runs found")
     return 0
 
 

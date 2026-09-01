@@ -93,6 +93,7 @@ from core.field_transfer import InterfaceData
 # into a count. An unbounded list turned a single NaN into ~80 near-identical
 # lines, which buries every other finding in the validation block.
 _MAX_NONFINITE_WARNINGS = 4
+_MAX_PARTICIPANT_STREAM_BYTES = 3_500_000
 
 
 @dataclass
@@ -216,6 +217,35 @@ def _aitken(prev_relaxed, new_raw, res_prev, theta_prev, lo=0.05, hi=1.0):
 
 def _digest(text: str) -> str:
     return hashlib.sha1(text.encode("utf-8", "replace")).hexdigest()
+
+
+def _bounded_stream(text: str) -> str:
+    """Keep both ends of large solver output below the grader's 8 MB cap."""
+    raw = (text or "").encode("utf-8", errors="replace")
+    if len(raw) <= _MAX_PARTICIPANT_STREAM_BYTES:
+        return raw.decode("utf-8", errors="replace")
+    half = _MAX_PARTICIPANT_STREAM_BYTES // 2
+    omitted = len(raw) - 2 * half
+    return (raw[:half].decode("utf-8", errors="replace")
+            + f"\n[... {omitted} bytes omitted ...]\n"
+            + raw[-half:].decode("utf-8", errors="replace"))
+
+
+def _persist_participant_output(p: Participant, result, iteration: int) -> None:
+    """Atomically retain the latest native process output for attribution."""
+    log = p.work_dir / "participant_output.log"
+    tmp = p.work_dir / ".participant_output.log.tmp"
+    payload = (
+        f"iteration: {iteration}\n"
+        f"command: {json.dumps(p.command)}\n"
+        f"returncode: {result.returncode}\n"
+        "--- stdout ---\n"
+        f"{_bounded_stream(result.stdout)}\n"
+        "--- stderr ---\n"
+        f"{_bounded_stream(result.stderr)}\n"
+    )
+    tmp.write_text(payload, encoding="utf-8", errors="replace")
+    tmp.replace(log)
 
 
 def _rel_change(new: np.ndarray, prev: np.ndarray) -> float:
@@ -599,6 +629,7 @@ def run_coupling(participants: list[Participant], max_iter: int = 50,
                 return _finish(converged=False, iterations=it, residual=float("nan"),
                                exports={}, history=history,
                                error=f"participant {p.name} could not be launched: {e}")
+            _persist_participant_output(p, r, it)
             returncodes[p.name] = int(r.returncode)
             if not ep.exists():
                 return _finish(converged=False, iterations=it, residual=float("nan"),

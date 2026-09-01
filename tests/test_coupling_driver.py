@@ -77,6 +77,30 @@ def test_missing_exports_is_failure(tmp_path):
     assert "exports.json" in (r.error or "")
 
 
+def test_participant_output_is_persisted_as_execution_evidence(tmp_path):
+    a = _write_participant(tmp_path, "A", (
+        'import json, sys\n'
+        'print("NATIVE_STDOUT_SIGNATURE = 17")\n'
+        'print("NATIVE_STDERR_SIGNATURE = 23", file=sys.stderr)\n'
+        'json.dump({"field_name":"x","coordinates":[[0.0]],'
+        '"values":[1.0]},open("exports.json","w"))\n'))
+    b = _write_participant(tmp_path, "B", (
+        'import json\n'
+        'json.dump({"field_name":"y","coordinates":[[0.0]],'
+        '"values":[1.0]},open("exports.json","w"))\n'))
+    result = run_coupling([
+        Participant("A", [sys.executable, "run.py"], a, imports_from=["B"]),
+        Participant("B", [sys.executable, "run.py"], b, imports_from=["A"]),
+    ], max_iter=4, tol=1e-9, probe=False)
+
+    assert result.converged
+    log = (a / "participant_output.log").read_text()
+    assert "NATIVE_STDOUT_SIGNATURE = 17" in log
+    assert "NATIVE_STDERR_SIGNATURE = 23" in log
+    assert "returncode: 0" in log
+    assert "run.py" in log
+
+
 def test_validators():
     assert check_finite([1.0, np.nan])
     assert not check_finite([1.0, 2.0])

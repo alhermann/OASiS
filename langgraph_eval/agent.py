@@ -1,11 +1,12 @@
 """LangGraph agents for the open-weight ablation.
 
-Two factory functions:
+Two agent constructors:
 
 * :func:`build_bare_agent`  — host-side toolset only (bash + web search +
   spawn_subagent). No OASiS MCP. Mirrors what Claude has in v1 BARE.
-* :func:`build_mcp_agent`   — same host-side toolset PLUS every OASiS MCP
-  tool attached via langchain-mcp-adapters (MCP_FULL semantics).
+* :func:`build_mcp_agent`   — async context manager yielding the same host-side
+    toolset plus the campaign OASiS MCP tools. Keep the context open for the full
+    run so server-side state survives between calls.
 
 Both conditions get parity with what Claude Code offers natively:
 
@@ -19,13 +20,10 @@ Both conditions get parity with what Claude Code offers natively:
 |                     | model can fulfil the MANDATORY CRITIC protocol the |
 |                     | OASiS server prompts it to follow                  |
 
-MCP_FULL additionally exposes all OASiS tools (``prepare_simulation``,
-``knowledge``, ``discover``, ``examples``, ``developer``, ``generate_mesh``,
-``run_simulation``, ``run_with_generator``, ``coupled_solve``,
-``transfer_field``, ``visualize``, ``session_insights``,
-``rediscover_backends``) — picked up automatically from the running OASiS
-server, so any future tool added there is included without code changes
-here.
+MCP_FULL exposes the explicit ``CAMPAIGN_MCP_TOOL_ALLOWLIST`` below. Deprecated
+coupling shims and environment-mutating setup/reload tools are deliberately not
+part of the experimental surface; adding a tool is a reviewed contract change,
+not an automatic side effect of server registration.
 
 All LLM calls go through ``langchain_openai.ChatOpenAI`` pointed at a local
 vLLM server, which surfaces Qwen2.5's native tool-call format through the
@@ -33,10 +31,14 @@ OpenAI schema.
 """
 from __future__ import annotations
 
+import atexit
 import asyncio
+import hashlib
 import os
+import shutil
 import signal
 import subprocess
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Sequence
 
@@ -47,6 +49,25 @@ from langgraph.prebuilt import create_react_agent
 REPO = Path(__file__).resolve().parents[1]
 
 PORTS = {"7b": 8000, "14b": 8001, "32b": 8002}
+
+CAMPAIGN_MCP_TOOL_ALLOWLIST = frozenset({
+    "audit_results",
+    "couple",
+    "couple_precice",
+    "developer",
+    "discover",
+    "examples",
+    "generate_mesh",
+    "knowledge",
+    "prepare_simulation",
+    "run_simulation",
+    "run_with_generator",
+    "session_insights",
+    "submit_critic_review",
+    "verify_mesh_independence",
+    "verify_pde_consistency",
+    "visualize",
+})
 
 _CRITIC_BLOCK = (
     "MANDATORY CRITIC: For every major step (problem setup, parameter "
@@ -100,12 +121,24 @@ MCP_SYSTEM = (
     "through your own shell.\n\n"
     "You are connected to the OASiS MCP server (prepare_simulation, "
     "knowledge, discover, examples, developer, generate_mesh, run_simulation, "
-    "run_with_generator, couple, audit_results, visualize, session_insights). "
+    "run_with_generator, couple, couple_precice, audit_results, visualize, "
+    "session_insights, submit_critic_review, verify_mesh_independence, "
+    "verify_pde_consistency). "
     "Start with `prepare_simulation(solver, physics)` — it returns knowledge, "
     "real reference files and a template in one call. Use `knowledge` for "
     "physics and pitfalls (add `index=True` on the pitfalls topic: the "
     "unfiltered dump can exceed 90k tokens and will eat your context), "
     "`developer` for source lookups, and `couple` for cross-code coupling.\n\n"
+    "When calling `prepare_simulation`, preserve every method-defining "
+    "qualifier from the task in `physics`; do not reduce it to a generic "
+    "family. For example, ask for `nearly incompressible Taylor-Hood "
+    "elasticity`, `steady SIPG advection-diffusion`, or `Crank-Nicolson "
+    "transient heat`, not merely `linear_elasticity`, `diffusion`, or `heat`. "
+    "Those qualifiers select different spaces, operators, and templates.\n\n"
+    "For every `couple` call, pass the task's absolute "
+    "`residual_level<k>.csv` path as `history_path`. OASiS writes the measured "
+    "finite residuals there; never retype or synthesize a history from chat "
+    "output.\n\n"
     "Host-side tools (also available): run_bash, read_file, write_file, "
     "web_search, spawn_subagent.\n\n"
     + _CRITIC_BLOCK
@@ -145,6 +178,29 @@ def _llm(size: str, *, temperature: float, seed: int) -> ChatOpenAI:
 # OASiS capability.
 _DEADLINE = None
 
+_SENSITIVE_ENV_MARKERS = (
+    "API_KEY", "TOKEN", "SECRET", "PASSWORD", "PASSPHRASE",
+    "CREDENTIAL", "AUTH", "COOKIE", "ASKPASS",
+)
+_OWNED_SCRATCH: set[Path] = set()
+
+
+@atexit.register
+def _cleanup_owned_scratch() -> None:
+    for scratch in tuple(_OWNED_SCRATCH):
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def _clean_subprocess_env() -> dict[str, str]:
+    """Return runtime environment without credentials or key-vault paths."""
+    clean = {
+        key: value for key, value in os.environ.items()
+        if not any(marker in key.upper() for marker in _SENSITIVE_ENV_MARKERS)
+    }
+    clean.pop("OASIS_BLIND_KEYS", None)
+    clean.pop("SSH_AUTH_SOCK", None)
+    return clean
+
 
 def _time_left_note() -> str:
     """`[clock: N min left of M]`, or nothing when no deadline is set."""
@@ -183,6 +239,168 @@ def _format_audit_reply(findings) -> str:
         return ("\n[auto-audit: clean — self-consistent, which "
                 "is necessary but not sufficient for correct]")
     return ""
+
+
+def _add_mount_dirs(argv: list[str], root: Path, target: Path,
+                    made: set[Path]) -> None:
+    """Create bubblewrap mount points below a tmpfs-covered directory."""
+    relative = target.relative_to(root)
+    current = root
+    for part in relative.parts:
+        current /= part
+        if current not in made:
+            argv.extend(("--dir", str(current)))
+            made.add(current)
+
+
+def _sandbox_scratch_path(workdir: Path) -> Path:
+    work = workdir.resolve()
+    digest = hashlib.sha256(str(work).encode()).hexdigest()[:24]
+    return Path("/tmp/oasis-cell-scratch") / digest
+
+
+def _relocate_dune_cache(dune_cache: Path) -> None:
+    """Point copied DUNE compiler commands at the cache's sandbox mount."""
+    script = dune_cache / "python" / "dune" / "generated" / "buildScript.sh"
+    if not script.is_file():
+        raise RuntimeError(
+            f"neutral DUNE baseline has no generated compiler script: {script}")
+    text = script.read_text()
+    prefix_line = next(
+        (line.strip() for line in text.splitlines()
+         if line.strip().startswith("DUNE_CXX_COMPILER_LAUNCHER=")
+         and line.strip().endswith("/compiler_launcher.sh")),
+        None)
+    if prefix_line is None:
+        raise RuntimeError(
+            "neutral DUNE baseline compiler script has no cache-root marker")
+    old_root = prefix_line.split("=", 1)[1].removesuffix(
+        "/compiler_launcher.sh")
+    sandbox_root = "/tmp/dune-cache/dune-py"
+    launchers = (script, dune_cache / "compiler_launcher.sh")
+    for launcher in launchers:
+        if not launcher.is_file():
+            raise RuntimeError(
+                f"neutral DUNE baseline is missing launcher: {launcher}")
+        content = launcher.read_text()
+        launcher.write_text(content.replace(old_root, sandbox_root))
+        if old_root in launcher.read_text():
+            raise RuntimeError(
+                f"DUNE launcher still references baseline path: {launcher}")
+
+
+def sandbox_scratch_for(workdir: Path) -> Path:
+    """Return the host scratch visible as ``/tmp`` to exactly one cell."""
+    root = Path("/tmp/oasis-cell-scratch")
+    root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    scratch = _sandbox_scratch_path(workdir)
+    scratch.mkdir(mode=0o700, exist_ok=True)
+    _OWNED_SCRATCH.add(scratch)
+    baseline = os.environ.get("OASIS_DUNE_CACHE_BASELINE")
+    dune_cache = scratch / "dune-cache" / "dune-py"
+    if baseline and not dune_cache.exists():
+        dune_cache.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(Path(baseline), dune_cache, symlinks=True)
+        _relocate_dune_cache(dune_cache)
+    return scratch
+
+
+def cleanup_sandbox_scratch(workdir: Path) -> None:
+    """Remove disposable caches after the cell's processes have exited."""
+    scratch = _sandbox_scratch_path(workdir)
+    shutil.rmtree(scratch, ignore_errors=True)
+    _OWNED_SCRATCH.discard(scratch)
+
+
+def _sandboxed_process_argv(workdir: Path, process: list[str], *,
+                            source_repo: Path | None = None) -> list[str]:
+    """Run a process with only this cell and private scratch writable."""
+    bwrap = shutil.which("bwrap")
+    if bwrap is None:
+        raise RuntimeError(
+            "bubblewrap is required for blind-run shell isolation")
+
+    work = workdir.resolve()
+    private_tmp = sandbox_scratch_for(work)
+    home = Path.home().resolve()
+    workspace = REPO.parent.resolve()
+    runtime_paths = (
+        workspace / "open-fem-agent/.venv",
+        workspace / "febio-src/cbuild",
+        workspace / "sparta/src",
+        workspace / "sparta/data",
+        workspace / "sparta/examples",
+        home / "miniconda3",
+        home / "4C",
+        home / "FEBio",
+        home / "dealii",
+        home / ".local/share/python",
+        home / ".local/include",
+        home / ".local/lib",
+    )
+
+    argv = [
+        bwrap,
+        "--die-with-parent",
+        "--unshare-pid",
+        "--unshare-ipc",
+        "--ro-bind", "/", "/",
+        "--dev-bind", "/dev", "/dev",
+        "--proc", "/proc",
+        "--tmpfs", "/dev/shm",
+        # Hide user credentials, every other checkout, and historical runs.
+        # Only the explicit solver runtime roots below are rebound.
+        "--tmpfs", str(home),
+    ]
+    made: set[Path] = set()
+    for runtime in runtime_paths:
+        if runtime.is_dir():
+            _add_mount_dirs(argv, home, runtime, made)
+            argv.extend(("--ro-bind", str(runtime), str(runtime)))
+    dune_host_cache = home / "miniconda3/envs/dune-py313/.cache"
+    if dune_host_cache.is_dir():
+        argv.extend(("--tmpfs", str(dune_host_cache)))
+
+    # `/tmp` persists between this cell's shell calls, but maps back inside the
+    # cell rather than to the host's shared scratch tree.
+    argv.extend(("--bind", str(private_tmp), "/tmp"))
+
+    for hidden_root in (workspace, Path("/tmp")):
+        if work.is_relative_to(hidden_root):
+            _add_mount_dirs(argv, hidden_root, work, made)
+            break
+    argv.extend(("--bind", str(work), str(work)))
+
+    cwd = work
+    if source_repo is not None:
+        source = source_repo.resolve()
+        source_mount = Path("/tmp/oasis-source")
+        _add_mount_dirs(argv, Path("/tmp"), source_mount, made)
+        argv.extend(("--ro-bind", str(source), str(source_mount)))
+        sessions = source / "data" / "sessions"
+        if sessions.is_dir():
+            session_output = work / ".oasis_sessions"
+            session_output.mkdir(parents=True, exist_ok=True)
+            argv.extend(("--bind", str(session_output),
+                         str(source_mount / "data" / "sessions")))
+        cwd = source_mount / "src"
+
+    argv.extend((
+        "--setenv", "HOME", str(work),
+        "--setenv", "TMPDIR", "/tmp",
+        "--setenv", "XDG_CACHE_HOME", "/tmp/.cache",
+        "--setenv", "PYTHONPYCACHEPREFIX", "/tmp/pycache",
+        "--setenv", "DUNE_PY_DIR", "/tmp/dune-cache",
+        "--chdir", str(cwd),
+    ))
+    argv.extend(process)
+    return argv
+
+
+def _sandboxed_bash_argv(workdir: Path, command: str) -> list[str]:
+    """Build the isolated argv for one host shell call."""
+    return _sandboxed_process_argv(
+        workdir, ["/bin/bash", "-lc", command])
 
 
 def _bash_tool_for(workdir: Path, *, audit_on_submit: bool = False):
@@ -247,8 +465,9 @@ def _bash_tool_for(workdir: Path, *, audit_on_submit: bool = False):
         proc = None
         try:
             proc = subprocess.Popen(
-                ["bash", "-lc", command], cwd=workdir,
+                _sandboxed_bash_argv(workdir, command), cwd=workdir,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                env=_clean_subprocess_env(),
                 start_new_session=True,
             )
             out_s, err_s = proc.communicate(timeout=900)
@@ -285,12 +504,17 @@ def _kill_group(proc) -> None:
 def _read_write_tools_for(workdir: Path, *, audit_on_submit: bool = False):
     @tool
     def read_file(path: str, max_bytes: int = 200_000) -> str:
-        """Read a file (absolute path, or relative to the cell sandbox)."""
+        """Read a file inside the cell sandbox."""
         try:
             p = Path(path)
             if not p.is_absolute():
                 p = workdir / p
-            data = p.read_bytes()[:max_bytes]
+            wd = workdir.resolve()
+            resolved = p.resolve()
+            if not resolved.is_relative_to(wd):
+                return (f"[read refused: {p} is outside your working "
+                        f"directory {wd}]")
+            data = resolved.read_bytes()[:max_bytes]
             return data.decode("utf-8", errors="replace")
         except FileNotFoundError:
             return f"[file not found: {path}]"
@@ -476,10 +700,10 @@ def _make_spawn_subagent_tool(
 # ────────────────────────────────────────────────────────────────────
 # OASiS MCP tool loader (langchain-mcp-adapters)
 # ────────────────────────────────────────────────────────────────────
-def _load_oasis_mcp_tools(workdir: Path | None = None) -> list[BaseTool]:
+def _oasis_mcp_client(workdir: Path | None = None):
     from langchain_mcp_adapters.client import MultiServerMCPClient
 
-    env = os.environ.copy()
+    env = _clean_subprocess_env()
     env.pop("OFA_DISABLE_CRITIC", None)
     env.pop("OFA_DISABLE_PITFALLS", None)
     env["FOURC_ROOT"] = env.get("FOURC_ROOT", str(Path.home() / "4C"))
@@ -487,7 +711,9 @@ def _load_oasis_mcp_tools(workdir: Path | None = None) -> list[BaseTool]:
         "FOURC_BINARY", str(Path.home() / "4C/build/4C"))
     env["LD_LIBRARY_PATH"] = env.get(
         "LD_LIBRARY_PATH", "/opt/4C-dependencies/lib")
-    env["PYTHONPATH"] = str(REPO / "src")
+    source_repo = Path(os.environ.get(
+        "OASIS_SOURCE_SNAPSHOT", str(REPO))).resolve()
+    env["PYTHONPATH"] = str(source_repo / "src")
     # THE TOOLS MUST WRITE INTO THIS CELL'S SANDBOX.
     #
     # run_simulation and friends wrote to <repo>/simulation_outputs, a single
@@ -497,10 +723,12 @@ def _load_oasis_mcp_tools(workdir: Path | None = None) -> list[BaseTool]:
     # It is the OASiS-arm tools that do this, so the cost fell entirely on the
     # arm under test: 8 of 14 coupled OASiS runs in round 1 went through it.
     if workdir is not None:
-        env["OASIS_OUTPUT_DIR"] = str(Path(workdir) / "simulation_outputs")
-        env["OASIS_COUPLING_DIR"] = str(Path(workdir) / "coupling")
-        env["OASIS_MESH_DIR"] = str(Path(workdir) / "meshes")
-        env["OASIS_BENCHMARK_DIR"] = str(Path(workdir) / "benchmark_results")
+        cell_work = Path(workdir).resolve()
+        env["OASIS_CELL_WORKDIR"] = str(cell_work)
+        env["OASIS_OUTPUT_DIR"] = str(cell_work / "simulation_outputs")
+        env["OASIS_COUPLING_DIR"] = str(cell_work / "coupling")
+        env["OASIS_MESH_DIR"] = str(cell_work / "meshes")
+        env["OASIS_BENCHMARK_DIR"] = str(cell_work / "benchmark_results")
 
     # THE SERVER INTERPRETER, RESOLVED — NOT ASSUMED.
     #
@@ -520,16 +748,54 @@ def _load_oasis_mcp_tools(workdir: Path | None = None) -> list[BaseTool]:
         raise RuntimeError(
             "no interpreter found for the OASiS MCP server; set OASIS_PYTHON. "
             "Refusing to build a silently crippled MCP arm.")
+    command = _server_py
+    args = ["-m", "server"]
+    cwd = source_repo / "src"
+    if workdir is not None:
+        wrapped = _sandboxed_process_argv(
+            Path(workdir), [command, *args], source_repo=source_repo)
+        command, args = wrapped[0], wrapped[1:]
+        cwd = Path(workdir)
+        env["PYTHONPATH"] = "/tmp/oasis-source/src"
     client = MultiServerMCPClient({
         "oasis": {
-            "command": _server_py,
-            "args": ["-m", "server"],
-            "cwd": str(REPO / "src"),
+            "command": command,
+            "args": args,
+            "cwd": str(cwd),
             "env": env,
             "transport": "stdio",
         }
     })
+    return client
+
+
+def _load_oasis_mcp_tools(workdir: Path | None = None) -> list[BaseTool]:
+    """List tools for discovery-only callers.
+
+    Agent runs must use :func:`oasis_mcp_tools_session`; tools returned here
+    create a new server for every call and therefore cannot carry server-side
+    state such as critic reviews.
+    """
+    client = _oasis_mcp_client(workdir)
     return asyncio.run(client.get_tools())
+
+
+@asynccontextmanager
+async def oasis_mcp_tools_session(workdir: Path | None = None):
+    """Yield tools bound to one OASiS process for an entire agent run."""
+    from langchain_mcp_adapters.tools import load_mcp_tools
+
+    client = _oasis_mcp_client(workdir)
+    async with client.session("oasis") as session:
+        available = await load_mcp_tools(session, server_name="oasis")
+        names = {tool.name for tool in available}
+        missing = CAMPAIGN_MCP_TOOL_ALLOWLIST - names
+        if missing:
+            raise RuntimeError(
+                "OASiS campaign tool contract is incomplete; missing: "
+                + ", ".join(sorted(missing)))
+        yield [tool for tool in available
+               if tool.name in CAMPAIGN_MCP_TOOL_ALLOWLIST]
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -703,14 +969,19 @@ def build_bare_agent(*, size: str, seed: int, workdir: Path, depth: int = 0):
     return create_react_agent(llm, tools=tools, prompt=BARE_SYSTEM)
 
 
-def build_mcp_agent(*, size: str, seed: int, workdir: Path, depth: int = 0):
-    mcp_tools = _load_oasis_mcp_tools(workdir)
-    host = _host_tools(workdir, size=size, seed=seed,
-                       parent_tools=mcp_tools, depth=depth,
-                       audit_on_submit=True)
-    llm = _llm(size, temperature=0.2, seed=seed)
-    return create_react_agent(llm, tools=mcp_tools + host,
-                              prompt=MCP_SYSTEM)
+@asynccontextmanager
+async def build_mcp_agent(*, size: str, seed: int, workdir: Path,
+                          depth: int = 0):
+    """Yield an MCP agent whose tools share one live OASiS server."""
+    async with oasis_mcp_tools_session(workdir) as mcp_tools:
+        host = _host_tools(workdir, size=size, seed=seed,
+                           parent_tools=mcp_tools, depth=depth,
+                           audit_on_submit=True)
+        llm = _llm(size, temperature=0.2, seed=seed)
+        yield create_react_agent(llm, tools=mcp_tools + host,
+                                 prompt=MCP_SYSTEM)
 
 
-__all__ = ["build_bare_agent", "build_mcp_agent"]
+__all__ = ["build_bare_agent", "build_mcp_agent",
+           "oasis_mcp_tools_session", "CAMPAIGN_MCP_TOOL_ALLOWLIST",
+           "sandbox_scratch_for", "cleanup_sandbox_scratch"]

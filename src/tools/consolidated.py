@@ -1754,6 +1754,27 @@ def _fuzzy_match_physics(backend, query: str) -> str:
             if p.name == normalised:
                 return p.name
 
+    # Method qualifiers outrank a shared generic noun. Without this, DUNE's
+    # "advection diffusion ... SIPG" ties on one token with
+    # reaction_diffusion and catalog order picks the reaction problem, while
+    # 4C's "Crank-Nicolson transient heat" is captured by generic heat before
+    # the transient One-Step-Theta recipe is considered.
+    available = {p.name for p in backend.supported_physics()}
+    tokens = set(normalised.split("_"))
+    if ("dg_advection_diffusion" in available and "advection" in tokens
+            and tokens.intersection({"diffusion", "sipg", "ipdg"})):
+        return "dg_advection_diffusion"
+    if ("thermo_transient_mms" in available
+            and tokens.intersection({"heat", "thermal", "thermo"})
+            and tokens.intersection({"transient", "crank", "theta"})):
+        return "thermo_transient_mms"
+    if ("nearly_incompressible_elasticity" in available
+            and "elasticity" in tokens
+            and (({"nearly", "incompressible"} <= tokens)
+                 or ({"taylor", "hood"} <= tokens)
+                 or ({"mixed", "pressure"} <= tokens))):
+        return "nearly_incompressible_elasticity"
+
     # 2. Synonym map — BEFORE the substring scan so short
     # canonical shorthands ('ns', 'em', 'pd') route to the
     # right physics. Only return the synonym if it actually
@@ -4311,7 +4332,8 @@ def register_consolidated_tools(mcp: FastMCP):
                      accelerator: str = "aitken", theta: float = 0.5,
                      monolithic: str = "", probe: bool = True,
                      critic_approved: bool = False, noise_replicates: int = 0,
-                     noise_floor: float = 0.0, noise_block: int = 3) -> str:
+                     noise_floor: float = 0.0, noise_block: int = 3,
+                     history_path: str = "") -> str:
         """GENERAL partitioned multi-code coupling — works for ANY physics/coupling.
 
         Have an independent critic review the setup before coupling; pass
@@ -4406,6 +4428,10 @@ def register_consolidated_tools(mcp: FastMCP):
               which writes <work_dir>/monolithic.json in InterfaceData shape on the
               same interface. Supplying it is the strongest verification available
               here and needs no external benchmark.
+                        history_path: optional ABSOLUTE CSV path. When set, OASiS writes its
+                            measured finite residuals there as
+                            ``iteration,interface_residual``. Use the task's required
+                            ``residual_level<k>.csv`` path; never retype the returned history.
 
         Returns: JSON with converged, iterations, residual, per-block residuals,
             exports, the coupling graph, per-participant responsiveness and exit
@@ -4434,6 +4460,8 @@ def register_consolidated_tools(mcp: FastMCP):
         if not isinstance(specs, list) or len(specs) < 2:
             return json.dumps({"error": "need a JSON list of >=2 participants"})
         parts = []
+        cell_work = os.environ.get("OASIS_CELL_WORKDIR")
+        cell_root = Path(cell_work).resolve() if cell_work else None
         for s in specs:
             try:
                 wd = Path(s["work_dir"])
@@ -4445,6 +4473,14 @@ def register_consolidated_tools(mcp: FastMCP):
                         f"participant {s.get('name','?')}: work_dir must be an "
                         f"ABSOLUTE path, got {s['work_dir']!r} (a relative path "
                         f"is resolved against the server's own directory)."})
+                wd = wd.resolve()
+                if cell_root is not None and not wd.is_relative_to(cell_root):
+                    return json.dumps({"error":
+                        f"participant {s.get('name','?')}: work_dir {wd} is "
+                        f"outside this cell's working directory {cell_root}. "
+                        f"Put every participant under the current task tree; "
+                        f"private /tmp is disposable and sibling paths are "
+                        f"isolated."})
                 wd.mkdir(parents=True, exist_ok=True)
                 parts.append(Participant(name=s["name"], command=list(s["command"]),
                                          work_dir=wd, imports_from=s.get("imports_from", []),
@@ -4485,6 +4521,47 @@ def register_consolidated_tools(mcp: FastMCP):
             return json.dumps({"converged": False,
                                "error": f"coupling driver failed: "
                                         f"{type(exc).__name__}: {exc}"}, indent=2)
+
+        history_file = None
+        if history_path:
+            destination = Path(history_path)
+            if not destination.is_absolute():
+                history_file = {
+                    "path": history_path,
+                    "error": "history_path must be absolute"}
+            elif (cell_root is not None
+                  and not destination.resolve().is_relative_to(cell_root)):
+                history_file = {
+                    "path": str(destination),
+                    "error": (f"history_path is outside this cell's working "
+                              f"directory {cell_root}")}
+            else:
+                try:
+                    import math as _math
+                    rows = [(iteration, float(value))
+                            for iteration, value in enumerate(r.history, 1)
+                            if _math.isfinite(float(value))]
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    tmp = destination.with_suffix(destination.suffix + ".tmp")
+                    tmp.write_text(
+                        "iteration,interface_residual\n" +
+                        "".join(f"{iteration},{value:.17g}\n"
+                                for iteration, value in rows))
+                    tmp.replace(destination)
+                    history_file = {
+                        "path": str(destination),
+                        "rows_written": len(rows),
+                        "nonfinite_omitted": len(r.history) - len(rows),
+                        "driver_iterations": r.iterations,
+                        "iteration_column": (
+                            "original driver iteration numbers; iteration 1 "
+                            "is absent because no residual exists before a "
+                            "previous iterate"),
+                    }
+                except (OSError, TypeError, ValueError) as exc:
+                    history_file = {
+                        "path": str(destination),
+                        "error": f"{type(exc).__name__}: {exc}"}
 
         # ── silent-wrong validators ─────────────────────────────────
         # `val` holds findings (they flip the verdict); `not_run` holds checks
@@ -4699,8 +4776,14 @@ def register_consolidated_tools(mcp: FastMCP):
                   "responsiveness": r.responsiveness,
                   "graph": r.graph, "relaxation": r.theta,
                   "interface_sensitivity": r.sensitivity,
+                  "participant_output_logs": {
+                      p.name: str(p.work_dir / "participant_output.log")
+                      for p in parts
+                      if (p.work_dir / "participant_output.log").is_file()},
                   "monolithic_check": mono_block,
                   "exports": _export_summary(r.exports)}
+        if history_file is not None:
+            result["history_file"] = history_file
         if r.noise_floor is not None:
             result["noise_floor"] = r.noise_floor
             result["tol_effective"] = r.tol_effective
@@ -5241,12 +5324,17 @@ def register_consolidated_tools(mcp: FastMCP):
         This eliminates 3 separate tool calls before every simulation.
 
         Supports fuzzy matching: e.g. 'magnetostatics' finds 'maxwell',
-        'thermal' finds 'heat', 'elasticity' finds 'linear_elasticity'.
+        'thermal' finds 'heat', and method-qualified requests select distinct
+        recipes. Preserve qualifiers from the problem: use phrases such as
+        'nearly incompressible Taylor-Hood elasticity', 'steady SIPG
+        advection-diffusion', or 'Crank-Nicolson transient heat', rather than
+        reducing them to a generic family.
 
         Args:
             solver: Backend name (e.g. 'fourc', 'fenics', 'ngsolve')
-            physics: Physics type (e.g. 'poisson', 'particle_pd', 'navier_stokes',
-                     'magnetostatics', 'thermal', 'elasticity')
+            physics: Physics and required method (e.g. 'poisson',
+                     'nearly incompressible Taylor-Hood elasticity',
+                     'steady SIPG advection-diffusion')
         """
         _get_journal().record("knowledge_lookup", "prepare_simulation",
                               solver=solver, physics=physics)
@@ -6234,11 +6322,15 @@ codes iterated against each other; nothing else in the submission can show it.
                            "work_dir": "<ABSOLUTE path>", "imports_from": ["B"]},
                           {"name": "B", "command": "<run side B>",
                            "work_dir": "<ABSOLUTE path>", "imports_from": ["A"]}]',
-           max_iter=100, tol=1e-6)
+           max_iter=100, tol=1e-6,
+           history_path="<ABSOLUTE task workdir>/residual_level1.csv")
 
-returns `history` — the per-iteration interface residual. Write those numbers
-into residual_level<k>.csv. Get ONE participant writing exports.json standalone
-first, then the second, then call couple: that order costs the fewest attempts.
+returns `history` and writes its finite measured values directly to the requested
+CSV. Do not retype or synthesize that sequence. Report `iterations` (also copied
+to `history_file.driver_iterations`) as COUPLING_ITERATIONS; `rows_written` is
+normally one smaller because iteration 1 has no previous iterate and therefore
+no residual. Get ONE participant writing exports.json standalone first, then the
+second, then call couple: that order costs the fewest attempts.
 
 IF YOU DRIVE THE LOOP YOURSELF, IT MUST ACTUALLY ITERATE. A closed-form
 sequence written into that file — 1.0, 0.5, 0.25, 0.125, … or any r*q^k — is
