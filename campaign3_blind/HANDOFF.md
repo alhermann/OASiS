@@ -325,6 +325,25 @@ When it finishes: `grade_round.py` on seeds 96 and 97, then `cell_read.py` on
 every wrong cell. That is the first honest post-fix number and it replaces the
 41.7% above.
 
+#### DO NOT COMMIT TO `src/` WHILE A ROUND IS IN FLIGHT
+
+Learned the hard way inside round 9. Every `run_blind.py` invocation is a fresh
+process importing OASiS from the working tree, so a commit mid-round means later
+runs are served knowledge the earlier ones never saw. Three commits landed
+between 14:42 and 15:10 on 2026-09-01 and **17 of the round's OASiS-arm runs
+were served the earlier build**, making that arm a mixture of two builds. The
+bare arm is unaffected because it calls no OASiS tool — so the damage is
+one-sided, which is the worse kind: it moves the uplift without moving the
+control.
+
+    python campaign3_blind/build_drift.py 96 97
+
+lists exactly which runs predate the newest agent-facing commit and are
+therefore due a re-run. `src/` is frozen for the rest of round 9; the 17 named
+runs get re-run when the machine is free, and then the round is a single-build
+measurement again. Grading code, `cell_read.py` and documentation are NOT
+agent-facing and stay editable — the grader runs offline, after the fact.
+
 ### Two target statements the data contradicts
 
 - **"bare completes none and fabricates" is not supported, but it is also not
