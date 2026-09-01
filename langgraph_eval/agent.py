@@ -159,10 +159,79 @@ def _time_left_note() -> str:
             f"{int(total // 60)}]")
 
 
-def _bash_tool_for(workdir: Path):
+def _format_audit_reply(findings) -> str:
+    """The audit's wording, in ONE place, for every route that submits.
+
+    Extracted when the shell route was added: the same submission must get the
+    same message whether it was written with write_file or a heredoc, and two
+    copies of this wording would drift the moment either is edited.
+    """
+    if findings == "NOEVIDENCE":
+        return ("\n[auto-audit: found NO per-level result files "
+                "to check. This is NOT a clean bill — it means "
+                "there is nothing here to verify. If you have "
+                "results, write them per level; if you do not, "
+                "this submission has no numbers behind it.]")
+    if findings:
+        return ("\n\nAUTO-AUDIT of your submission (from your own "
+                "files only — no reference solution):\n" + findings +
+                "\nA finding is a pointer, not a verdict: check the "
+                "named place, fix if real, and REWRITE this file. "
+                "Submitting with a standing finding usually grades "
+                "wrong.")
+    if findings == "":
+        return ("\n[auto-audit: clean — self-consistent, which "
+                "is necessary but not sufficient for correct]")
+    return ""
+
+
+def _bash_tool_for(workdir: Path, *, audit_on_submit: bool = False):
+    # THE AUTO-AUDIT WAS ATTACHED TO write_file ONLY, AND AGENTS SUBMIT WITH A
+    # HEREDOC.
+    #
+    # Its docstring says the write of RESULT.txt is "the only moment that
+    # reaches 100% of submitters". Measured over the OASiS-arm runs whose
+    # trajectory records the write at all: 57% wrote RESULT.txt by SHELL only,
+    # 29% by both, 14% by write_file only — and an auto-audit reply appears in
+    # 29% of them. So the hook reached about a quarter of submitters, not all.
+    #
+    # C1_27b_MCP_seed84 is the case in full. It wrote RESULT.txt with
+    # write_file into a nested work/work/ directory, where the audit fired and
+    # correctly reported "found NO per-level result files to check"; then it
+    # ran `rm -rf work` and wrote the real submission with a run_bash heredoc,
+    # which no audit watches. Its residual history is 0.5*0.5^k, bit-identical
+    # at all three levels, and the audit refuses exactly that when it is given
+    # the chance — every check fires when run by hand.
+    #
+    # So the same audit now also runs after a shell command that TOUCHED
+    # RESULT.txt. Nothing is forced and nothing is blocked: the findings are
+    # appended to the reply the agent is already reading, at the moment the
+    # submission exists.
+    def _audit_after_shell(before: float | None) -> str:
+        if not audit_on_submit:
+            return ""
+        try:
+            rt = next(iter(sorted(workdir.rglob("RESULT.txt"))), None)
+            if rt is None:
+                return ""
+            if before is not None and rt.stat().st_mtime <= before:
+                return ""            # untouched by this command
+            findings = _audit_submission(rt, rt.read_text(errors="replace"))
+        except Exception as exc:                       # noqa: BLE001
+            return f"\n[auto-audit unavailable: {type(exc).__name__}]"
+        return _format_audit_reply(findings)
+
+    def _result_mtime() -> float | None:
+        try:
+            rt = next(iter(sorted(workdir.rglob("RESULT.txt"))), None)
+            return rt.stat().st_mtime if rt else None
+        except Exception:                              # noqa: BLE001
+            return None
+
     @tool
     def run_bash(command: str) -> str:
         """Run a shell command inside the cell's sandbox dir. Returns stdout+stderr (truncated to 12 KB)."""
+        _before = _result_mtime()
         # THE WHOLE PROCESS GROUP DIES ON TIMEOUT, NOT JUST THE SHELL.
         #
         # This was subprocess.run(..., timeout=900). On timeout Python kills
@@ -185,7 +254,8 @@ def _bash_tool_for(workdir: Path):
             out_s, err_s = proc.communicate(timeout=900)
             out = (out_s or "") + (("\n[stderr]\n" + err_s) if err_s else "")
             out = out[-12000:] if len(out) > 12000 else out
-            return out + _time_left_note()
+            # A submission written by heredoc is still a submission.
+            return out + _audit_after_shell(_before) + _time_left_note()
         except subprocess.TimeoutExpired:
             _kill_group(proc)
             return ("[timeout after 900s; the command and everything it "
@@ -281,29 +351,9 @@ def _read_write_tools_for(workdir: Path, *, audit_on_submit: bool = False):
                 # print. HONEST_INCOMPLETE is the largest single bucket in the
                 # campaign at 159 rows, so the message that never printed was
                 # the one aimed at the most common outcome.
-                if findings == "NOEVIDENCE":
-                    # NEVER an all-clear on nothing. A work dir with no
-                    # per-level files produces no sequences, which the old
-                    # code read as no findings — an all-clear delivered almost
-                    # exclusively to runs that were NOT correct, at the moment
-                    # the agent decides whether to keep working, in the
-                    # measured arm only.
-                    reply += ("\n[auto-audit: found NO per-level result files "
-                              "to check. This is NOT a clean bill — it means "
-                              "there is nothing here to verify. If you have "
-                              "results, write them per level; if you do not, "
-                              "this submission has no numbers behind it.]")
-                elif findings:
-                    reply += (
-                        "\n\nAUTO-AUDIT of your submission (from your own "
-                        "files only — no reference solution):\n" + findings +
-                        "\nA finding is a pointer, not a verdict: check the "
-                        "named place, fix if real, and REWRITE this file. "
-                        "Submitting with a standing finding usually grades "
-                        "wrong.")
-                elif findings == "":
-                    reply += ("\n[auto-audit: clean — self-consistent, which "
-                              "is necessary but not sufficient for correct]")
+                # NEVER an all-clear on nothing, and never two copies of the
+                # wording: _format_audit_reply is shared with the shell route.
+                reply += _format_audit_reply(findings)
             return reply
         except (OSError, UnicodeError, ValueError) as e:
             return (f"[write failed: {type(e).__name__}: {e} — "
@@ -635,7 +685,7 @@ def _host_tools(workdir: Path, *, size: str, seed: int,
                 parent_tools: list[BaseTool], depth: int,
                 audit_on_submit: bool = False) -> list[BaseTool]:
     tools: list[BaseTool] = []
-    tools.append(_bash_tool_for(workdir))
+    tools.append(_bash_tool_for(workdir, audit_on_submit=audit_on_submit))
     tools.extend(_read_write_tools_for(workdir, audit_on_submit=audit_on_submit))
     tools.append(web_search)
     spawn = _make_spawn_subagent_tool(

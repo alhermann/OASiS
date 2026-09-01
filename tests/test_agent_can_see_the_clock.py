@@ -69,11 +69,30 @@ def test_both_arms_get_it():
     src = (REPO / "langgraph_eval" / "agent.py").read_text()
     assert src.count("def _bash_tool_for(") == 1
     assert "_time_left_note()" in src
-    # and it must not be gated on the OASiS-only flag
-    i = src.index("def _bash_tool_for(")
-    j = src.index("def _kill_group(")
-    assert "audit_on_submit" not in src[i:j], (
-        "the clock is inside an OASiS-only branch; it must be arm-neutral")
+    # AND BOTH ARMS MUST ACTUALLY GET IT — asserted by behaviour, not by the
+    # absence of a string in the source.
+    #
+    # This used to require that "audit_on_submit" appear nowhere inside
+    # _bash_tool_for, as a stand-in for "the clock is not arm-specific". The
+    # shell tool now carries OASiS's submission audit, exactly as write_file
+    # does, so the proxy fails while the property it stands for still holds.
+    import tempfile
+    import agent as A
+    # SAME MODULE OBJECT. `agent` and `langgraph_eval.agent` import as two
+    # separate modules here, so patching _DEADLINE on one leaves the other
+    # reading None and the note comes back empty for both arms.
+    _bash_tool_for = A._bash_tool_for
+    A._DEADLINE = (time.time() + 900.0, 2700.0)
+    try:
+        with tempfile.TemporaryDirectory() as d:
+            bare = _bash_tool_for(Path(d), audit_on_submit=False).invoke(
+                {"command": "echo x"})
+            mcp = _bash_tool_for(Path(d), audit_on_submit=True).invoke(
+                {"command": "echo x"})
+    finally:
+        A._DEADLINE = None
+    assert "[clock:" in bare and "[clock:" in mcp, (
+        f"the clock must reach BOTH arms; bare={bare[-60:]!r} mcp={mcp[-60:]!r}")
 
 
 def test_the_note_carries_no_domain_content():

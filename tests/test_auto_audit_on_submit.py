@@ -40,6 +40,11 @@ def test_consistent_submission_gets_clean_note(tmp_path):
         rows = ["x,y,u"] + [f"0.{i}{j},0.{j}{i},{1.0 + e * (i + j):.8f}"
                             for i in range(1, 4) for j in range(1, 4)]
         (tmp_path / f"solution_level{lvl}.csv").write_text("\n".join(rows))
+        # A CONSISTENT submission includes its run logs. Without them the
+        # contract check correctly reports "NO `NDOF = <integer>` LINE", and
+        # the fixture was asserting "clean" on a submission that was not.
+        (tmp_path / f"run_level{lvl}.log").write_text(
+            f"NDOF = {9 * 4 ** lvl}\n")
     out = _write(_read_write_tools_for(tmp_path, audit_on_submit=True),
                  "RESULT.txt", "LEVELS = 3\nORDER = 2.0\n")
     assert "auto-audit: clean" in out or "AUTO-AUDIT" not in out, out[:400]
