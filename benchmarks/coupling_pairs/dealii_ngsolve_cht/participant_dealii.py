@@ -58,9 +58,10 @@ def main() -> None:
 
     r = subprocess.run([params["exe"], "dealii_input.txt", "dealii_output.txt"],
                        capture_output=True, text=True, env=env)
+    sys.stdout.write(r.stdout)
+    sys.stderr.write(r.stderr)
     if r.returncode != 0 or not Path("dealii_output.txt").exists():
-        sys.stderr.write("deal.II solver failed (rc=%s)\n%s\n%s\n"
-                         % (r.returncode, r.stdout[-2000:], r.stderr[-2000:]))
+        sys.stderr.write("deal.II solver failed (rc=%s)\n" % r.returncode)
         sys.exit(1)
 
     y_if = float(params["y_max"])

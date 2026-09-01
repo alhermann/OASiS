@@ -80,6 +80,11 @@ def test_fourc_kratos_two_slab_cht_converges_to_analytic(tmp_path):
     assert abs(q_a - q_ref) < 0.05
     assert abs(q_a + q_b) < 0.05, f"interface fluxes not balanced: {q_a} vs {q_b}"
 
+    fourc_log = (pa.work_dir / "participant_output.log").read_text()
+    kratos_log = (pb.work_dir / "participant_output.log").read_text()
+    assert "processor 0 finished normally" in fourc_log
+    assert "ResidualBasedLinearStrategy" in kratos_log
+
 
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))

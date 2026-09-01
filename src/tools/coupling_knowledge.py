@@ -2265,7 +2265,12 @@ def _interp_wrapper(binary: str, const: str, extra: str = "") -> str:
     return (f"The `command` runs the WRAPPER, so the interpreter is a plain\n"
             f"   Python with numpy — NOT the {binary} binary. The {binary} BINARY\n"
             f"   path goes into `{const}` INSIDE the script; that is what\n"
-            f"   `discover(query='list')` prints for this backend.{extra}")
+      f"   `discover(query='list')` prints for this backend. If the wrapper\n"
+      f"   invokes that binary with `capture_output=True`, write the child\n"
+      f"   stdout and stderr back to `sys.stdout` and `sys.stderr` on EVERY\n"
+      f"   run, including success. OASiS can preserve only bytes the wrapper\n"
+      f"   emits; printing a hand-written success summary is not native solver\n"
+      f"   evidence.{extra}")
 
 
 def coupling_core() -> str:

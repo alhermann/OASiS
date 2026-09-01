@@ -124,8 +124,9 @@ def run_4c() -> None:
                               + env.get("LD_LIBRARY_PATH", "")).rstrip(":")
     r = subprocess.run([PARAMS["fourc_binary"], "slabA.4C.yaml", "out"],
                        capture_output=True, text=True, env=env, timeout=300)
+    sys.stdout.write(r.stdout)
+    sys.stderr.write(r.stderr)
     if r.returncode != 0:
-        sys.stderr.write(r.stdout[-2000:] + "\n" + r.stderr[-2000:])
         raise RuntimeError(f"4C exited with rc={r.returncode}")
 
 
