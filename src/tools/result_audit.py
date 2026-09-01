@@ -35,6 +35,7 @@ It attaches to the RESULT, not to a run tool, so run_bash cannot bypass it.
 """
 from __future__ import annotations
 
+import csv as _csv
 import json
 import math
 import hashlib
@@ -576,6 +577,85 @@ def contract_findings(work: Path) -> list[dict]:
                 f"max|u| = 6.158955e-02 and graded order 0.028; the identical "
                 f"script using global x, y gave 7.196098e-02 and order 2.069.")})
             break
+
+    # 1d. THE RESIDUAL YOU REPORT MUST MEASURE THE TWO SIDES, NOT AN ITERATE.
+    #
+    # Measured over the 29 C2 submissions carrying two-sided interface files:
+    # SEVEN report INTERFACE_RESIDUAL below 1e-5 while their own exported sides
+    # differ by more than 5% — up to 102% — and about fifteen do so on the flux
+    # balance, with mismatches near 100%. C2_27b_BARE_seed9 is the clearest:
+    # side A writes the interface field as exactly 0.0, side B writes -1.1e-03
+    # which is B's entire field scale, the fluxes miss by 189%, and RESULT.txt
+    # reports INTERFACE_RESIDUAL = 1.12e-07 after a six-iteration history that
+    # falls smoothly from 1.0.
+    #
+    # So the coupling did converge — something converged — but not the quantity
+    # the task asks about. Nothing else catches this: the residual history looks
+    # textbook, the fields converge under refinement, and the run reads as a
+    # clean success right up to the grader.
+    #
+    # Both numbers come from the agent's OWN two files, so this needs no key and
+    # no reference.
+    iface = {}
+    for f in work.rglob("interface_level*_[ABab].csv"):
+        m = re.search(r"interface_level(\d+)_([ABab])\.csv$", f.name)
+        if m:
+            iface.setdefault(int(m.group(1)), {})[m.group(2).upper()] = f
+    for lvl in sorted(iface, reverse=True):
+        side = iface[lvl]
+        if set(side) != {"A", "B"}:
+            continue
+        rows = {}
+        for s, p in side.items():
+            got = []
+            try:
+                with open(p, newline="", errors="ignore") as fh:
+                    for r in _csv.reader(fh):
+                        if len(r) < 4:
+                            continue
+                        try:
+                            got.append(tuple(float(c) for c in r[:4]))
+                        except ValueError:
+                            continue
+            except OSError:
+                got = []
+            rows[s] = got
+        A, B = rows.get("A", []), rows.get("B", [])
+        if len(A) < 2 or len(A) != len(B):
+            continue
+        us = max(max(abs(r[2]) for r in A), max(abs(r[2]) for r in B))
+        qs = max(max(abs(r[3]) for r in A), max(abs(r[3]) for r in B))
+        du = max(abs(a[2] - b[2]) for a, b in zip(A, B)) / (us or 1.0)
+        dq = max(abs(a[3] + b[3]) for a, b in zip(A, B)) / (qs or 1.0)
+        reported = None
+        rt = work / "RESULT.txt"
+        if rt.is_file():
+            m = re.search(r"INTERFACE_RESIDUAL\s*=\s*([-+0-9.eE]+)",
+                          rt.read_text(errors="ignore"))
+            if m:
+                try:
+                    reported = float(m.group(1))
+                except ValueError:
+                    reported = None
+        worst = max(du, dq)
+        if reported is not None and reported < 1e-5 and worst > 0.05:
+            out.append({"sequence": "interface residual", "values": [],
+                        "finding": (
+                f"YOU REPORT INTERFACE_RESIDUAL = {reported:.2e}, BUT YOUR OWN "
+                f"TWO INTERFACE FILES AT LEVEL {lvl} DISAGREE: the field "
+                f"differs by {du:.0%} of its own scale and the two outward "
+                f"fluxes fail to cancel by {dq:.0%}. A partitioned scheme is "
+                f"converged when the SIDES agree, so the number you report has "
+                f"to be computed from the two exported profiles — "
+                f"max|u_A - u_B| and max|q_A + q_B| over the shared interface "
+                f"probes, each relative to its own scale — and not from an "
+                f"internal iterate, an update norm, or one side's own solver "
+                f"residual. Those all fall to 1e-7 while the two codes still "
+                f"disagree by 100%, which is what this submission shows. "
+                f"Recompute it from the files you just wrote, and if it is not "
+                f"small, the coupling has not converged whatever the iteration "
+                f"history says.")})
+        break
 
     # 2. the same deliverable must not be submitted twice with different content
     by_name: dict[str, set] = {}
