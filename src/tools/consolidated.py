@@ -3815,9 +3815,39 @@ def register_consolidated_tools(mcp: FastMCP):
         # unguarded verdict reaches every OASiS run that asks. A check that
         # answers about an operator it does not implement is not a weak check;
         # it is a source of wrong answers pointed at the arm under test.
-        _eq = "".join(str(equation).split()).lower()
-        _ok = ("-div(kgradu)=f", "-div(agradu)=f", "-lap(u)=f",
-               "-laplacian(u)=f", "-div(gradu)=f", "-nabla.(kgradu)=f")
+        # Task and spec equation lines carry a trailing gloss in parentheses —
+        # KR2's is "-lap(u) = f  (steady diffusion, unit conductivity)" — and
+        # that is one of the three cells this check IS valid for. Strip a
+        # trailing parenthetical before matching, or the guard refuses the
+        # cases it exists to serve.
+        import re as _re
+        _raw = _re.sub(r"\s*\([^()]*\)\s*$", "", str(equation)).strip()
+        _eq = "".join(_raw.split()).lower()
+        # MATCH THE OPERATOR'S SHAPE, NOT A LIST OF SPELLINGS. A whitelist of
+        # exact strings refused `-div(K grad T) = f in each subdomain` (C6, C1)
+        # purely because the field is called T — the same operator this check
+        # implements. The coefficient token must be a bare name or absent: an
+        # `a(x,y)` or `a(u)` carries parentheses and is refused, which is right,
+        # because a coefficient varying in space or in the solution breaks the
+        # constant-K adjoint this check uses.
+        _OP = _re.compile(r"^-(?:div\(([a-z]*)grad([a-z]+)\)"
+                          r"|lap(?:lacian)?\(([a-z]+)\))=f(.*)$")
+        # A COUPLED DIFFUSION CELL STATES THE SAME OPERATOR AND MUST NOT BE
+        # REFUSED. C2's spec reads "-div(k grad u) = f in each subdomain", which
+        # is the implemented form applied per side — and exact-match alone
+        # refused it. Prefix matching with a whitelist of benign qualifiers
+        # keeps that case while still refusing "-div(a(u) grad u) = f", whose
+        # coefficient depends on the solution, and "dT/dt - div(...)", which is
+        # transient. The qualifier list is deliberately tiny: a phrase nobody
+        # anticipated is a REFUSAL, not a guess.
+        _QUAL = ("", "ineachsubdomain", "oneachsubdomain", "insubdomaina",
+                 "insubdomainb", "inbothsubdomains")
+        # `group(1) or ""` — on the `lap(u)` branch the coefficient group does
+        # not participate and is None, which is not "" and silently refused
+        # KR2, one of the very cells this check is valid for.
+        _m = _OP.match(_eq)
+        _matched = bool(_m and (_m.group(1) or "") in ("", "k", "a")
+                        and (_m.group(4) or "") in _QUAL)
         if not _eq:
             return (
                 "REFUSED: pass `equation=` exactly as your task states it.\n\n"
@@ -3836,7 +3866,7 @@ def register_consolidated_tools(mcp: FastMCP):
                 "reads only your own files, and catches a near-zero field, a\n"
                 "tolerance floor, an order below the one you are claiming and a\n"
                 "non-monotone sequence.")
-        if _eq not in _ok:
+        if not _matched:
             return (
                 f"REFUSED: this check implements -div(K grad u) = f with a "
                 f"constant symmetric K, and your equation is {equation!r}.\n\n"

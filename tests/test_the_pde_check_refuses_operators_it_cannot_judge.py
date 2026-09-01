@@ -96,14 +96,15 @@ def test_the_guard_exists_in_the_served_tool():
     """What the AGENT ends up with: the refusal, and what it points to."""
     src = (ROOT / "src" / "tools" / "consolidated.py").read_text()
     i = src.index("def verify_pde_consistency(")
-    body = src[i:i + 6000]
+    body = src[i:src.index("async def audit_results", i)]
     assert "equation: str = \"\"" in src[i:i + 400], (
         "the tool must take the equation; it cannot tell from the numbers "
         "alone whether its own operator applies")
     assert "REFUSED: pass `equation=`" in body
     assert "REFUSED: this check implements -div(K grad u) = f" in body
-    for allowed in ("-div(kgradu)=f", "-lap(u)=f"):
-        assert allowed in body, f"{allowed} must be accepted"
+    assert "_OP = _re.compile(" in body, (
+        "the operator is matched by SHAPE — a whitelist of spellings refused "
+        "seven cells whose operator this check does implement")
     # it must name the alternative rather than leaving the agent stuck
     assert body.count("audit_results(work_dir=") >= 2, (
         "a refusal that does not say what to use instead costs the run an "
@@ -148,3 +149,69 @@ def test_a_genuine_scalar_diffusion_case_still_passes():
     out = check_levels(lv, "2*pi**2*sin(pi*x)*sin(pi*y)", 1.0,
                        [(0.0, 1.0), (0.0, 1.0)])
     assert out.verdict == "CONSISTENT", out.explanation
+
+
+def test_the_guard_decides_every_cell_in_the_campaign_correctly():
+    """All 47 cells, by their own equation strings, not by hand-picked cases.
+
+    The guard went through three wrong versions before this passed, each caught
+    only by running it against the real strings:
+
+      * exact-match on a list of spellings refused `-div(k grad u) = f in each
+        subdomain` (C2, C8, C10, D1-D6) — the implemented operator applied per
+        side;
+      * it refused KR2, whose line is `-lap(u) = f  (steady diffusion, unit
+        conductivity)`, because of the trailing gloss;
+      * matching the operator's shape refused `-div(K grad T) = f` (C1, C6)
+        because the field is called T, and then refused KR2 again because on the
+        `lap(u)` branch the coefficient group is None rather than "".
+
+    A whitelist of spellings cannot survive contact with 47 task authors. This
+    test is the thing that has to stay.
+    """
+    import glob
+    import json
+    import re as _re
+
+    src = (ROOT / "src" / "tools" / "consolidated.py").read_text()
+    i = src.index("_OP = _re.compile(")
+    pat = src[i:src.index(")\n", src.index('r"^-', i))]
+    # rebuild the guard's decision from the SHIPPED source, so this test cannot
+    # drift away from what an agent actually meets
+    rx = _re.compile("".join(_re.findall(r'r"([^"]*)"', pat)))
+    qi = src.index("_QUAL = (")
+    quals = tuple(s.strip().strip('"') for s in
+                  src[qi + 9:src.index(")", qi)].replace("\n", "").split(","))
+
+    def decide(eq):
+        raw = _re.sub(r"\s*\([^()]*\)\s*$", "", str(eq)).strip()
+        e = "".join(raw.split()).lower()
+        if not e:
+            return False
+        m = rx.match(e)
+        return bool(m and (m.group(1) or "") in ("", "k", "a")
+                    and (m.group(4) or "") in quals)
+
+    accepted, refused = [], []
+    specs = sorted(glob.glob(str(ROOT / "campaign3_blind" / "problems"
+                                 / "*" / "spec_public.json")))
+    assert len(specs) >= 40, f"only {len(specs)} cells found"
+    for f in specs:
+        d = json.loads(Path(f).read_text())
+        (accepted if decide(d.get("equation")) else refused).append(d["id"])
+
+    # the operator IS -div(K grad u) = f here, single-code and per-subdomain
+    MUST_ACCEPT = {"NG1", "DU1", "KR2", "B1", "C2", "C8", "C10", "C6",
+                   "D1", "D2", "D3", "D6"}
+    # elasticity, Stokes, Navier-Stokes, biharmonic, transient, nonlinear a(u),
+    # variable a(x,y), piecewise-constant k, advection, DSMC, FSI, multiphysics
+    MUST_REFUSE = {"FC2", "FE2", "SK1", "SK2", "NG2", "FE1", "DL1", "FC1",
+                   "DL2", "KR1", "DU2", "FB1", "FB2", "C5", "D5", "C4", "D8",
+                   "C3", "D7", "C7", "C9", "C11", "C12", "D4", "C13", "C14",
+                   "SP1", "SP2", "C1", "B2", "B3"}
+    assert MUST_ACCEPT <= set(accepted), (
+        f"the check is valid on these and would be refused: "
+        f"{sorted(MUST_ACCEPT - set(accepted))}")
+    assert MUST_REFUSE <= set(refused), (
+        f"the check would answer about operators it does not implement: "
+        f"{sorted(MUST_REFUSE - set(refused))}")
