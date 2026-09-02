@@ -13,6 +13,7 @@ OASiS's own interpreter, NOT the 4C binary.
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -63,6 +64,7 @@ def F_SRC(x, y):
     """
     return np.zeros_like(x)
 T_OUTER   = 320.0         # Dirichlet value on the NON-interface x-boundary
+FULL_OUTER_DIRICHLET = False  # True: T_OUTER also on y=Y0,Y1; corners stay outer
 NX, NY    = 24, 16        # this subdomain's OWN QUAD4 mesh
 T_INIT    = 310.0         # iteration-1 fallback interface temperature
 Q_INIT    = 0.0           # iteration-1 fallback interface flux
@@ -191,6 +193,8 @@ for j in range(NY):
                      f"{grid[(i, j + 1)]} MAT 1 TYPE Std")
 i_out = 0 if OUTER_X == X0 else NX
 i_if = 0 if IFACE_X == X0 else NX
+if FULL_OUTER_DIRICHLET and NY < 2:
+    sys.exit("FULL_OUTER_DIRICHLET needs NY >= 2 so the interface has an interior")
 
 # DLINE 1 = outer Dirichlet boundary, DLINE 2 = the coupling interface.
 iface_block = ""
@@ -242,8 +246,17 @@ if src is not None:
 deck += "NODE COORDS:\n" + "".join(f'  - "{n}"\n' for n in nodes)
 deck += "TRANSPORT ELEMENTS:\n" + "".join(f'  - "{e}"\n' for e in elems)
 deck += "DLINE-NODE TOPOLOGY:\n"
-deck += "".join(f'  - "NODE {grid[(i_out, j)]} DLINE 1"\n' for j in range(NY + 1))
-deck += "".join(f'  - "NODE {grid[(i_if, j)]} DLINE 2"\n' for j in range(NY + 1))
+outer_nodes = {grid[(i_out, j)] for j in range(NY + 1)}
+iface_rows = range(NY + 1)
+if FULL_OUTER_DIRICHLET:
+    outer_nodes.update(grid[(i, 0)] for i in range(NX + 1))
+    outer_nodes.update(grid[(i, NY)] for i in range(NX + 1))
+    # At the two interface corners the outer boundary condition wins.
+    iface_rows = range(1, NY)
+deck += "".join(f'  - "NODE {node} DLINE 1"\n'
+                for node in sorted(outer_nodes))
+deck += "".join(f'  - "NODE {grid[(i_if, j)]} DLINE 2"\n'
+                for j in iface_rows)
 if src is not None:
     deck += "DSURF-NODE TOPOLOGY:\n" + "".join(
         f'  - "NODE {n} DSURFACE 1"\n' for n in range(1, len(nodes) + 1))
@@ -259,8 +272,16 @@ if FOURC_LD:
 # that silence that "4C cannot run under subprocess" and gave up; re-running
 # their decks with stdbuf printed an ordinary deck bug every time. OASiS's own
 # run_simulation path already does this.
+shutil.rmtree("out-vtk-files", ignore_errors=True)
+for stale in Path(".").glob("out*"):
+    if stale.is_file():
+        stale.unlink()
 r = subprocess.run(["stdbuf", "-oL", "-eL", FOURC_BIN, "input.4C.yaml", "out"],
                    capture_output=True, text=True, env=env)
+sys.stdout.write(r.stdout)
+sys.stderr.write(r.stderr)
+if r.returncode != 0:
+    sys.exit(f"4C exited with code {r.returncode}; refusing stale output")
 
 vtus = sorted(Path("out-vtk-files").glob("scatra-*-0.vtu"))
 if not vtus:
@@ -283,6 +304,73 @@ flux = m.point_data.get("flux_domain_phi_1")
 if flux is None:
     sys.exit("no flux field in the 4C VTU — set CALCFLUX_DOMAIN: \"diffusive\"")
 flux = np.asarray(flux)
+
+# Persist the complete solved field by physical coordinates. The VTU repeats
+# nodes per element, so collapse every field exactly as the interface is
+# collapsed below; array position is never a mesh-node identifier in 4C VTK.
+field_coords, field_inv = np.unique(np.round(pts, 10), axis=0,
+                                    return_inverse=True)
+field_values = np.zeros(len(field_coords))
+field_fluxes = np.zeros((len(field_coords), flux.shape[1]))
+field_counts = np.zeros(len(field_coords))
+np.add.at(field_values, field_inv, phi)
+np.add.at(field_fluxes, field_inv, flux)
+np.add.at(field_counts, field_inv, 1.0)
+field_values /= field_counts
+field_fluxes /= field_counts[:, None]
+Path("field.json").write_text(json.dumps({
+    "coordinates": field_coords.tolist(),
+    "values": field_values.tolist(),
+    "flux_vectors": field_fluxes[:, :2].tolist(),
+}, indent=2))
+
+# Recover the variationally consistent interface flux from the 4C solution.
+# `flux_domain_phi_1` is an L2 projection of element gradients and is only
+# first-order accurate at a Dirichlet boundary. The constrained-row residual
+# of the original Q1 problem is the boundary flux functional and converges at
+# second order on interior interface nodes.
+xs = np.linspace(X0, X1, NX + 1)
+ys_grid = np.linspace(Y0, Y1, NY + 1)
+u_grid = np.full((NY + 1, NX + 1), np.nan)
+for point, value in zip(field_coords, field_values):
+    i = int(np.argmin(np.abs(xs - point[0])))
+    j = int(np.argmin(np.abs(ys_grid - point[1])))
+    u_grid[j, i] = value
+if not np.isfinite(u_grid).all():
+    sys.exit("4C field output is not a complete structured Q1 grid")
+
+hx = (X1 - X0) / NX
+hy = (Y1 - Y0) / NY
+mass = hx * hy / 36.0 * np.array([
+    [4, 2, 1, 2], [2, 4, 2, 1],
+    [1, 2, 4, 2], [2, 1, 2, 4]], float)
+stiffness = np.zeros((4, 4))
+gauss = (-1.0 / np.sqrt(3.0), 1.0 / np.sqrt(3.0))
+for xi in gauss:
+    for eta in gauss:
+        dxi = 0.25 * np.array([-(1-eta), 1-eta, 1+eta, -(1+eta)])
+        deta = 0.25 * np.array([-(1-xi), -(1+xi), 1+xi, 1-xi])
+        grad = np.column_stack((2.0 / hx * dxi, 2.0 / hy * deta))
+        stiffness += K * (grad @ grad.T) * hx * hy / 4.0
+
+residual = np.zeros_like(u_grid)
+for j in range(NY):
+    for i in range(NX):
+        indices = ((j, i), (j, i+1), (j+1, i+1), (j+1, i))
+        local_u = np.array([u_grid[jj, ii] for jj, ii in indices])
+        local_f = np.array([F_SRC(xs[ii], ys_grid[jj])
+                            for jj, ii in indices], float)
+        local_r = stiffness @ local_u - mass @ local_f
+        for (jj, ii), value in zip(indices, local_r):
+            residual[jj, ii] += value
+
+weights = np.full(NY + 1, hy)
+weights[[0, -1]] = 0.5 * hy
+q_consistent = -residual[:, i_if] / weights
+if FULL_OUTER_DIRICHLET:
+    # Corner reactions also contain the perpendicular outer-boundary flux and
+    # cannot be separated into one interface contribution. C2 excludes them.
+    q_consistent[[0, -1]] = 0.0
 # ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
 mask = np.abs(pts[:, 0] - IFACE_X) < 1e-9
@@ -296,10 +384,13 @@ np.add.at(T, inv, phi[mask])
 np.add.at(Q, inv, flux[mask][:, 0])
 np.add.at(n, inv, 1.0)
 T /= n
-Q = S * (Q / n)      # 4C 'flux_domain' is -D grad(phi); project on outward n
+Q_projected = S * (Q / n)
+Q = q_consistent
 
 print(f"[4C {SIDE}] interface n={len(uy)} "
-      f"T=[{T.min():.6g},{T.max():.6g}] q=[{Q.min():.6g},{Q.max():.6g}]")
+    f"T=[{T.min():.6g},{T.max():.6g}] q=[{Q.min():.6g},{Q.max():.6g}] "
+    f"projected_q=[{Q_projected.min():.6g},{Q_projected.max():.6g}]")
+print(f"NDOF = {len(field_coords)}")
 
 Path("exports.json").write_text(json.dumps({
     "field_name": "temperature",

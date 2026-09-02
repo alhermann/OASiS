@@ -824,6 +824,23 @@ def test_flux_profile_check_passes_a_correct_distribution():
     assert not findings and not not_run
 
 
+def test_flux_profile_allows_coarse_error_below_public_ceiling():
+    a = {"coordinates": _CO4, "normal_fluxes": [1.0] * 4}
+    b = {"coordinates": _CO4,
+         "normal_fluxes": [-0.92, -1.08, -0.92, -1.08]}
+    findings, not_run = check_interface_flux_profile(a, b)
+    assert not findings and not not_run
+
+
+def test_flux_profile_still_rejects_material_redistribution():
+    a = {"coordinates": _CO4, "normal_fluxes": [1.0] * 4}
+    b = {"coordinates": _CO4,
+         "normal_fluxes": [-0.85, -1.15, -0.85, -1.15]}
+    findings, not_run = check_interface_flux_profile(a, b)
+    assert findings and "POINT BY POINT" in findings[0]
+    assert not not_run
+
+
 def test_flux_profile_says_it_could_not_look_rather_than_passing():
     """Different node counts, or coordinates that do not line up: the profile
     cannot be compared, and that must not read as conservation being fine."""

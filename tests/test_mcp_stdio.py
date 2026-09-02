@@ -139,6 +139,43 @@ def test_discover_returns_non_empty():
     assert r["text"].strip(), "discover() returned empty text"
 
 
+@pytest.mark.parametrize("solver,role,filename", [
+    ("fourc", "", "participant_fourc.py"),
+    ("kratos", ":neumann", "participant_kratos_neumann.py"),
+])
+def test_mcp_reconstructs_complete_tested_coupling_participant(
+        solver, role, filename):
+    """The real stdio path must return every source byte in bounded parts."""
+    import hashlib
+    import re
+
+    source = (REPO_ROOT / "data" / "coupling_participants" / filename).read_text()
+    chunks = []
+    final = ""
+    for part in range(1, 10):
+        try:
+            result = asyncio.run(_call_tool_async("knowledge", {
+                "topic": "coupling", "solver": solver,
+                "signal": f"participant{role}:part{part}",
+            }))
+        except ModuleNotFoundError as exc:
+            pytest.skip(f"mcp client SDK not importable: {exc}")
+
+        assert not result["isError"], result["text"][:300]
+        marker = f"participant: part {part} of"
+        start = result["text"].index(marker)
+        match = re.search(r"```python\n(.*?)```", result["text"][start:], re.S)
+        assert match, f"{solver} part {part} has no fenced source"
+        chunks.append(match.group(1))
+        assert "THIS PAYLOAD IS TRUNCATED HERE" not in result["text"]
+        if "FINAL PART" in result["text"]:
+            final = result["text"]
+            break
+
+    assert "".join(chunks) == source
+    assert hashlib.sha256(source.encode()).hexdigest() in final
+
+
 def test_prepare_simulation_returns_template_and_knowledge():
     """prepare_simulation for the simplest cell that is known to work
     on every machine (skfem Poisson) must return a payload that

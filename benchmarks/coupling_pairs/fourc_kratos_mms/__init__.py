@@ -1,0 +1,1 @@
+"""C2-like manufactured 4C/Kratos development benchmark."""

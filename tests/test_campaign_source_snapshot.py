@@ -29,6 +29,8 @@ def test_snapshot_is_committed_content_and_dirty_source_is_refused(tmp_path):
         "campaign3_blind/phase.py": "PHASE = 'committed'\n",
         "campaign3_blind/run_blind.py": "RUNNER = 'committed'\n",
         "scripts/blind_keys.py": "CUSTODY = 'committed'\n",
+        "benchmarks/spent_problem_oracle.py": "EXACT = 'developer only'\n",
+        "tests/test_spent_problem.py": "EXPECTED = 'developer only'\n",
     }
     for relative, content in files.items():
         path = repo / relative
@@ -42,6 +44,8 @@ def test_snapshot_is_committed_content_and_dirty_source_is_refused(tmp_path):
     build = R.prepare_source_snapshot(repo, tmp_path / "snapshots")
     snapshot = Path(build["snapshot_path"])
     assert (snapshot / "src/server.py").read_text() == files["src/server.py"]
+    assert not (snapshot / "benchmarks").exists()
+    assert not (snapshot / "tests").exists()
     assert build["git_commit"] == _git(repo, "rev-parse", "HEAD")
     assert len(build["source_sha256"]) == 64
 

@@ -84,6 +84,7 @@ def F_SRC(x, y):
     return 0.0 * x
 
 T_OUTER   = 300.0         # Dirichlet value on the NON-interface x-boundary
+FULL_OUTER_DIRICHLET = False  # True: T_OUTER also on y=Y0,Y1; corners stay outer
 NX, NY    = 20, 16        # this subdomain's OWN mesh; need not match the partner
 Q_INIT    = 0.0           # iteration-1 fallback interface flux density
 
@@ -214,10 +215,18 @@ def main():
         n.SetSolutionStepValue(KM.HEAT_FLUX, float(source(n.X, n.Y)))
         n.SetSolutionStepValue(KM.FACE_HEAT_FLUX, 0.0)
 
-    for j in range(NY + 1):                 # outer Dirichlet boundary
+    for j in range(NY + 1):                 # outer x Dirichlet boundary
         n = mp.Nodes[nid[(i_out, j)]]
         n.SetSolutionStepValue(KM.TEMPERATURE, float(T_OUTER))
         n.Fix(KM.TEMPERATURE)
+    if FULL_OUTER_DIRICHLET:
+        # The interface corners lie on y=Y0,Y1, so they remain outer-boundary
+        # Dirichlet nodes even though adjacent interface facets carry flux.
+        for i in range(NX + 1):
+            for j in (0, NY):
+                n = mp.Nodes[nid[(i, j)]]
+                n.SetSolutionStepValue(KM.TEMPERATURE, float(T_OUTER))
+                n.Fix(KM.TEMPERATURE)
 # ── SOLVE ─ OASiS DOES NOT SERVE THIS ─ end
 
     # ── the interface: the partner's flux, applied UNCHANGED (see the header) ──
@@ -295,6 +304,12 @@ def main():
     wq = np.array([w_i[i] for i in ids_if])
     Q = np.where(np.abs(wq) > 1e-14, -r_if / np.maximum(np.abs(wq), 1e-300)
                  * np.sign(np.where(wq == 0, 1.0, wq)), 0.0)
+    if FULL_OUTER_DIRICHLET:
+        # Corner reactions also contain the perpendicular outer-boundary flux
+        # and cannot be separated into one interface contribution. C2 excludes
+        # them from grading; retain the points for exchange but not that mixed
+        # reaction.
+        Q[[0, -1]] = 0.0
 
     # ── CONSERVATION SELF-CHECK: the discrete divergence theorem ──────────────
     # Summing the unconstrained residual r = A u - b over ALL nodes gives
@@ -332,6 +347,15 @@ def main():
     print(f"[kratos neumann] interface n={len(T)} "
           f"q_applied=[{q_in.min():.6g},{q_in.max():.6g}] "
           f"T=[{T.min():.6g},{T.max():.6g}] {bal}")
+    print(f"NDOF = {len(mp.Nodes)}")
+
+    field_coords = [[float(n.X), float(n.Y)] for n in mp.Nodes]
+    field_values = [float(n.GetSolutionStepValue(KM.TEMPERATURE))
+                    for n in mp.Nodes]
+    Path("field.json").write_text(json.dumps({
+        "coordinates": field_coords,
+        "values": field_values,
+    }, indent=2))
 
     # exports.json LAST: the driver takes its existence as proof of success.
     Path("exports.json").write_text(json.dumps({

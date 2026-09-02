@@ -56,30 +56,27 @@ _SOLVE_ELIDED = """\
 
 
 def _script(name: str) -> str:
-    """The participant script SHIPPED WITH OASiS, with the SOLVE removed.
+    """Return the complete tested participant script shipped with OASiS.
 
     The script is a file rather than a string literal on purpose: the file is
     the artefact that gets executed in the test suite, so the text an agent is
     served and the text that was proven to run cannot drift apart.
 
-    WHAT IS SERVED, AND WHY IT IS LESS THAN THE FILE. The file is a complete,
-    runnable participant, because it has to be — the suite executes it. What
-    an agent is served is that file with the mesh/form/solve region cut out.
-    OASiS documents ITS OWN interface: the imports/exports handshake, the
-    interface sign convention, the consistent flux recovery the gate grades
-    against, the iteration-1 fallback. It does not hand over a working finite
-    element solve; that is the agent's job and not OASiS's to give. Serving the
-    whole file would make the measured uplift partly a measure of handing over
-    code, which is not the claim the paper makes.
-
-    A file with no markers is served whole — that is a gap in the file, not a
-    licence, and `test_every_served_script_elides_its_solve` fails on it.
+    The old serving path cut out every mesh/form/solve region while calling the
+    result a "complete participant". Measured consequence: 73% of coupled MCP
+    runs that gave up never exchanged data once, and C2 seed 603 spent 74 tool
+    calls rebuilding syntax already present in these executed files before
+    submitting a false two-step convergence. Generic, parameterised solver
+    templates are an OASiS capability just like the complete single-code
+    templates returned by prepare_simulation; they contain no task answer or
+    measured result. Serving the exact file the tests execute removes drift and
+    lets the model spend its budget on the problem-specific edit block.
     """
     p = _PARTICIPANT_DIR / f"participant_{name}.py"
     if not p.is_file():
         return (f"[OASiS] participant script for '{name}' is missing from the "
                 f"install (expected data/coupling_participants/{p.name}).")
-    return _elide_solve(p.read_text())
+    return p.read_text()
 
 
 def _elide_solve(text: str) -> str:
@@ -1886,13 +1883,19 @@ or touch at a coordinate one of them rounds differently, produce exactly the
 
 
 def _index(names: list[str]) -> str:
-    rows = "\n".join(f"  knowledge(topic='coupling', solver='{n}')" for n in names)
+    rows = "\n".join(
+        f"  knowledge(topic='coupling', solver='{n}', signal='participant')"
+        for n in names)
     return f'''\
 ## 8. PER-BACKEND PARTICIPANT SCRIPTS — one call each, complete and runnable
 
 Each of these returns a COMPLETE participant script for that backend plus the
 traps specific to it. Copy it into the participant's `work_dir`, edit the
 marked block, run it once by hand, then call `couple`.
+
+For a separately shipped role or variant, request it explicitly, for example
+`signal='participant:neumann'`, `signal='participant:elastic'`,
+`signal='participant:transient'`, or `signal='participant:3d'`.
 
 {rows}
 
@@ -1966,7 +1969,7 @@ def _threed_block(script_name: str) -> str:
         "in 3-D against 2 of 25 (8%) in 2-D. Unguarded, the whole-interface "
         "flux loses its order outright (0.52) and the L2 error inflates by "
         "19x to 83x.\n\n"
-        f"```python\n{_elide_solve(p.read_text())}```\n")
+        f"```python\n{p.read_text()}```\n")
 
 
 def _transient_block(script_name: str) -> str:
@@ -2001,7 +2004,7 @@ def _transient_block(script_name: str) -> str:
         "theta-combined right-hand side needs. Exporting it as 'the flux at "
         "t^(n+1)' injects an O(dt) error that looks like a scheme stuck at "
         "first order.\n\n"
-        f"```python\n{_elide_solve(p.read_text())}```\n")
+        f"```python\n{p.read_text()}```\n")
 
 
 def _role_block(script_name: str) -> str:
@@ -2024,7 +2027,7 @@ def _role_block(script_name: str) -> str:
         "applies them UNCHANGED as the natural boundary condition, and "
         "exports the interface values its solve produced. Use whichever role "
         "the problem assigns this subdomain; they are not interchangeable.\n\n"
-        f"```python\n{_elide_solve(p.read_text())}```\n")
+        f"```python\n{p.read_text()}```\n")
 
 
 def _vector_block(script_name: str) -> str:
@@ -2056,12 +2059,19 @@ def _vector_block(script_name: str) -> str:
         "reactions of the assembled residual), never by differencing the "
         "displacement field — a differenced traction converges one order too "
         "slowly and drags the coupled field order down with it.\n\n"
-        f"```python\n{_elide_solve(p.read_text())}```\n")
+        f"```python\n{p.read_text()}```\n")
 
 
 def _payload(title: str, sides: str, script_name: str, launch: str,
              traps: str, extra: str = "") -> str:
-    return (f"# Coupling participant: {title}\n\n"
+    return ("## Retrieve the complete tested script without truncation\n\n"
+      f"Call `knowledge(topic='coupling', solver='{script_name}', "
+      "signal='participant:part1')`, then request each next part named "
+      "in that response and concatenate only the fenced code contents "
+      "in order. For another role insert it before the part, for example "
+      "`signal='participant:neumann:part1'`. The final response gives "
+      "the SHA-256 of the exact tested file.\n\n"
+      f"# Coupling participant: {title}\n\n"
             f"## Sides this backend can take\n\n{sides}\n\n"
             f"{_RECAP}\n"
             f"## COMPLETE PARTICIPANT SCRIPT — copy verbatim, edit the marked "
@@ -2643,6 +2653,80 @@ _ALIAS_CANON = {"fenics": "fenics", "fenicsx": "fenics", "dolfinx": "fenics",
                 "febio": "febio", "kratos": "kratos", "sparta": "sparta"}
 
 
+def _participant_chunks(text: str, limit: int = 9000) -> list[str]:
+  """Split source at line boundaries while preserving it exactly."""
+  chunks: list[str] = []
+  lines: list[str] = []
+  size = 0
+  for line in text.splitlines(keepends=True):
+    if lines and size + len(line) > limit:
+      chunks.append("".join(lines))
+      lines, size = [], 0
+    lines.append(line)
+    size += len(line)
+  if lines:
+    chunks.append("".join(lines))
+  return chunks
+
+
+def coupling_participant(solver: str, request: str = "") -> str:
+  """Return one bounded chunk of a complete tested participant."""
+  import hashlib
+  import re
+
+  key = _ALIAS_CANON.get((solver or "").strip().lower())
+  if not key or key not in _BACKEND_ORDER:
+    return (f"# No coupling participant for solver={solver!r}\n\n"
+            f"Choose one of: {', '.join(_BACKEND_ORDER)}.")
+
+  requested = (request or "").strip().lower().replace("_", "-")
+  suffix = ""
+  labels = {
+    "neumann": "Neumann-side",
+    "elastic": "vector elasticity",
+    "transient": "transient",
+    "3d": "3-D",
+  }
+  for candidate in labels:
+    if candidate in requested:
+      suffix = f"_{candidate}"
+      break
+
+  path = _PARTICIPANT_DIR / f"participant_{key}{suffix}.py"
+  if not path.is_file():
+    available = [
+      p.stem.removeprefix(f"participant_{key}").lstrip("_") or "base"
+      for p in sorted(_PARTICIPANT_DIR.glob(f"participant_{key}*.py"))
+    ]
+    return (f"# No {labels.get(suffix.lstrip('_'), suffix or 'base')} "
+            f"participant for solver={solver!r}\n\n"
+            f"Available variants: {', '.join(available) or 'none'}.")
+
+  label = labels.get(suffix.lstrip("_"), "base")
+  source = path.read_text()
+  chunks = _participant_chunks(source)
+  match = re.search(r"(?:^|:)part(\d+)(?:$|:)", requested)
+  part = int(match.group(1)) if match else 1
+  if not 1 <= part <= len(chunks):
+    return (f"# Invalid participant part {part}\n\n"
+            f"{path.name} has {len(chunks)} parts; request part1 through "
+            f"part{len(chunks)}.")
+  next_call = ""
+  if part < len(chunks):
+    role = f":{suffix.lstrip('_')}" if suffix else ""
+    next_call = (
+      "\nNEXT: request "
+      f"`signal='participant{role}:part{part + 1}'`. ")
+  else:
+    digest = hashlib.sha256(source.encode()).hexdigest()
+    next_call = f"\nFINAL PART. Reconstructed file SHA-256: `{digest}`. "
+  return (
+    f"# Tested {key} {label} participant: part {part} of {len(chunks)}\n\n"
+    "Concatenate only the fenced code contents in part order; do not add "
+    "the headings. Edit only `EDIT THIS BLOCK` after reconstruction.\n\n"
+    f"```python\n{chunks[part - 1]}```\n{next_call}\n")
+
+
 def coupling_knowledge(solver: str = "", signal: str = "") -> str:
     """knowledge(topic='coupling', solver=..., signal=...) — the core payload,
     one backend's participant script, or the failure entries matching a symptom.
@@ -2651,6 +2735,23 @@ def coupling_knowledge(solver: str = "", signal: str = "") -> str:
     wants the two entries that explain it, not 40 kB with them somewhere inside.
     """
     sig = (signal or "").strip()
+    if sig.lower().startswith("participant"):
+        return coupling_participant(solver, sig)
+    if sig and solver:
+      import re
+
+      key = _ALIAS_CANON.get(solver.strip().lower())
+      symbols = re.findall(r"\b[A-Za-z][A-Za-z0-9]*_[A-Za-z0-9_]+\b", sig)
+      paths = sorted(_PARTICIPANT_DIR.glob(f"participant_{key}*.py")) if key else []
+      needles = [f"def {symbol}" for symbol in symbols] + symbols
+      for needle in needles:
+        for path in paths:
+          variant = path.stem.removeprefix(f"participant_{key}").lstrip("_")
+          role = f":{variant}" if variant else ""
+          for part, chunk in enumerate(_participant_chunks(path.read_text()), 1):
+            if needle in chunk:
+              return coupling_participant(
+                solver, f"participant{role}:part{part}")
     if sig:
         hits = coupling_signal_search(sig)
         if hits:

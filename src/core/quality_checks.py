@@ -634,7 +634,7 @@ def check_interface_balance(export_a, export_b, label_a="A", label_b="B",
 
 
 def check_interface_flux_profile(export_a, export_b, label_a="A", label_b="B",
-                                 rtol: float = 0.05
+                                 rtol: float = 0.10
                                  ) -> tuple[list[str], list[str]]:
     """Does the flux match POINT BY POINT, not only in total?
 

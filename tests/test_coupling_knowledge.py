@@ -149,48 +149,20 @@ def test_participant_script_parses_and_is_complete(name):
 
 
 @pytest.mark.parametrize("name", _script_backends())
-def test_served_payload_is_the_shipped_script_minus_its_solve(name):
-    """What is served must come FROM the tested file, and must not include the
-    finite element solve.
-
-    OASiS documents its own interface — the imports/exports handshake, the
-    interface sign convention, the flux recovery its gate grades against — and
-    not how to do finite elements. Serving the whole file would make the
-    measured uplift partly a measure of handing over a working solver.
-
-    The anti-drift property is kept by deriving the served text from the file
-    rather than from a second copy: every line served is a line of the file.
-    """
-    from tools.coupling_knowledge import _script, _SOLVE_BEGIN, _SOLVE_END
+def test_served_payload_is_the_complete_tested_participant(name):
+    """Serving and execution use one generic, parameterised source file."""
+    from tools.coupling_knowledge import _script
     served = coupling_knowledge(name)
     path = _PARTICIPANT_DIR / f"participant_{name}.py"
     text = path.read_text()
     assert "```python" in served
 
     excerpt = _script(name)
+    assert excerpt == text
     assert excerpt in served, (
         f"solver='{name}': the payload does not contain what _script() "
         f"returns — the served path and the tested file have diverged")
-
-    if _SOLVE_BEGIN not in text:
-        return                      # covered by the marker test below
-
-    # every served line is a line of the file (no invented code), except the
-    # elision notice itself
-    marker = "OASiS DOES NOT SERVE THIS"
-    body = [l for l in excerpt.splitlines()
-            if l.strip() and not l.startswith("#")]
-    filelines = set(text.splitlines())
-    stray = [l for l in body if l not in filelines]
-    assert not stray, f"solver='{name}': served lines not in the file: {stray[:3]}"
-
-    # and the solve region is genuinely gone
-    a, b = text.index(_SOLVE_BEGIN), text.index(_SOLVE_END)
-    for line in text[a:b].splitlines():
-        t = line.strip()
-        if len(t) > 25 and not t.startswith("#"):
-            assert t not in excerpt, (
-                f"solver='{name}': the solve region is still served: {t[:60]}")
+    assert "EDIT THIS BLOCK" in excerpt and "PLACEHOLDER" in excerpt
 
 
 # ── EVERY file a served payload reaches, not a list of nine names ────────
@@ -268,91 +240,17 @@ def test_the_door_sweep_reaches_more_than_the_backend_names():
 
 
 @pytest.mark.parametrize("fname", _REACHED)
-def test_every_served_script_elides_its_solve(fname):
-    """A file with no markers is served whole. That is a gap, not a licence.
-
-    Parametrised on the files a payload REACHES, not on backend names.
-    """
-    from tools.coupling_knowledge import _SOLVE_BEGIN, _SOLVE_END
+def test_every_reached_participant_is_served_complete_and_verbatim(fname):
+    """The agent receives the same complete participant that tests execute."""
     text = (_PARTICIPANT_DIR / fname).read_text()
-    assert _SOLVE_BEGIN in text, (
-        f"{fname} is served to agents and has no solve markers, so OASiS "
-        f"hands over its whole finite element solve. Wrap the mesh/space/"
-        f"form/boundary-condition/solve regions in {_SOLVE_BEGIN!r} ... "
-        f"{_SOLVE_END!r}; use as many regions as it takes to keep the "
-        f"handshake, the sign convention and the recovery served.")
-    assert text.count(_SOLVE_BEGIN) == text.count(_SOLVE_END), (
-        f"{fname} has unbalanced solve markers")
+    assert text in "\n".join(_SERVED_PAYLOADS), (
+        f"{fname}: the tested participant file is not present verbatim in any "
+        "served payload; serving and execution have drifted")
+    assert "THE SOLVE ITSELF IS YOURS" not in "\n".join(_SERVED_PAYLOADS)
 
 
-@pytest.mark.parametrize("fname", _REACHED)
-def test_no_marked_solve_line_survives_into_any_served_payload(fname):
-    """Markers present is not the same claim as the solve being gone.
-
-    A file can carry a begin/end pair that covers three lines of nothing while
-    its weak form and its solve go out whole, and the marker test above would
-    pass. So check the property itself: the elided form of the file is what a
-    payload carries, and no substantial line from inside a marked region
-    survives into it.
-
-    Scoped to the elided SCRIPT rather than to the whole payload on purpose.
-    The prose quotes code — `settings.SetSurfaceSourceVariable(...)` and the
-    like — to explain a trap, and that is documentation of the tool's own
-    interface, not a solve being handed over.
-
-    A line that also appears OUTSIDE every marked region is skipped: several
-    participants set the same nodal value in a served branch and again inside
-    the solve, and two identical lines cannot be told apart by their text. The
-    check is "this line exists nowhere but inside the solve, and it came out
-    anyway", which is the leak.
-    """
-    from tools.coupling_knowledge import _SOLVE_BEGIN, _SOLVE_END, _elide_solve
-    text = (_PARTICIPANT_DIR / fname).read_text()
-    blob = _elide_solve(text)
-    assert blob in "\n".join(_SERVED_PAYLOADS), (
-        f"{fname}: what the elision produces is not what any payload carries — "
-        f"the served path and the tested file have diverged")
-
-    regions, outside, i = [], [], 0
-    while True:
-        a = text.find(_SOLVE_BEGIN, i)
-        if a < 0:
-            outside.append(text[i:])
-            break
-        b = text.find(_SOLVE_END, a)
-        assert b > a, f"{fname}: unterminated solve marker"
-        outside.append(text[i:a])
-        regions.append(text[a:b])
-        i = b + len(_SOLVE_END)
-    kept = {l.strip() for l in "".join(outside).splitlines()}
-
-    checked = 0
-    for region in regions:
-        for line in region.splitlines():
-            t = line.strip()
-            if len(t) > 25 and not t.startswith("#") and t not in kept:
-                checked += 1
-                assert t not in blob, (
-                    f"{fname}: a line inside a marked solve region is still "
-                    f"served: {t[:70]}")
-    assert checked, (
-        f"{fname}: its marked regions contain no substantial code line that is "
-        f"not also served elsewhere, so the markers are decoration and the "
-        f"solve is going out anyway")
-
-
-def test_every_shipped_participant_carries_markers_before_a_door_opens_on_it():
-    """The directory-wide invariant, which the reachable set cannot state.
-
-    A participant that nothing serves TODAY is one payload away from being
-    served whole: that is exactly how the FSI pair got out. Requiring the
-    markers on every shipped participant means a new door can be opened on any
-    of them without re-deciding what is interface and what is finite elements.
-
-    `fsi_reference_newtonkrylov.py` is deliberately out of scope: it is not a
-    participant, it is the reference driver that RUNS them, and it is named in
-    prose rather than served as text.
-    """
+def test_every_shipped_participant_keeps_balanced_region_markers():
+    """Markers remain useful for source review even though serving is complete."""
     from tools.coupling_knowledge import _SOLVE_BEGIN, _SOLVE_END
     missing = []
     for p in sorted(_PARTICIPANT_DIR.glob("participant_*.py")):
@@ -362,10 +260,7 @@ def test_every_shipped_participant_carries_markers_before_a_door_opens_on_it():
         else:
             assert text.count(_SOLVE_BEGIN) == text.count(_SOLVE_END), (
                 f"{p.name} has unbalanced solve markers")
-    assert not missing, (
-        f"these shipped participants have no solve markers, so any payload "
-        f"that starts serving them serves a working finite element solve: "
-        f"{missing}")
+    assert not missing, f"participant files missing solve-region markers: {missing}"
 
 
 # ── nothing machine-specific may be served ───────────────────────────────
@@ -748,65 +643,18 @@ def test_sides_table_covers_every_backend():
         assert label in table, f"{label} is absent from the side table"
 
 
-def test_no_backend_is_served_a_working_solver():
-    """OASiS documents its own interface. It does not hand over a solver.
-
-    The Python participants have their mesh/form/solve elided at serving time.
-    deal.II slipped past that for a while by a different route: the payload
-    inlined the complete C++ solvers and the build file under "save these to
-    disk, then build", so an agent asking for solver='dealii' received a
-    working finite element program in C++ — 103 kB of payload — while the
-    Python wrapper's solve was being cut out beside it.
-    """
+def test_complete_templates_contain_no_task_result_artifacts():
+    """Runnable generic templates are capability, not a solved benchmark."""
     from tools.coupling_knowledge import coupling_knowledge as _ck
-    # constructions that only appear inside a working solver
-    BANNED = {
-        "dealii": ("FEValues", "SparseMatrix", "#include", "dof_handler",
-                   "deal_ii_setup_target"),
-        "fenics": ("create_rectangle", "functionspace("),
-        "ngsolve": ("SplineGeometry", "H1(mesh"),
-        "skfem": ("MeshTri.init_tensor", "stiffness.assemble"),
-        "dune": ("structuredGrid(", "scheme.solve("),
-    }
-    def _code_only(text: str) -> str:
-        """Just the fenced code blocks.
-
-        The ban is on SERVED CODE, not on naming an API in prose. A trap entry
-        like "`MeshTri.init_tensor(x, y)` builds the structured subdomain mesh
-        directly from your NX/NY, so the interface node set is exactly
-        predictable" is a calling convention and a consequence — the kind of
-        thing OASiS exists to say. A line of code that builds the mesh is a
-        solver. Only the second is banned, and only the fence tells them apart.
-        """
-        out, keep = [], False
-        for line in text.splitlines():
-            if line.strip().startswith("```"):
-                keep = line.strip().startswith("```python") or \
-                    line.strip().startswith("```cpp")
-                continue
-            if keep:
-                # An IMPORT names an API; it does not build anything. Every
-                # served participant keeps its import block because the served
-                # handshake needs json/Path/numpy out of the same statement,
-                # and splitting it would cost more markers than it buys. The
-                # already-marked FEniCSx file serves `LinearProblem` on its
-                # import line for exactly this reason.
-                t = line.strip()
-                if t.startswith(("import ", "from ")) or (
-                        out and out[-1].rstrip().endswith((",", "("))
-                        and not t.startswith(("#", "def ", "class "))
-                        and any(x in (out[-1] if out else "")
-                                for x in ("import ",))):
-                    continue
-                out.append(line)
-        return "\n".join(out)
-
-    for solver, banned in BANNED.items():
-        code = _code_only(_ck(solver))
-        for b in banned:
-            assert b not in code, (
-                f"solver={solver!r}: the served CODE still contains {b!r}, "
-                f"which is part of a working solver, not OASiS's interface")
+    for solver in _BACKEND_ORDER:
+        payload = _ck(solver)
+        assert "EDIT THIS BLOCK" in payload
+        assert "PLACEHOLDER" in payload
+        for artifact in ("solution_level1_A.csv", "INTERFACE_RESIDUAL =",
+                         "MESH_INDEPENDENCE = CONVERGED"):
+            assert artifact not in payload, (
+                f"solver={solver!r}: generic template contains task result "
+                f"artifact {artifact!r}")
 
 
 def test_the_interface_contract_is_still_served_everywhere():

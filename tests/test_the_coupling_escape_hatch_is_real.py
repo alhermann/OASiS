@@ -131,6 +131,42 @@ def test_an_unsignalled_request_is_unchanged(knowledge_tool):
     )
 
 
+@pytest.mark.parametrize("solver,role,filename", [
+    ("fourc", "", "participant_fourc.py"),
+    ("kratos", ":neumann", "participant_kratos_neumann.py"),
+])
+def test_participant_escape_hatch_reconstructs_complete_tested_file(
+        solver, role, filename, knowledge_tool):
+    import hashlib
+    import re
+
+    source = (ROOT / "data" / "coupling_participants" / filename).read_text()
+    chunks = []
+    final = ""
+    for part in range(1, 10):
+        out = knowledge_tool(
+            topic="coupling", solver=solver,
+            signal=f"participant{role}:part{part}")
+        marker = f"participant: part {part} of"
+        start = out.index(marker)
+        match = re.search(r"```python\n(.*?)```", out[start:], re.S)
+        assert match, f"{solver} part {part} has no fenced source"
+        chunks.append(match.group(1))
+        assert "THIS PAYLOAD IS TRUNCATED HERE" not in out
+        if "FINAL PART" in out:
+            final = out
+            break
+
+    assert "".join(chunks) == source
+    assert hashlib.sha256(source.encode()).hexdigest() in final
+
+
+def test_unsignalled_backend_reply_names_complete_script_route(knowledge_tool):
+    out = knowledge_tool(topic="coupling", solver="kratos")
+    assert "signal='participant:part1'" in out
+    assert "signal='participant:neumann:part1'" in out
+
+
 def test_the_continuation_is_bounded(knowledge_tool):
     """Reopening the cap must not dump the whole corpus back."""
     from tools.consolidated import _COUPLING_CONTINUATION_LIMIT
