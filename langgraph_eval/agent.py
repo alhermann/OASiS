@@ -570,6 +570,11 @@ def _read_write_tools_for(workdir: Path, *, audit_on_submit: bool = False):
             # submitted-and-wrong runs of earlier rounds. Participation is now
             # by default. The bare arm is untouched: this flag is set only by
             # build_mcp_agent, because the audit is OASiS's capability.
+            # FIRE THE COUPLED CHECKS ON THE ARTEFACT WRITE, not only on
+            # submission. See _early_artefact_check for the mtime measurement
+            # that forced this.
+            if audit_on_submit and p.name != "RESULT.txt":
+                reply += _early_artefact_check(workdir, p)
             if audit_on_submit and p.name == "RESULT.txt":
                 # A GIVE-UP FILED OVER FINISHED WORK, caught structurally.
                 # Checked before the numeric audit because it is the more
@@ -935,6 +940,67 @@ def _work_on_disk_contradicting_a_give_up(work: Path) -> str:
           "finding alongside them, and keep working on the finding with "
           "whatever time is left."
     )
+
+
+def _early_artefact_check(workdir: Path, written: Path) -> str:
+    """Check a per-level artefact THE MOMENT IT IS WRITTEN, not at submission.
+
+    WHY, MEASURED. The submission audit is correct, it arrives, and it cannot
+    be acted on. File mtimes over six C2 runs of the last two rounds: five of
+    them wrote RESULT.txt at 93-99% of their whole file-activity span, with
+    only 8 to 115 seconds of activity left afterwards. The one that wrote it
+    at 68%, with 357 seconds still to go, is the ONLY one of the six that
+    reached a gradeable convergence order with both prescribed codes proven.
+    seed301 received SEVEN findings at that moment -- three too-short
+    histories, an identical-history-across-levels, near-zero fields -- and had
+    40 seconds. Findings delivered with no budget to spend on them change
+    nothing.
+
+    So the coupled checks fire on the artefact write. Each one runs ONLY the
+    check its own file makes possible, so this costs the agent no actions and
+    adds no noise to unrelated writes:
+
+        residual_level<k>.csv        -> is this a history at all? how long,
+                                        and is it identical to another level's?
+        interface_level<k>_<side>.csv -> once both sides and the matching
+                                        solution file exist, the flux SIGN
+
+    OASiS arm only, like every other audit hook: the caller gates it.
+    """
+    import re as _re
+
+    name = written.name
+    try:
+        if _re.fullmatch(r"residual_level\d+\.csv", name):
+            from tools.result_audit import residual_findings
+            found = [f for f in residual_findings(workdir)
+                     if name in str(f.get("sequence", ""))
+                     or "IDENTICAL" in f.get("finding", "")]
+            if found:
+                return ("\n\n[early check of " + name + ", from your own file:]\n"
+                        + "\n".join(f"  * {f['finding']}" for f in found[:2])
+                        + "\nYou have budget left now. Fixing this after "
+                          "RESULT.txt is written is usually too late.")
+        elif _re.fullmatch(r"interface_level\d+_[AB]\.csv", name):
+            from tools.result_audit import interface_sign_findings
+            lvl = _re.search(r"level(\d+)", name).group(1)
+            both = all((workdir / f"interface_level{lvl}_{s}.csv").is_file()
+                       or list(workdir.rglob(f"interface_level{lvl}_{s}.csv"))
+                       for s in ("A", "B"))
+            if not both:
+                return ""                  # the other side is not written yet
+            found = interface_sign_findings(workdir)
+            hard = [f for f in found if "WRONG SIGN" in f.get("finding", "")
+                    or "DOES NOT SHRINK" in f.get("finding", "")]
+            if hard:
+                return ("\n\n[early check of the interface at level " + lvl
+                        + ", from your own files:]\n"
+                        + "\n".join(f"  * {f['finding']}" for f in hard[:2])
+                        + "\nYou have budget left now. This is the failure "
+                          "that a clean convergence order cannot reveal.")
+    except Exception:                      # noqa: BLE001
+        return ""
+    return ""
 
 
 def _audit_submission(result_path: Path, content: str):
