@@ -200,3 +200,87 @@ def test_the_shell_route_is_silent_for_the_bare_arm():
     out = _reply_from_shell(WRONG_SIGN, audit=False)
     assert "WRONG SIGN" not in out.upper(), (
         f"the control arm received an OASiS capability: {out[:400]}")
+
+
+# ------------------------------------------- defects visible in the SCRIPT
+def _reply_writing_script(src: str, audit: bool = True) -> str:
+    """What the agent gets back when it writes a participant script.
+
+    THIS IS THE MECHANISM THAT WORKED. Measured over the 18 OASiS runs of the
+    coupled cell served the interface-condition fact: 18 of 18 called a
+    knowledge door, 18 of 18 set FACE_HEAT_FLUX, and 0 of 18 created the
+    condition that makes it do anything. They find OASiS, read it, and grasp
+    the concept; the one line that turns a nodal value into a boundary
+    condition does not survive from prose into code. So the script is read
+    instead, and the reply carries the fix rather than the diagnosis.
+    """
+    import shutil
+    import tempfile
+
+    from langgraph_eval.agent import _read_write_tools_for
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        wf = [t for t in _read_write_tools_for(tmp, audit_on_submit=audit)
+              if t.name == "write_file"][0]
+        return wf.invoke({"path": "participant.py", "content": src})
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_a_nodal_flux_with_no_condition_is_named_and_fixed():
+    bad = ("import KratosMultiphysics as KM\n"
+           "n.SetSolutionStepValue(KM.FACE_HEAT_FLUX, q)\n")
+    out = _reply_writing_script(bad)
+    assert "CREATES NO CONDITION" in out, out[:400]
+    # the message must carry the FIX, not only the finding
+    assert "CreateNewCondition" in out and "ThermalFace2D2N" in out, (
+        "18 runs were told the fact in prose and none acted on it; the reply "
+        "has to hand over the code")
+    assert "2.307291e-03" in out and "3.605675e-03" in out
+
+
+def test_the_same_script_with_a_condition_is_not_nagged():
+    good = ('import KratosMultiphysics as KM\n'
+            'mp.CreateNewCondition("ThermalFace2D2N", 1, [1, 2], prop)\n'
+            'n.SetSolutionStepValue(KM.FACE_HEAT_FLUX, q)\n')
+    assert "CREATES NO CONDITION" not in _reply_writing_script(good)
+
+
+def test_cg_on_an_advective_operator_is_named():
+    """20 OASiS runs do this. cg is accepted on a non-symmetric operator and
+    scheme.solve does NOT raise -- it returns the initial guess, so every level
+    is exactly zero with exit 0. Measured 0.000000e+00 against 8.875850e-02
+    for bicgstab."""
+    bad = ('from dune.fem import galerkin\n'
+           'a = dot(b_vec, grad(u))*v*dx\n'
+           's = galerkin([a == L], solver="cg")\n')
+    out = _reply_writing_script(bad)
+    assert "ADVECTION TERM" in out, out[:400]
+    assert "-10000" in out and "8.875850e-02" in out
+    # cg WITHOUT advection is defensible -- 67 runs do it -- and must be spared
+    ok = 'from dune.fem import galerkin\na = grad(u)*grad(v)*dx\ns = galerkin([a==L], solver="cg")\n'
+    assert "ADVECTION TERM" not in _reply_writing_script(ok)
+
+
+def test_rebinding_x_or_y_in_ngsolve_is_named():
+    """27 OASiS runs do this. After `from ngsolve import *` those names ARE the
+    symbolic coordinates, so the assignment turns the source into a constant:
+    measured type() CoefficientFunction -> float, value 0.02514662, giving
+    u identically zero and order 0.0000 against 1.2229e-02."""
+    bad = ("from ngsolve import *\n"
+           "for ix in range(44):\n    x = (ix + 0.5) / 44\n"
+           "f = sin(pi * x)\n")
+    out = _reply_writing_script(bad)
+    assert "REBINDS" in out, out[:400]
+    assert "0.02514662" in out and "px, py" in out
+    safe = ("from ngsolve import *\n"
+            "for ix in range(44):\n    px = (ix + 0.5) / 44\n"
+            "f = sin(pi * x)\n")
+    assert "REBINDS" not in _reply_writing_script(safe)
+
+
+def test_the_bare_arm_gets_none_of_the_script_checks():
+    bad = ("import KratosMultiphysics as KM\n"
+           "n.SetSolutionStepValue(KM.FACE_HEAT_FLUX, q)\n")
+    assert "CREATES NO CONDITION" not in _reply_writing_script(bad, audit=False)

@@ -511,7 +511,9 @@ def _bash_tool_for(workdir: Path, *, audit_on_submit: bool = False):
                        if before.get(f) is None or t > before[f]]
             for f in sorted(touched, key=lambda x: now[x], reverse=True):
                 try:
-                    got = _script_noop_check(f, f.read_text(errors="replace"))
+                    _txt = f.read_text(errors="replace")
+                    got = (_script_noop_check(f, _txt)
+                           + _extra_script_checks(f, _txt))
                 except OSError:
                     continue
                 if got:
@@ -668,6 +670,7 @@ def _read_write_tools_for(workdir: Path, *, audit_on_submit: bool = False):
             # that forced this.
             if audit_on_submit and p.name != "RESULT.txt":
                 reply += _script_noop_check(p, content)
+                reply += _extra_script_checks(p, content)
                 reply += _early_artefact_check(workdir, p)
             if audit_on_submit and p.name == "RESULT.txt":
                 # A GIVE-UP FILED OVER FINISHED WORK, caught structurally.
@@ -1090,6 +1093,79 @@ def _script_noop_check(written: Path, content: str) -> str:
         r"(ThermalFace\dD\dN|FluxCondition\dD\dN)", content))
     if has_cond:
         return ""
+    return _FLUX_NOOP_MSG(written)
+
+
+def _extra_script_checks(written: Path, content: str) -> str:
+    """Two more defects that are visible in the script and invisible at runtime.
+
+    Both were reproduced by execution, and both are counted in the campaign's
+    own OASiS-arm scripts (per file, so a correct usage elsewhere cannot excuse
+    a broken one here):
+
+      DUNE `solver="cg"` on an operator carrying advection -- 20 runs. cg is
+        accepted on a NON-SYMMETRIC operator and scheme.solve does not raise:
+        it returns converged=False, linear_iterations=-10000, and leaves the
+        field at the initial guess, so every level is exactly zero. Measured:
+        cg gave peak 0.000000e+00 at all three levels, bicgstab 8.875850e-02.
+        67 further runs use cg with no advection term, which is defensible, so
+        the check requires the advection.
+
+      NGSolve x/y rebound before symbolic use -- 27 runs. After
+        `from ngsolve import *`, any loop assigning x or y rebinds the
+        symbolic coordinates to floats. Measured: type() goes
+        CoefficientFunction -> float with value 0.02514662, x and y left at
+        0.9886363636, and CoefficientFunction((float, float)) is accepted
+        silently. A constant body force on a fully-Dirichlet incompressible
+        domain gives u identically zero -- 7.16e-17, 3.60e-17, 1.30e-17,
+        order 0.0000 -- against 1.2229e-02 with the symbolic source.
+    """
+    import re as _re
+
+    if written.suffix != ".py":
+        return ""
+    out = []
+    if _re.search(r"solver\s*=\s*[\"']cg[\"']", content) and _re.search(
+            r"dot\s*\(\s*b\w*\s*,\s*grad|inner\s*\(\s*b\w*\s*,\s*grad"
+            r"|velocity|\badvect", content, _re.I):
+        out.append(
+            "  * THIS SCRIPT USES solver=\"cg\" ON AN OPERATOR WITH AN "
+            "ADVECTION TERM, which is not symmetric. cg is ACCEPTED anyway and "
+            "scheme.solve DOES NOT RAISE: it returns converged=False, "
+            "linear_iterations=-10000, and leaves the field at the INITIAL "
+            "GUESS, so every level comes out exactly zero with exit 0. "
+            "Measured: cg gave peak 0.000000e+00 at all three levels against "
+            "8.875850e-02 for bicgstab. Use bicgstab, or gmres WITH an "
+            "assertion on info['converged'], or a direct solver -- and assert "
+            "peak|u| > 0 at every level.")
+    if ("from ngsolve import *" in content or "import ngsolve" in content):
+        m = _re.search(r"^\s*(?:x|y)\s*=\s*\(?\s*i\w*\s*\+\s*0\.5",
+                       content, _re.M)
+        if m and _re.search(
+                r"(?:sin|cos|exp)\s*\(\s*[^)]*\b[xy]\b|CoefficientFunction"
+                r"|grad\s*\(|GridFunction", content[m.end():]):
+            out.append(
+                "  * THIS SCRIPT REBINDS `x` OR `y` IN A LOOP AND THEN USES "
+                "THEM SYMBOLICALLY. After `from ngsolve import *` those names "
+                "ARE the symbolic coordinates, so the assignment turns your "
+                "source into a CONSTANT -- measured, type() goes "
+                "CoefficientFunction -> float with value 0.02514662 and x, y "
+                "left at 0.9886363636, and CoefficientFunction((float, float)) "
+                "is accepted silently. A constant body force on a "
+                "fully-Dirichlet incompressible domain gives u identically "
+                "zero: 7.16e-17, 3.60e-17, 1.30e-17 across the levels, order "
+                "0.0000, against 1.2229e-02 with the symbolic source. Name "
+                "your probe coordinates px, py -- and print type(source) "
+                "before you assemble.")
+    if not out:
+        return ""
+    return ("\n\n[early check of " + written.name + ", read from the script "
+            "you just wrote:]\n" + "\n".join(out)
+            + "\nYou have budget left now; after the solve this looks like a "
+              "converged run.")
+
+
+def _FLUX_NOOP_MSG(written: Path) -> str:
     return ("\n\n[early check of " + written.name + ", read from the script "
             "you just wrote:]\n"
             "  * THIS SCRIPT SETS FACE_HEAT_FLUX AND CREATES NO CONDITION, so "
