@@ -228,11 +228,35 @@ def acquire_cell_lock(run_dir: Path):
 
 
 def _tree_sha256(root: Path, ignore: set[str] | None = None) -> str:
-    """Hash paths, symlink targets, and file bytes in a directory tree."""
+    """Hash the SOURCE of a snapshot tree, not the bytecode Python leaves in it.
+
+    IMPORTING FROM THE SNAPSHOT WRITES INTO IT. CPython caches compiled modules
+    next to their source, so the moment an agent's tool process imports OASiS
+    from the mounted snapshot, `src/tools/__pycache__/*.pyc` appears inside the
+    tree this function hashes. The post-run `verify_source_snapshot` then finds
+    a different digest and reports
+
+        SourceSnapshotIntegrity: source snapshot changed after creation
+
+    on a run where nothing was tampered with. Measured: every snapshot that has
+    actually been used carries exactly the .pyc files written during its own
+    runs -- 2 in the C2 build a874d802, 2 in the NG1 build 8300bc8e -- while
+    snapshots that were built and never run are clean. So EVERY run through the
+    reproducible-build path ends flagged, including NG1 runs that graded
+    CORRECT, and the flag means the opposite of what it says.
+
+    Bytecode is a derived artefact of the very source already in the digest, so
+    excluding it weakens nothing: a changed .py changes the hash whether or not
+    its .pyc is counted. What is excluded is named here rather than guessed at
+    a call site, so creation and verification cannot drift apart.
+    """
     digest = hashlib.sha256()
     for path in sorted(root.rglob("*"), key=lambda p: str(p.relative_to(root))):
         relative_text = str(path.relative_to(root))
         if relative_text in (ignore or set()):
+            continue
+        parts = path.relative_to(root).parts
+        if "__pycache__" in parts or path.suffix in (".pyc", ".pyo"):
             continue
         relative = relative_text.encode()
         digest.update(len(relative).to_bytes(4, "big"))
