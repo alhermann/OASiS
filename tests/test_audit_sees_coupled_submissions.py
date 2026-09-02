@@ -214,3 +214,41 @@ def test_ambiguous_filenames_do_not_erase_a_broken_residual_history(tmp_path):
         f"the ambiguity itself must still be reported: {kinds}")
     assert "did not run" in (r.get("note") or ""), (
         "the note must say WHICH check was skipped, not imply none ran")
+
+
+def _write_probe_fields(path: Path, fields: dict[str, list[float]]) -> None:
+    rows = ["x,y," + ",".join(fields)]
+    for index in range(1936):
+        x = (index % 44 + 0.5) / 44
+        y = (index // 44 + 0.5) / 44
+        values = ",".join(str(fields[name][index]) for name in fields)
+        rows.append(f"{x},{y},{values}")
+    path.write_text("\n".join(rows) + "\n")
+
+
+def test_nearest_node_signature_requires_two_matching_levels(tmp_path):
+    from tools.result_audit import export_findings
+
+    for level, distinct in ((1, 50), (2, 226)):
+        nearest = [float(index % distinct) for index in range(1936)]
+        _write_probe_fields(
+            tmp_path / f"solution_level{level}.csv", {"u": nearest})
+
+    findings = export_findings(tmp_path)
+    assert {tuple(finding["values"]) for finding in findings} == {
+        (50, 1936), (226, 1936)}
+    assert all("NEAREST-NODE SAMPLING" in finding["finding"]
+               for finding in findings)
+
+
+def test_one_low_distinctness_level_is_not_called_nearest_node(tmp_path):
+    from tools.result_audit import export_findings
+
+    _write_probe_fields(
+        tmp_path / "solution_level1.csv",
+        {"u": [float(index % 50) for index in range(1936)]})
+    _write_probe_fields(
+        tmp_path / "solution_level2.csv",
+        {"u": [index / 10000 for index in range(1936)]})
+
+    assert export_findings(tmp_path) == []
