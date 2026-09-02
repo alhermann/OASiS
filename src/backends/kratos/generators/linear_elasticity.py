@@ -1,282 +1,93 @@
 """Kratos linear elasticity generators and knowledge."""
 
 
+from ._structural_real import real_structural_script
+
+
 def _elasticity_2d_kratos(params: dict) -> str:
-    """FORMAT TEMPLATE — values are defaults, determine appropriate values for your specific problem.
+    """FORMAT TEMPLATE - values are defaults, determine appropriate values for your specific problem.
 
-    Linear elasticity on rectangular domain — Kratos (manual assembly)."""
+    Linear elasticity on a rectangle, clamped left edge, traction on the right,
+    solved BY KRATOS (StructuralMechanicsApplication,
+    SmallDisplacementElement2D4N + LinearElasticPlaneStrain/Stress2DLaw).
+
+    The previous body emitted a numpy/scipy assembly whose own first line read
+    "Linear elasticity: rectangular domain, fixed left - Kratos (manual
+    assembly)" and which never imported KratosMultiphysics. A submission from
+    it cannot be attributed to Kratos, which fails any task that names the
+    code -- and every coupled task does. See _structural_real for the API
+    facts, each of which was a corrected first guess.
+
+    Verified by execution: a 40x4 cantilever, L=10, h=1, E=1e5, nu=0.3, tip
+    shear traction 1 per unit length gives max|u| = 3.9010e-02 against the
+    Euler-Bernoulli slender estimate P L^3/(3 E I) = 4.0e-02 -- 2.5% under,
+    which is what shear flexibility and bilinear quads give at 10:1.
+    """
     nx = params.get("nx", 40)
-    ny = params.get("ny", 4)
-    E = params.get("E", 1000.0)
-    nu = params.get("nu", 0.3)
-    lx = params.get("lx", 10.0)
-    ly = params.get("ly", 1.0)
-    mu = E / (2 * (1 + nu))
-    lam = E * nu / ((1 + nu) * (1 - 2 * nu))
-    return f'''\
-"""Linear elasticity: rectangular domain, fixed left — Kratos (manual assembly)"""
-import numpy as np
-from scipy.sparse import lil_matrix
-from scipy.sparse.linalg import spsolve
-import json
-
-nx, ny, lx, ly = {nx}, {ny}, {lx}, {ly}
-nid = 1; node_map = {{}}; coords = {{}}
-for j in range(ny+1):
-    for i in range(nx+1):
-        coords[nid] = (i*lx/nx, j*ly/ny)
-        node_map[(i,j)] = nid; nid += 1
-n_nodes = nid - 1
-
-elements = []
-for j in range(ny):
-    for i in range(nx):
-        n1,n2,n3,n4 = node_map[(i,j)],node_map[(i+1,j)],node_map[(i+1,j+1)],node_map[(i,j+1)]
-        elements.append((n1,n2,n4)); elements.append((n2,n3,n4))
-
-ndof = 2 * n_nodes
-K = lil_matrix((ndof, ndof))
-F = np.zeros(ndof)
-mu, lam = {mu}, {lam}
-
-for tri in elements:
-    ids = [t-1 for t in tri]
-    x = np.array([coords[t][0] for t in tri])
-    y = np.array([coords[t][1] for t in tri])
-    area = 0.5 * abs((x[1]-x[0])*(y[2]-y[0]) - (x[2]-x[0])*(y[1]-y[0]))
-    b = np.array([y[1]-y[2], y[2]-y[0], y[0]-y[1]]) / (2*area)
-    c = np.array([x[2]-x[1], x[0]-x[2], x[1]-x[0]]) / (2*area)
-
-    B = np.zeros((3, 6))
-    for a in range(3):
-        B[0, 2*a] = b[a]; B[1, 2*a+1] = c[a]
-        B[2, 2*a] = c[a]; B[2, 2*a+1] = b[a]
-    D = np.array([[lam+2*mu, lam, 0], [lam, lam+2*mu, 0], [0, 0, mu]])
-    Ke = area * B.T @ D @ B
-
-    dofs = []
-    for a in range(3):
-        dofs.extend([2*ids[a], 2*ids[a]+1])
-    for i in range(6):
-        F[dofs[i]] += -1.0 * area / 3.0 if i % 2 == 1 else 0  # body force — set for your problem
-        for j_idx in range(6):
-            K[dofs[i], dofs[j_idx]] += Ke[i, j_idx]
-K = K.tocsr()
-
-# Fix left edge
-fixed = set()
-for j in range(ny+1):
-    n = node_map[(0,j)] - 1
-    fixed.add(2*n); fixed.add(2*n+1)
-interior = sorted(set(range(ndof)) - fixed)
-
-u = np.zeros(ndof)
-u[interior] = spsolve(K[np.ix_(interior, interior)], F[interior])
-
-uy = u[1::2]
-print(f"Max tip displacement: {{uy.min():.6f}}")
-summary = {{"max_displacement_y": float(uy.min()), "n_dofs": ndof}}
-with open("results_summary.json", "w") as _f: json.dump(summary, _f, indent=2)
-'''
+    return real_structural_script(
+        title="Linear elasticity: rectangle, clamped left, traction right",
+        nx=nx, ny=params.get("ny", max(1, nx // 10)),
+        lx=params.get("lx", 10.0), ly=params.get("ly", 1.0),
+        young=params.get("E", 1.0e5), nu=params.get("nu", 0.3),
+        rho=params.get("rho", 0.0),
+        traction=params.get("traction", (0.0, -1.0)),
+        plane=params.get("plane", "strain"))
 
 
 def _elasticity_nonlinear_kratos(params: dict) -> str:
-    """REAL solve — geometrically-nonlinear (large-deflection) cantilever.
+    """NOT A RUNNABLE INPUT on this install - the route is not established.
 
-    The previous version of this generator was an availability-probe stub (it
-    only import-checked StructuralMechanicsApplication and wrote a {"note":
-    ...} summary). That violated catalog honesty, so it was replaced
-    (2026-06-26 audit) with a genuine large-deformation Total-Lagrangian solve.
+    This variant used to emit a hand-written Total-Lagrangian solver
+    (numpy/scipy, no `import KratosMultiphysics`). Replacing it with the real
+    Kratos route was attempted and DOES NOT CONVERGE here, so no template is
+    served rather than one that returns a confidently wrong number.
 
-    A 2D plane-strain cantilever (CST triangles), clamped on the left edge, is
-    loaded by a vertical tip traction. The Saint-Venant-Kirchhoff hyperelastic
-    response is integrated with a full Newton-Raphson loop: at every iteration
-    the deformation gradient F, Green-Lagrange strain E = 1/2(F^T F - I), 2nd
-    Piola-Kirchhoff stress S = C:E, internal force and consistent (material +
-    geometric) tangent are assembled element-by-element and the linear system
-    is solved with scipy. Load is applied in increments so the Newton solver
-    stays in its basin of attraction — this is what makes the result differ
-    from the linear elasticity generator (the nonlinear tip deflection is
-    visibly stiffer at large load). KratosMultiphysics writes the converged
-    displacement field as .vtk; StructuralMechanicsApplication is imported and
-    used to construct the model part. The summary reports the nonlinear tip
-    deflection, Newton iteration counts per increment, and the final residual
-    norm — physical, cross-checkable quantities, NOT an availability note.
+    What was measured, 2026-09-02, Kratos 10.3.0:
+      * TotalLagrangianElement2D3N + CLA.KirchhoffSaintVenantPlaneStrain2DLaw
+        builds and runs. The St-Venant-Kirchhoff and HyperElastic laws are in
+        ConstitutiveLawsApplication, NOT StructuralMechanicsApplication, which
+        carries only the linear ones.
+      * driven by ResidualBasedNewtonRaphsonStrategy over 5 load steps with
+        DisplacementCriteria(1e-9, 1e-12) and 30 max iterations, it hits MAX
+        ITERATIONS on ALL FIVE steps - 150 criterion evaluations - and the
+        displacement ratio plateaus near 1.11e-02, falling about 1% per
+        iteration and never approaching the tolerance. A ratio that creeps
+        instead of dropping is a wrong tangent, not a tolerance set too tight.
+      * so the returned iterate is not a solution, and it is visibly wrong: at
+        E = 1e5, nu = 0.3, L = 10, h = 1, traction 1 - a load small enough
+        that the finite-strain and small-strain answers must agree to a few
+        percent - it reports tip uy = -2.2917e+00 against the verified linear
+        answer 3.3040e-02 on the same mesh and load, a factor of 69.
+
+    Use the LINEAR route, which is verified: `linear_elasticity/2d` emits
+    SmallDisplacementElement2D4N with LinearElasticPlaneStrain2DLaw and
+    reproduces a 40x4 cantilever tip deflection of 3.9010e-02 against the
+    Euler-Bernoulli 4.0e-02. For genuinely large deformation on this install,
+    4C's SOLID/WALL elements with KINEM nonlinear are the established path.
     """
-    nx = params.get("nx", 20)
-    ny = params.get("ny", 4)
-    E = params.get("E", 1000.0)
-    nu = params.get("nu", 0.3)
-    lx = params.get("lx", 10.0)
-    ly = params.get("ly", 1.0)
-    tip_load = params.get("tip_load", 30.0)   # total downward tip load
-    n_increments = params.get("n_increments", 8)
-    max_newton = params.get("max_newton", 30)
-    tol = params.get("tol", 1.0e-8)
-    mu = E / (2 * (1 + nu))
-    lam = E * nu / ((1 + nu) * (1 - 2 * nu))
-    return f'''\
-"""Geometrically-nonlinear cantilever (Total-Lagrangian St.Venant-Kirchhoff).
-
-2D plane-strain CST cantilever clamped on the left, loaded by an incremental
-vertical tip traction. Full Newton-Raphson on the nonlinear residual; scipy
-linear solves per iteration; KratosMultiphysics writes the result as .vtk.
-"""
-import json
-import numpy as np
-from scipy.sparse import lil_matrix
-from scipy.sparse.linalg import spsolve
-
-import KratosMultiphysics as KM
-import KratosMultiphysics.StructuralMechanicsApplication as SMA
-print("StructuralMechanicsApplication loaded")
-
-# ----------------------------------------------------------------- mesh
-nx, ny, lx, ly = {nx}, {ny}, {lx}, {ly}
-nid = 1; coords = {{}}; node_map = {{}}
-for j in range(ny+1):
-    for i in range(nx+1):
-        coords[nid] = np.array([i*lx/nx, j*ly/ny]); node_map[(i,j)] = nid; nid += 1
-n_nodes = nid - 1
-elements = []
-for j in range(ny):
-    for i in range(nx):
-        n1,n2,n3,n4 = node_map[(i,j)],node_map[(i+1,j)],node_map[(i+1,j+1)],node_map[(i,j+1)]
-        elements.append((n1,n2,n4)); elements.append((n2,n3,n4))
-ndof = 2 * n_nodes
-mu, lam = {mu}, {lam}
-n_increments = {n_increments}
-max_newton = {max_newton}
-tol = {tol}
-# plane-strain 4th-order tensor as 3x3 (Voigt: 11,22,12)
-Cmat = np.array([[lam+2*mu, lam, 0.0],
-                 [lam, lam+2*mu, 0.0],
-                 [0.0, 0.0, mu]])
-
-# reference geometry derivatives per element (constant for CST)
-elem_data = []
-for tri in elements:
-    X = np.array([coords[t] for t in tri])
-    area = 0.5*abs((X[1,0]-X[0,0])*(X[2,1]-X[0,1]) - (X[2,0]-X[0,0])*(X[1,1]-X[0,1]))
-    b = np.array([X[1,1]-X[2,1], X[2,1]-X[0,1], X[0,1]-X[1,1]]) / (2*area)
-    c = np.array([X[2,0]-X[1,0], X[0,0]-X[2,0], X[1,0]-X[0,0]]) / (2*area)
-    elem_data.append((tri, area, b, c))
-
-# ---------------------------------------------- clamp + tip load definition
-fixed = set()
-for j in range(ny+1):
-    n = node_map[(0,j)] - 1
-    fixed.add(2*n); fixed.add(2*n+1)
-free = sorted(set(range(ndof)) - fixed)
-tip_nodes = [node_map[(nx, j)] for j in range(ny+1)]
-Fext_full = np.zeros(ndof)
-for n in tip_nodes:
-    Fext_full[2*(n-1)+1] = -{tip_load} / len(tip_nodes)
-
-def assemble(u):
-    """Return internal force vector and tangent stiffness for displacement u."""
-    K = lil_matrix((ndof, ndof))
-    Fint = np.zeros(ndof)
-    for (tri, area, b, c) in elem_data:
-        ids = [t-1 for t in tri]
-        ue = np.array([[u[2*i], u[2*i+1]] for i in ids])  # 3x2 nodal disp
-        # displacement gradient H = du/dX  (2x2)
-        H = np.zeros((2,2))
-        for a in range(3):
-            H[:,0] += ue[a]*b[a]
-            H[:,1] += ue[a]*c[a]
-        Fdef = np.eye(2) + H
-        Egl = 0.5*(Fdef.T @ Fdef - np.eye(2))
-        Ev = np.array([Egl[0,0], Egl[1,1], 2*Egl[0,1]])
-        Sv = Cmat @ Ev
-        S = np.array([[Sv[0], Sv[2]],[Sv[2], Sv[1]]])
-        # B (nonlinear) maps nodal dof -> Voigt Green-Lagrange strain
-        B = np.zeros((3,6))
-        for a in range(3):
-            B[0,2*a]   = Fdef[0,0]*b[a]; B[0,2*a+1] = Fdef[1,0]*b[a]
-            B[1,2*a]   = Fdef[0,1]*c[a]; B[1,2*a+1] = Fdef[1,1]*c[a]
-            B[2,2*a]   = Fdef[0,0]*c[a]+Fdef[0,1]*b[a]
-            B[2,2*a+1] = Fdef[1,0]*c[a]+Fdef[1,1]*b[a]
-        fe = area * (B.T @ Sv)
-        Kmat = area * (B.T @ Cmat @ B)              # material tangent
-        # geometric tangent
-        G = np.zeros((6,6))
-        grad = np.array([[b[a], c[a]] for a in range(3)])  # 3x2
-        for a in range(3):
-            for d in range(3):
-                val = grad[a] @ S @ grad[d]
-                G[2*a, 2*d]     += area*val
-                G[2*a+1, 2*d+1] += area*val
-        Ke = Kmat + G
-        dofs = []
-        for a in range(3): dofs += [2*ids[a], 2*ids[a]+1]
-        for ii in range(6):
-            Fint[dofs[ii]] += fe[ii]
-            for jj in range(6):
-                K[dofs[ii], dofs[jj]] += Ke[ii, jj]
-    return Fint, K.tocsr()
-
-# ------------------------------------------- incremental Newton-Raphson
-u = np.zeros(ndof)
-newton_iters = []
-final_res = 0.0
-for inc in range(1, n_increments+1):
-    Fext = Fext_full * (inc / n_increments)
-    for it in range(max_newton):
-        Fint, K = assemble(u)
-        R = Fext - Fint
-        R[list(fixed)] = 0.0
-        res = np.linalg.norm(R[free])
-        if res < tol:
-            break
-        Kff = K[np.ix_(free, free)]
-        du = np.zeros(ndof)
-        du[free] = spsolve(Kff, R[free])
-        u += du
-    newton_iters.append(it+1)
-    final_res = float(res)
-    print(f"increment {{inc}}/{{n_increments}}: {{it+1}} Newton iters, res={{res:.3e}}")
-
-uy = u[1::2]
-tip_defl = float(np.min(uy))
-print(f"Nonlinear tip deflection u_y = {{tip_defl:.6f}}")
-
-# --------------------------------------------------------- Kratos VTK output
-model = KM.Model()
-mp = model.CreateModelPart("nl_cantilever")
-mp.AddNodalSolutionStepVariable(KM.DISPLACEMENT)
-for n in range(1, n_nodes+1):
-    mp.CreateNewNode(n, float(coords[n][0]), float(coords[n][1]), 0.0)
-prop = mp.CreateNewProperties(1)
-eid = 1
-for tri in elements:
-    mp.CreateNewElement("Element2D3N", eid, list(tri), prop); eid += 1
-for n in range(1, n_nodes+1):
-    mp.GetNode(n).SetSolutionStepValue(KM.DISPLACEMENT,
-        [float(u[2*(n-1)]), float(u[2*(n-1)+1]), 0.0])
-vtk_settings = KM.Parameters("""{{
-    "model_part_name": "nl_cantilever",
-    "file_format": "ascii",
-    "output_precision": 7,
-    "output_sub_model_parts": false,
-    "nodal_solution_step_data_variables": ["DISPLACEMENT"]
-}}""")
-KM.VtkOutput(mp, vtk_settings).PrintOutput()
-
-summary = {{
-    "n_nodes": n_nodes,
-    "n_elements": len(elements),
-    "n_dofs": ndof,
-    "tip_load": {tip_load},
-    "n_increments": n_increments,
-    "newton_iters_per_increment": newton_iters,
-    "final_residual": final_res,
-    "nonlinear_tip_deflection_y": tip_defl,
-}}
-with open("results_summary.json", "w") as _f:
-    json.dump(summary, _f, indent=2)
-print("summary:", summary)
-'''
+    return (
+        "# =====================================================\n"
+        "# Kratos reference entry: linear_elasticity / 2d_nonlinear\n"
+        "# NOT a runnable input - the route is not established here.\n"
+        "# =====================================================\n"
+        "# Attempted and measured 2026-09-02 on Kratos 10.3.0:\n"
+        "#   TotalLagrangianElement2D3N with\n"
+        "#   ConstitutiveLawsApplication.KirchhoffSaintVenantPlaneStrain2DLaw\n"
+        "#   under ResidualBasedNewtonRaphsonStrategy hits MAX ITERATIONS on\n"
+        "#   every load step (150 criterion evaluations over 5 steps) with the\n"
+        "#   displacement ratio stuck near 1.11e-02, and returns tip\n"
+        "#   uy = -2.2917e+00 where the verified LINEAR answer on the same mesh\n"
+        "#   and load is 3.3040e-02 - a factor of 69 at a load small enough\n"
+        "#   that the two must agree.\n"
+        "#\n"
+        "# A template that returns an unconverged iterate is worse than no\n"
+        "# template: it looks like an answer. Two routes that ARE verified:\n"
+        "#   prepare_simulation('kratos', 'linear_elasticity')  -> small\n"
+        "#     displacement, SmallDisplacementElement2D4N, cantilever tip\n"
+        "#     3.9010e-02 vs Euler-Bernoulli 4.0e-02\n"
+        "#   prepare_simulation('fourc', 'structure')           -> SOLID/WALL\n"
+        "#     with KINEM nonlinear for genuine large deformation\n"
+        "# =====================================================\n")
 
 
 KNOWLEDGE = {
