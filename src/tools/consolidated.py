@@ -6395,6 +6395,26 @@ normally one smaller because iteration 1 has no previous iterate and therefore
 no residual. Get ONE participant writing exports.json standalone first, then the
 second, then call couple: that order costs the fewest attempts.
 
+A RESIDUAL THAT COLLAPSES IN A FEW STEPS IS USUALLY A DEAD PARTICIPANT.
+
+If the driver reports a participant as UNRESPONSIVE, it means its exports were
+BYTE-IDENTICAL across iterations in which its imports changed -- so its output
+is not a function of its input, and the coupling is not coupled. The residual
+then falls to ~1e-18 in three or four steps, because nothing is moving. That
+looks like spectacular convergence and is worth nothing.
+
+    a real coupling, even a very stiff one (200:1), took 12 iterations to
+    1.1e-22 with both sides reported responsive
+    a dead one reached 1.5e-18 in 4 steps and was reported unresponsive
+
+Three causes, in the order they occur: the script reads imports.json ONCE at
+import time instead of on every invocation; it caches or re-serves the previous
+exports.json rather than rewriting it; or it never finds the partner key at all
+-- `imports.json` is `{{partner_name: ...}}`, and a wrong name silently yields
+no data and the fallback is used forever. Print the first imported value each
+iteration: if it never changes, that is the bug, not the physics. Do not raise
+max_iter or change the accelerator for this -- neither touches it.
+
 THE RESIDUAL YOU REPORT MUST MEASURE THE TWO SIDES, NOT AN ITERATE.
 
 INTERFACE_RESIDUAL is the disagreement between your two subdomains at the
