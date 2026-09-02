@@ -99,6 +99,32 @@ def _detect_midpoint_grid(coords: list) -> tuple:
     return weight, ""
 
 
+def _boundary_layer_ratio(pts, u, box):
+    """How big is the outermost probe layer, relative to the field's scale?
+
+    On a midpoint grid a field that vanishes on the box boundary has an
+    outermost layer of size O(h); a face carrying imposed data does not. This
+    is the only way to tell, from the submitted field alone, whether the weak
+    identity above is applicable.
+    """
+    import numpy as np
+    arr = np.asarray(u, dtype=float)
+    scale = float(np.abs(arr).max())
+    if scale <= 0.0:
+        return None
+    worst = 0.0
+    for d, (lo, hi) in enumerate(box):
+        coord = np.asarray([p[d] for p in pts], dtype=float)
+        vals = np.unique(np.round(coord, 12))
+        if len(vals) < 3:
+            continue
+        for edge in (vals[0], vals[-1]):
+            layer = np.abs(arr[np.isclose(coord, edge)])
+            if layer.size:
+                worst = max(worst, float(layer.max()) / scale)
+    return worst
+
+
 def _adjoint_of_v(kind: str, coeff, pts, box):
     """L* v and v at the given points, for v that vanishes on the box.
 
@@ -192,6 +218,36 @@ def check_levels(levels: dict, source_expr: str, coefficient,
         weight, why = _detect_midpoint_grid(pts)
         if weight is None:
             res.levels.append(LevelResult(lvl, len(rows), float("nan"), why))
+            continue
+        # THE IDENTITY NEEDS u = 0 ON THE BOUNDARY, NOT ONLY v = 0.
+        #
+        # Integrating by parts twice leaves
+        #     int u (L* v) - int (L u) v = - closed_int u k dv/dn + closed_int v k du/dn
+        # and v vanishing on the box kills only the SECOND term. The first
+        # survives unless u vanishes there too. So on a subdomain with a
+        # non-zero trace on any face -- which is EVERY side of a partitioned
+        # coupling, since the interface carries data -- the identity fails for
+        # a perfectly correct field.
+        #
+        # Measured on C2, whose side B has an interface trace of about
+        # -3.7e-03: this check called side B INCONSISTENT for all four runs
+        # examined, INCLUDING C2_27b_MCP_seed15, which grades CORRECT with
+        # order 1.95. A false accusation against the one right answer, and the
+        # coupling payload was telling agents to run it on each side.
+        #
+        # Detected from the submitted field alone: on a grid of cell midpoints
+        # a field vanishing on the boundary has an outermost layer of size
+        # O(h) relative to its own scale, while a face carrying data does not.
+        edge = _boundary_layer_ratio(pts, u, box)
+        if edge is not None and edge > 0.25:
+            res.levels.append(LevelResult(
+                lvl, len(rows), float("nan"),
+                f"the submitted field is not near zero on the boundary of the "
+                f"box (outermost probe layer is {edge:.0%} of the field's own "
+                f"scale). This check's identity needs u = 0 on the whole "
+                f"boundary, so it does not apply here -- which is the normal "
+                f"case for one side of a coupled problem, where the interface "
+                f"carries the partner's data. Nothing is asserted"))
             continue
         v, Lv = _adjoint_of_v("poisson", coefficient, pts, box)
         f = _eval_source(source_expr, pts, dim)

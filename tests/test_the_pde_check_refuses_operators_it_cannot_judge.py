@@ -117,13 +117,16 @@ def test_an_absurd_residual_is_not_reported_as_a_verdict():
     from tools.pde_consistency import check_levels
     # a field of enormous values against a small source: the identity's two
     # sides are not comparable, which is exactly the elasticity/biharmonic case
+    # The field must VANISH ON THE BOUNDARY, or the boundary-trace guard fires
+    # first and this test stops isolating the residual-magnitude guard it is
+    # named for. x(1-x)y(1-y) does; a bare x*y does not.
     lv = {}
     for lvl, m in ((1, 22), (2, 44)):
         rows = []
         for i in range(m):
             for j in range(m):
                 x, y = (i + 0.5) / m, (j + 0.5) / m
-                rows.append([x, y, 1e150 * x * y])
+                rows.append([x, y, 1e150 * x * (1 - x) * y * (1 - y)])
         lv[lvl] = rows
     out = check_levels(lv, "1.0", 1.0, [(0.0, 1.0), (0.0, 1.0)])
     assert out.verdict == "NOT_APPLICABLE", (

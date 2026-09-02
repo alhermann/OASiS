@@ -6508,8 +6508,19 @@ CHECK EACH SUBDOMAIN AGAINST ITS OWN EQUATION FIRST. A converged interface
 residual says the two sides AGREE, not that either is right, and the two
 failures are independent: one run converged to 8e-07 in 16 steps with a field
 TEN TIMES too small, graded order -0.02. Run verify_pde_consistency(...) on
-EACH side, with that side's own source and coefficient, before spending budget
+each side, with that side's own source and coefficient, before spending budget
 on the iteration.
+
+EXPECT IT TO ANSWER FOR ONE SIDE AND REFUSE FOR THE OTHER, AND DO NOT READ THE
+REFUSAL AS A FAILURE. Its identity needs the field to vanish on the whole
+boundary of the side it is given. The interface carries your partner's data, so
+on the side where that data is comparable to the side's own field the identity
+does not hold and the tool replies NOT_APPLICABLE. Measured on a two-material
+conduction cell with a 200:1 contrast: the low-conductivity side answers
+normally, because its interface values are a few percent of its own scale,
+while on the high-conductivity side the interface trace IS the scale and the
+tool refuses. A refusal there tells you nothing about that side; an
+INCONSISTENT on the side it does answer tells you a great deal.
 
 """
 _COUPLING_MUST_READ += "\n" + _PER_SIDE_NAMING
