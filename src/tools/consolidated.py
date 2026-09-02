@@ -3981,6 +3981,185 @@ def register_consolidated_tools(mcp: FastMCP):
         return _json.dumps(out, indent=2) + _UNIVERSAL_CORE
 
     @mcp.tool()
+    def verify_interface_flux(interface_files: str,
+                              solution_files: str = "",
+                              interface_axis: int = 0) -> str:
+        """On a COUPLED task: is your interface flux the right sign, and do
+        your two sides actually agree there? Runs on YOUR OWN files, with no
+        reference solution.
+
+        THIS EXISTED ONLY INSIDE THE GRADER UNTIL NOW, which is why it is
+        here. The check below is the one that decided the most recent coupled
+        round: a submission whose two codes both genuinely ran, whose coupling
+        genuinely iterated over three mesh levels, and whose interface FIELD
+        matched to 0.000e+00 across the seam, was still graded
+        COMPLETED_UNPHYSICAL — because one side reported its flux with the
+        INWARD normal. The relative flux jump came out 8.139e-01, 9.066e-01,
+        9.530e-01 over the three levels: not shrinking, and growing. The
+        agent had no way to see that before submitting. Now it does.
+
+        WHAT IT CHECKS, all of it key-free:
+
+        1. SIGN AND SELF-CONSISTENCY, per side. For a flux you really computed
+           from your own solution,
+
+               q_n(x) / (-du/dn)(x)  ==  k   at every interface point,
+
+           so the ratio is CONSTANT along the interface whatever k is — and
+           POSITIVE. A constant NEGATIVE ratio means your normal points the
+           wrong way: the task defines q_n = -(K grad u) . n_out with n_out
+           pointing OUT of the subdomain. A ratio that is not constant means
+           the profile did not come from the field you submitted.
+
+           The trap this catches most often: on the NEUMANN side the flux you
+           IMPORT and the flux you REPORT have OPPOSITE signs. Kratos's
+           FACE_HEAT_FLUX is the INWARD normal flux (measured against a closed
+           form: u came out +0.875 where the inward reading predicts +0.875),
+           so the number you write into interface_level<k>_<side>.csv is the
+           NEGATIVE of the one you applied.
+
+        2. THE TWO-SIDED JUMP, and its refinement trend. The field trace must
+           be continuous and the two fluxes must cancel, because the normals
+           are anti-parallel. A jump that stays O(1) as h halves means the
+           iteration converged to a fixed point of the WRONG transmission
+           condition — and your observed order cannot see that, because
+           convergence to a wrong answer is still convergence.
+
+        Args:
+            interface_files: comma-separated interface_level<k>_<side>.csv
+                paths, in the shape `x, y, u, qn`. Give BOTH sides and all
+                levels; the trend is the informative part.
+            solution_files: comma-separated solution_level<k>_<side>.csv
+                paths, `x, y, u`. Needed for check 1 — without them the sign
+                cannot be tested, only the jump.
+            interface_axis: 0 if the interface is a line of constant x, 1 if
+                constant y.
+
+        Returns: per-side sign verdicts, per-level jumps, the refinement trend,
+            and NOT_ASSESSED wherever a check could not look at anything — a
+            check that could not run never reports success.
+        """
+        import re as _re
+        from pathlib import Path as _P
+
+        try:
+            from blind_eval import interface as _IF
+        except Exception as exc:                       # pragma: no cover
+            return f"REFUSED: the interface checker is unavailable: {exc}"
+
+        def _split(spec):
+            return [t.strip() for t in str(spec).split(",") if t.strip()]
+
+        def _key(name):
+            m = _re.search(r"level(\d+)_([AB])", name)
+            return (int(m.group(1)), m.group(2)) if m else None
+
+        iface, refused = {}, []
+        for f in _split(interface_files):
+            k = _key(_P(f).name)
+            if k is None:
+                refused.append(f"{f}: name carries no level<k>_<side>")
+                continue
+            try:
+                # read_interface_csv returns (parsed, why) and parsed is the
+                # TRIPLE (points, values, fluxes) -- unpacking it wrong is
+                # what made the first version of this tool abstain on every
+                # side with "type tuple doesn't define __round__".
+                parsed, why = _IF.read_interface_csv(_P(f), 2, 1, 1)
+                if parsed is None:
+                    refused.append(f"{f}: {why}")
+                else:
+                    iface[k] = parsed
+            except Exception as exc:
+                refused.append(f"{f}: {type(exc).__name__}: {exc}")
+        fields = {}
+        for f in _split(solution_files):
+            k = _key(_P(f).name)
+            if k is None:
+                continue
+            try:
+                parsed, why = _IF.read_interface_csv(_P(f), 2, 1, 0)
+                if parsed is None:
+                    refused.append(f"{f}: {why}")
+                else:
+                    fields[k] = (parsed[0], parsed[1])
+            except Exception as exc:
+                refused.append(f"{f}: {type(exc).__name__}: {exc}")
+
+        if not iface:
+            return json.dumps({
+                "verdict": "REFUSED",
+                "detail": ("no interface file could be read; give "
+                           "interface_level<k>_<side>.csv paths in the shape "
+                           "`x, y, u, qn`"),
+                "files_refused": refused}, indent=2) + _UNIVERSAL_CORE
+
+        levels = sorted({k for k, _ in iface})
+        out = {"levels_seen": levels, "per_side": [], "per_level": [],
+               "files_refused": refused}
+
+        # ---- check 1: sign and self-consistency, per side and level
+        for lvl in levels:
+            for side in ("A", "B"):
+                got = iface.get((lvl, side))
+                if got is None:
+                    continue
+                ipts, _iv, iq = got
+                fld = fields.get((lvl, side))
+                if fld is None:
+                    out["per_side"].append({
+                        "level": lvl, "side": side, "verdict": "NOT_ASSESSED",
+                        "detail": ("no solution_level%d_%s.csv was given, so "
+                                   "the reported flux cannot be compared with "
+                                   "your own field and the SIGN IS UNTESTED"
+                                   % (lvl, side))})
+                    continue
+                iface_coord = (ipts[0][interface_axis] if len(ipts) else 0.0)
+                # side A of a left/right split has its outward normal along +n
+                sign = 1.0 if side == "A" else -1.0
+                try:
+                    dudn = _IF.recover_normal_derivative(
+                        fld[0], fld[1], ipts, interface_axis, iface_coord,
+                        sign)
+                    res = _IF.flux_ratio_consistency(iq, dudn)
+                except Exception as exc:
+                    res = {"verdict": "NOT_ASSESSED",
+                           "detail": f"{type(exc).__name__}: {exc}"}
+                res.update({"level": lvl, "side": side})
+                out["per_side"].append(res)
+
+        # ---- check 2: the two-sided jump and its trend
+        per_level = []
+        for lvl in levels:
+            a, b = iface.get((lvl, "A")), iface.get((lvl, "B"))  # triples
+            if a is None or b is None:
+                per_level.append({"level": lvl, "verdict": "NOT_ASSESSED",
+                                  "detail": "only one side present"})
+                continue
+            try:
+                per_level.append(dict(level=lvl, **_IF.two_sided_jumps(a, b)))
+            except Exception as exc:
+                per_level.append({"level": lvl, "verdict": "NOT_ASSESSED",
+                                  "detail": f"{type(exc).__name__}: {exc}"})
+        out["per_level"] = per_level
+        jq = [p.get("jump_q_rel") for p in per_level
+              if isinstance(p.get("jump_q_rel"), (int, float))]
+        if len(jq) >= 2:
+            shrinking = all(jq[i + 1] < jq[i] for i in range(len(jq) - 1))
+            out["flux_jump_trend"] = {
+                "values": jq,
+                "shrinking": shrinking,
+                "detail": ("the flux jump falls under refinement, which is "
+                           "what a satisfied transmission condition looks like"
+                           if shrinking else
+                           "THE FLUX JUMP DOES NOT SHRINK under refinement. "
+                           "Your iteration converged to a fixed point of the "
+                           "wrong transmission condition. Check the SIGN "
+                           "first: on the Neumann side the flux you import and "
+                           "the flux you report are opposite.")}
+        return json.dumps(out, indent=2) + _UNIVERSAL_CORE
+
+    @mcp.tool()
     async def audit_results(work_dir: str, claimed_order: float = 0.0,
                             ctx: Context = None) -> str:
         """Check your OWN result files for the failures that most often sink a
@@ -6521,6 +6700,33 @@ normally, because its interface values are a few percent of its own scale,
 while on the high-conductivity side the interface trace IS the scale and the
 tool refuses. A refusal there tells you nothing about that side; an
 INCONSISTENT on the side it does answer tells you a great deal.
+
+CHECK THE INTERFACE SIGN BEFORE YOU SUBMIT: verify_interface_flux(...).
+
+    verify_interface_flux(interface_files="<all interface_level*_[AB].csv>",
+                          solution_files="<all solution_level*_[AB].csv>",
+                          interface_axis=0)
+
+It needs no reference solution. For a flux you really computed from your own
+solution, q_n(x) / (-du/dn)(x) equals k at every interface point -- so the
+ratio is CONSTANT along the interface whatever k is, and POSITIVE. A constant
+NEGATIVE ratio means your normal points inward.
+
+THE TRAP IT CATCHES: on the NEUMANN side the flux you IMPORT and the flux you
+REPORT have OPPOSITE signs. Kratos's FACE_HEAT_FLUX is the INWARD normal flux,
+while the task defines q_n = -(K grad u) . n_out with n_out pointing OUT of the
+subdomain -- so the number you write into interface_level<k>_<side>.csv is the
+NEGATIVE of the one you applied.
+
+Measured on the last coupled round: a run whose two prescribed codes BOTH
+genuinely ran, whose coupling genuinely iterated over three mesh levels, and
+whose interface FIELD matched to 0.000e+00 across the seam was still graded
+COMPLETED_UNPHYSICAL, because at the finest level one side's implied
+coefficient came out -250.8 instead of +200. Its relative flux jump went
+8.139e-01, 9.066e-01, 9.530e-01 -- growing, not shrinking. The same tool on a
+correct submission returns +0.98 to +1.30 on the k=1 side and +200.4 to +206.7
+on the k=200 side, with the answers sealed. One call would have told the run
+which of the two it was.
 
 EACH SIDE'S run_level<k>_<side>.log MUST CARRY THAT SOLVER'S OWN OUTPUT.
 
