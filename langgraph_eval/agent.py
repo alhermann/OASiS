@@ -463,6 +463,61 @@ def _bash_tool_for(workdir: Path, *, audit_on_submit: bool = False):
             return f"\n[auto-audit unavailable: {type(exc).__name__}]"
         return _format_audit_reply(findings)
 
+    # THE PER-LEVEL ARTEFACTS ARE WRITTEN BY THE AGENT'S OWN SOLVER SCRIPTS,
+    # WHICH NO write_file HOOK CAN SEE.
+    #
+    # The early artefact check was attached to write_file and reached NONE of
+    # round 7's three OASiS runs, while the submission audit reached all three.
+    # Measured in their work dirs: 6, 3 and 11 Python scripts producing 12, 5
+    # and 15 per-level CSVs. The agent writes a program with write_file and the
+    # PROGRAM writes the deliverables, so the only channel that sees them is
+    # the shell command that ran it. This is the same lesson this file already
+    # records for RESULT.txt -- 57% of submitters wrote it by shell only -- and
+    # the fix there was never extended to the artefacts.
+    _ART = ("residual_level*.csv", "interface_level*_[AB].csv")
+
+    def _artefact_mtimes() -> dict:
+        out = {}
+        for pat in _ART:
+            for f in workdir.rglob(pat):
+                try:
+                    out[f] = f.stat().st_mtime
+                except OSError:
+                    pass
+        return out
+
+    def _artefact_check_after_shell(before: dict) -> str:
+        if not audit_on_submit:
+            return ""
+        try:
+            now = _artefact_mtimes()
+            touched = [f for f, t in now.items()
+                       if before.get(f) is None or t > before[f]]
+            if not touched:
+                return ""
+            # ONE CHECK PER KIND, not one check overall.
+            #
+            # The first version took the single newest touched file. A solver
+            # script writes every artefact in one go, so "newest" is arbitrary
+            # within the batch: measured on a nine-file write it picked
+            # residual_level1.csv, whose history was fine, and the INTERFACE
+            # SIGN -- the finding that decided the round -- was never looked
+            # at. Grouping by kind bounds the output at two blocks while
+            # making sure each check that the batch made possible is run.
+            blocks = []
+            for pat in _ART:
+                import fnmatch
+                same = [f for f in touched if fnmatch.fnmatch(f.name, pat)]
+                if not same:
+                    continue
+                newest = max(same, key=lambda f: now[f])
+                got = _early_artefact_check(workdir, newest)
+                if got:
+                    blocks.append(got)
+            return "".join(blocks)
+        except Exception:                              # noqa: BLE001
+            return ""
+
     def _result_mtime() -> float | None:
         try:
             rt = next(iter(sorted(workdir.rglob("RESULT.txt"))), None)
@@ -474,6 +529,7 @@ def _bash_tool_for(workdir: Path, *, audit_on_submit: bool = False):
     def run_bash(command: str) -> str:
         """Run a shell command inside the cell's sandbox dir. Returns stdout+stderr (truncated to 12 KB)."""
         _before = _result_mtime()
+        _before_art = _artefact_mtimes()
         # THE WHOLE PROCESS GROUP DIES ON TIMEOUT, NOT JUST THE SHELL.
         #
         # This was subprocess.run(..., timeout=900). On timeout Python kills
@@ -498,7 +554,8 @@ def _bash_tool_for(workdir: Path, *, audit_on_submit: bool = False):
             out = (out_s or "") + (("\n[stderr]\n" + err_s) if err_s else "")
             out = out[-12000:] if len(out) > 12000 else out
             # A submission written by heredoc is still a submission.
-            return out + _audit_after_shell(_before) + _time_left_note()
+            return (out + _artefact_check_after_shell(_before_art)
+                    + _audit_after_shell(_before) + _time_left_note())
         except subprocess.TimeoutExpired:
             _kill_group(proc)
             return ("[timeout after 900s; the command and everything it "
@@ -973,9 +1030,19 @@ def _early_artefact_check(workdir: Path, written: Path) -> str:
     try:
         if _re.fullmatch(r"residual_level\d+\.csv", name):
             from tools.result_audit import residual_findings
-            found = [f for f in residual_findings(workdir)
-                     if name in str(f.get("sequence", ""))
-                     or "IDENTICAL" in f.get("finding", "")]
+            seen, found = set(), []
+            for f in residual_findings(workdir):
+                if not (name in str(f.get("sequence", ""))
+                        or "IDENTICAL" in f.get("finding", "")):
+                    continue
+                # DEDUPE BY TEXT. residual_findings reports per-level, so a
+                # three-level submission with the same defect at every level
+                # gave the identical sentence three times in one reply.
+                key = f.get("finding", "")[:80]
+                if key in seen:
+                    continue
+                seen.add(key)
+                found.append(f)
             if found:
                 return ("\n\n[early check of " + name + ", from your own file:]\n"
                         + "\n".join(f"  * {f['finding']}" for f in found[:2])

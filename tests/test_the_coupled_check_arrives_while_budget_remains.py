@@ -126,3 +126,77 @@ def test_the_bare_arm_gets_none_of_this():
         assert not body.strip(), f"the bare arm was audited: {body[:300]}"
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+# ---------------------------------------------------------------- shell route
+def _reply_from_shell(src: Path, audit: bool) -> str:
+    """The agent's OWN SOLVER SCRIPT writes the artefacts, so the only channel
+    that can see them is the shell command that ran it.
+
+    MEASURED, and this is the twelfth instance of the recurring theme: the
+    write_file hook reached NONE of round 7's three OASiS runs. Their work dirs
+    hold 6, 3 and 11 Python scripts producing 12, 5 and 15 per-level CSVs -- the
+    agent writes a program with write_file and the PROGRAM writes the
+    deliverables. This file already recorded the same lesson for RESULT.txt,
+    where 57% of submitters wrote it by shell only, and the fix there was never
+    extended to the artefacts.
+    """
+    import shutil
+    import tempfile
+
+    from langgraph_eval.agent import _bash_tool_for
+
+    tmp = Path(tempfile.mkdtemp())
+    stage = tmp / "stage"
+    stage.mkdir()
+    try:
+        for pat in _PATTERNS:
+            for f in src.rglob(pat):
+                shutil.copy(f, stage / f.name)
+        bt = _bash_tool_for(tmp, audit_on_submit=audit)
+        return bt.invoke({"command": "cp stage/*.csv . && echo wrote"})
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@pytest.mark.skipif(not WRONG_SIGN.is_dir(), reason="seed303 tree absent")
+def test_a_shell_written_artefact_is_checked_too():
+    out = _reply_from_shell(WRONG_SIGN, audit=True)
+    assert "WRONG SIGN" in out.upper(), (
+        "the artefacts arrived by shell and drew no warning, which is how the "
+        f"write_file hook reached zero of round 7's runs:\n{out[:600]}")
+
+
+@pytest.mark.skipif(not BAD_HISTORY.is_dir(), reason="seed301 tree absent")
+def test_one_finding_per_kind_not_one_per_file():
+    """A batch write must not repeat the same sentence once per level, and must
+    not check only ONE file either.
+
+    The first version of the shell hook took the single newest touched file. A
+    solver writes every artefact in one go, so "newest" is arbitrary inside the
+    batch: measured on a nine-file write it picked residual_level1.csv, whose
+    history was fine, and the interface sign -- the finding that decided the
+    round -- was never looked at.
+    """
+    out = _reply_from_shell(BAD_HISTORY, audit=True)
+    assert "TOO SHORT" in out.upper(), out[:400]
+    assert out.upper().count("COUPLING HISTORY TOO SHORT") == 1, (
+        "the same finding is repeated once per level; one reply, one sentence:"
+        f"\n{out[:600]}")
+    assert "WRONG SIGN" in out.upper(), (
+        "only one artefact kind was checked, so the batch's other check was "
+        f"skipped:\n{out[:600]}")
+
+
+@pytest.mark.skipif(not GOOD.is_dir(), reason="reference absent")
+def test_the_shell_route_is_silent_on_a_correct_submission():
+    out = _reply_from_shell(GOOD, audit=True)
+    for bad in ("WRONG SIGN", "TOO SHORT", "IDENTICAL", "DOES NOT SHRINK"):
+        assert bad not in out.upper(), f"{bad} on a CORRECT submission: {out[:400]}"
+
+
+@pytest.mark.skipif(not WRONG_SIGN.is_dir(), reason="seed303 tree absent")
+def test_the_shell_route_is_silent_for_the_bare_arm():
+    out = _reply_from_shell(WRONG_SIGN, audit=False)
+    assert "WRONG SIGN" not in out.upper(), (
+        f"the control arm received an OASiS capability: {out[:400]}")
