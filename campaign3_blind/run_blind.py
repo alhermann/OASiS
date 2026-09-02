@@ -694,7 +694,8 @@ class TrajLiveLog(BaseCallbackHandler):
 sys.path.insert(0, str(REPO / "src"))
 from blind_eval import keyvault as _kv                             # noqa: E402
 from host_hygiene import (readable_worked_answers,               # noqa: E402
-                          _materially_useful, _worked_handshake)
+                          _materially_useful, _worked_handshake,
+                          is_quarantinable_scratch)
 
 
 def keys_are_sealed() -> bool:
@@ -763,6 +764,10 @@ def _quarantine_stray_scratch() -> list:
     """
     dest_root = HERE / "runs_quarantine" / "stray_scratch"
     repo, here = REPO.resolve(), HERE.resolve()
+    protected = {repo, here}
+    configured_repo = os.environ.get("OASIS_REPO")
+    if configured_repo:
+        protected.add(Path(configured_repo).expanduser().resolve())
     roots = {Path("/tmp").resolve(), Path.home().resolve(),
              (Path.home() / "Schreibtisch").resolve()}
     targets, moved = set(), []
@@ -836,7 +841,7 @@ def _quarantine_stray_scratch() -> list:
             targets.add(d)
 
     for d in sorted(targets):
-        if not d.exists() or d.resolve() == here:
+        if not d.exists() or not is_quarantinable_scratch(d, protected):
             continue
         dest = dest_root / d.name
         n = 1

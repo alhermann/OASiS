@@ -137,6 +137,24 @@ class TestPrecisionIsFromMateriality(unittest.TestCase):
                 H._worked_handshake(d),
                 "a large tree was flagged; the size bound is gone")
 
+    def test_a_git_worktree_is_never_quarantinable(self):
+        with TemporaryDirectory() as t:
+            checkout = _worked_answer(Path(t) / "ofa-v2")
+            (checkout / ".git").write_text("gitdir: /some/common/worktree\n")
+            self.assertFalse(H.is_quarantinable_scratch(checkout, set()))
+
+    def test_a_transcript_path_does_not_make_source_material(self):
+        with TemporaryDirectory() as t:
+            source = Path(t) / "source-tree"
+            (source / "src").mkdir(parents=True)
+            (source / "src" / "solver.py").write_text("print('solver')\n")
+            self.assertFalse(H.is_quarantinable_scratch(source, set()))
+
+    def test_a_worked_answer_remains_quarantinable(self):
+        with TemporaryDirectory() as t:
+            scratch = _worked_answer(Path(t) / "coupled_heat_final")
+            self.assertTrue(H.is_quarantinable_scratch(scratch, set()))
+
 
 class TestTheRunnerWiresItUp(unittest.TestCase):
     """The check must be reachable from the runner, not merely defined."""

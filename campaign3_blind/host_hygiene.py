@@ -110,6 +110,26 @@ def _worked_handshake(top: Path) -> tuple | None:
     return None
 
 
+def is_quarantinable_scratch(d: Path, protected: set[Path]) -> bool:
+    """Only a worked-answer scratch tree may cross the move boundary."""
+    try:
+        resolved = d.resolve()
+    except OSError:
+        return False
+    for root in protected:
+        if (resolved == root or resolved in root.parents
+                or root in resolved.parents):
+            return False
+    if (resolved / ".git").exists():
+        return False
+    try:
+        names = [f.name for f in resolved.iterdir() if f.is_file()]
+    except OSError:
+        return False
+    return bool(_materially_useful(resolved, names)
+                or _worked_handshake(resolved))
+
+
 def readable_worked_answers() -> list:
     """Worked coupled answers an agent could read, outside the campaign.
 
