@@ -113,6 +113,15 @@ with open("results_summary.json", "w") as stream:
     json.dump({{"ndof": int(space.size), "triangles": int(grid.size(0)),
                "center": center, "converged": bool(info["converged"]),
                "degree": degree, "beta": beta}}, stream, indent=2)
+# TERMINAL SENTINEL, last line, after every other print.
+#
+# Every other DUNE generator in this backend ends with it and a suite-wide test
+# requires it, because a DUNE run can exit 134 AFTER printing every correct
+# result — so "the numbers looked right" does not establish that the template
+# finished. A bespoke marker earlier in the output cannot carry that meaning:
+# it only says the solve reached that line, which is why the check is on the
+# LAST line and why this file failed the contract while passing its own test.
+print("DUNE_TEMPLATE_COMPLETE")
 '''
 
 
