@@ -845,6 +845,50 @@ SEVEN RULES THAT APPLY WHATEVER YOU ASKED FOR
    level 2 with one level delivered.
 
 Full detail, per backend: knowledge(topic="physics", solver=..., physics=...)
+
+8. YOUR SOLVER WILL ACCEPT A SETTING AND THEN IGNORE IT. That is the single
+   most common way a run of this campaign fails: exit 0, a converged message,
+   and a field that is zero or mesh-independent. Four confirmed instances,
+   each measured:
+     * NGSolve: after `from ngsolve import *`, ANY loop that assigns `x` or
+       `y` rebinds the symbolic coordinates to floats, so your source becomes
+       a CONSTANT. Verified: `type(f)` is CoefficientFunction before a
+       44x44 probe-point loop and `float` after, value 0.02514662, with x and
+       y both left at 0.9886363636. `CoefficientFunction((float, float))` is
+       accepted silently. A constant body force on a fully-Dirichlet
+       incompressible domain gives u identically 0 -- measured 7.16e-17,
+       3.60e-17, 1.30e-17 at the three levels, order 0.0000 -- against
+       1.2229e-02, 1.2210e-02, 1.2208e-02 for the symbolic source. Build the
+       probe list with different names (`px`, `py`), and print `type(source)`
+       before assembling.
+     * DUNE-fem: `solver="cg"` is accepted on a NON-SYMMETRIC operator and
+       `scheme.solve` DOES NOT RAISE. It returns converged=False,
+       linear_iterations=-10000, and leaves the field at the initial guess,
+       so every level is exactly zero. Measured: cg gave peak 0.000000e+00 at
+       all three levels, bicgstab gave 8.875850e-02. `solver="cg"` appears 82
+       times across 19 of the 32 DU2 run directories in this campaign;
+       bicgstab appears once. gmres is worse than useless here: it converged
+       at N=8 and N=16 and then silently returned zero at N=32
+       (linear_iterations=-10002). If your operator has an advection term it
+       is not symmetric -- use bicgstab, gmres WITH a convergence assertion,
+       or a direct solver.
+     * 4C: a standalone `Thermo` problem silently ignores every
+       `DESIGN ... THERMO ...` Dirichlet and Neumann section. Measured
+       max|T| = 0.000000000e+00 with exit 0; the PLAIN sections work and match
+       an independent assembly to 1.08e-15.
+     * Kratos: FACE_HEAT_FLUX set on interface nodes with no ThermalFace2D2N
+       condition to integrate it is discarded. Measured 2.307291e-03 ignored
+       against 3.605675e-03 applied, bit-identical to a zero-flux run.
+
+9. GATE ON THREE THINGS BEFORE YOU WRITE RESULT.txt, at EVERY level:
+   the solver reported convergence (`info['converged'] is True`, not just the
+   absence of an exception); peak|u| > 0; and your load is not constant
+   (evaluate it at three separated points and check the values differ). Then
+   compute log2(|L1-L2|/|L2-L3|) yourself. A residual norm is not enough --
+   NGSolve's `R.vec.Norm()` includes the Dirichlet rows Newton never touches,
+   so it froze at 1.115344e+00 while the free-DOF residual was 2.36e-16, and
+   a run printed "Newton did not converge" for 49 iterations on a problem it
+   had already solved.
 """
 
 

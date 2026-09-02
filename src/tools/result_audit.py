@@ -957,6 +957,107 @@ def interface_sign_findings(work: Path) -> list[dict]:
     return out
 
 
+def export_findings(work: Path) -> list[dict]:
+    """Two defects that live in the EXPORT, not the solve, and cap the grade.
+
+    A perfect solve reported through a broken export grades as badly as a
+    wrong solve, and neither the solver log nor a refinement study can see it.
+    Both of these were reproduced by execution against real submissions.
+
+    (1) NEAREST-NODE SAMPLING INSTEAD OF INTERPOLATION. This one is real, and
+        it is the largest single recoverable defect measured in this campaign:
+        99 OASiS-arm and 86 bare-arm runs carry the fingerprint. The tasks prescribe
+        FIXED probe points that are deliberately not mesh nodes. Answering with
+        the value at the closest node is O(h) accurate, so it caps the reported
+        order at 1 however good the solve is. Measured on one 4C cell: the same
+        solve gave order +1.9516 read by bilinear interpolation and +1.0179
+        read by nearest node -- and +1.0179 is exactly what the submission
+        reported.
+
+        The fingerprint is free: with a mesh of N cells per side, nearest-node
+        sampling can only ever return (N-1)^2 + 1 distinct interior values, so
+        1936 probe points collapse onto 50, 226 and 962 distinct values at
+        N = 8, 16, 32. Measured on four submissions -- FC1 seeds 10 and 11,
+        FC2 BARE seed 11, FC2 seed 2 -- all four show exactly 50/1936,
+        226/1936, 962/1936. A submission that interpolates shows
+        1908/1928/1936.
+
+    (2) ROW ORDER IS **NOT** CHECKED, AND MUST NOT BE. It looks like a defect
+        and is not one. The grader pairs each submitted row with the reference
+        EVALUATED AT THAT ROW'S OWN COORDINATES -- grading/checks.py
+        field_errors does `for p, v in zip(pts, vals)` -- so a transposed file
+        is graded point by point exactly like an ordered one.
+
+        PROVEN against the sealed key, not argued: the 4C+Kratos reference
+        grades CORRECT at order 1.9796; the SAME submission with the row order
+        transposed grades CORRECT at order 1.9796, bit-identical. A check on
+        row order would have flagged 146 OASiS-arm and 117 bare-arm runs -- a
+        third of the campaign -- and sent every one of them to fix something
+        that costs nothing, spending the action budget that is already the
+        binding constraint. It was written, measured, and removed.
+    """
+    import csv as _csv
+    import math as _math
+    import re as _re
+
+    findings: list[dict] = []
+    per_level: dict[int, tuple] = {}
+    for f in sorted(work.rglob("solution_level*.csv")):
+        m = _re.search(r"level(\d+)", f.name)
+        if not m:
+            continue
+        try:
+            rows = [r for r in _csv.reader(f.open())
+                    if r and not r[0].strip().startswith(("x", "#"))]
+        except OSError:
+            continue
+        xs, ys, vals = [], [], []
+        for r in rows:
+            if len(r) < 3:
+                continue
+            try:
+                xs.append(float(r[0])); ys.append(float(r[1]))
+                vals.append(float(r[2]))
+            except ValueError:
+                continue
+        if len(vals) < 100:
+            continue
+        key = int(m.group(1))
+        # keep the largest file per level, so a stale partial does not decide
+        if key not in per_level or len(vals) > len(per_level[key][2]):
+            per_level[key] = (xs, ys, vals, f.name)
+
+    for lvl, (xs, ys, vals, name) in sorted(per_level.items()):
+        n = len(vals)
+        distinct = len({round(v, 12) for v in vals})
+        if distinct * 2 < n:
+            # (N-1)^2+1 for the mesh that would explain it, reported so the
+            # agent can recognise its own mesh
+            nn = int(_math.isqrt(max(distinct - 1, 1))) + 1
+            findings.append({"sequence": name, "values": [distinct, n],
+                             "finding": (
+                f"ONLY {distinct} DISTINCT VALUES ACROSS {n} PROBE POINTS at "
+                f"level {lvl}. The probe points are deliberately NOT mesh "
+                f"nodes, so a correct export gives almost {n} distinct values; "
+                f"{distinct} is what NEAREST-NODE SAMPLING returns on a mesh of "
+                f"about {nn} cells per side, because it can only ever produce "
+                f"(N-1)^2+1 interior values. Nearest-node lookup is O(h), so it "
+                f"CAPS YOUR REPORTED ORDER AT 1 however good the solve is. "
+                f"PROVEN against the sealed answer: one coupled submission was "
+                f"graded CORRECT at order 1.9796, and the SAME SOLVE re-exported "
+                f"by nearest-node lookup -- nothing else changed -- graded "
+                f"CONFIDENTLY_WRONG at order 0.9815. A separate 4C cell gave "
+                f"+1.9516 interpolated against +1.0179 nearest-node, and +1.0179 "
+                f"is exactly what that submission reported. Interpolate inside "
+                f"the element that CONTAINS each probe point; this is a "
+                f"post-processing fix and does not need the solver re-run.")})
+        # NO ROW-ORDER CHECK HERE, DELIBERATELY. See (2) in the docstring:
+        # the grader coordinate-matches, so transposition is harmless, and the
+        # check that flagged it was removed after being proven a false alarm.
+        del xs, ys
+    return findings
+
+
 def audit(work_dir: str, claimed_order: float | None = None) -> dict:
     """The three questions, answered from the agent's own files."""
     work = Path(work_dir)
@@ -1071,6 +1172,7 @@ def audit(work_dir: str, claimed_order: float | None = None) -> dict:
             findings.append(entry)
     findings.extend(contract_findings(Path(work_dir)))
     findings.extend(interface_sign_findings(work))
+    findings.extend(export_findings(work))
     return {
         "sequences_found": len(seqs),
         "findings": findings,

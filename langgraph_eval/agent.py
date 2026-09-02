@@ -474,7 +474,8 @@ def _bash_tool_for(workdir: Path, *, audit_on_submit: bool = False):
     # the shell command that ran it. This is the same lesson this file already
     # records for RESULT.txt -- 57% of submitters wrote it by shell only -- and
     # the fix there was never extended to the artefacts.
-    _ART = ("residual_level*.csv", "interface_level*_[AB].csv")
+    _ART = ("residual_level*.csv", "interface_level*_[AB].csv",
+            "solution_level*.csv")
 
     def _artefact_mtimes() -> dict:
         out = {}
@@ -1048,6 +1049,20 @@ def _early_artefact_check(workdir: Path, written: Path) -> str:
                         + "\n".join(f"  * {f['finding']}" for f in found[:2])
                         + "\nYou have budget left now. Fixing this after "
                           "RESULT.txt is written is usually too late.")
+        elif _re.fullmatch(r"solution_level\d+(_[AB])?\.csv", name):
+            # THE EXPORT CAN RUIN A PERFECT SOLVE, and the agent can fix it
+            # without re-running anything. Proven against the sealed answer:
+            # a submission graded CORRECT at order 1.9796 re-exported by
+            # nearest-node lookup graded CONFIDENTLY_WRONG at 0.9815, nothing
+            # else changed. 99 OASiS-arm runs carry the fingerprint.
+            from tools.result_audit import export_findings
+            found = [f for f in export_findings(workdir)
+                     if name in str(f.get("sequence", ""))]
+            if found:
+                return ("\n\n[early check of " + name + ", from your own file:]\n"
+                        + "\n".join(f"  * {f['finding']}" for f in found[:1])
+                        + "\nThis is a POST-PROCESSING fix: you do not need to "
+                          "re-run the solver, only to re-read it.")
         elif _re.fullmatch(r"interface_level\d+_[AB]\.csv", name):
             from tools.result_audit import interface_sign_findings
             lvl = _re.search(r"level(\d+)", name).group(1)
