@@ -6701,6 +6701,38 @@ while on the high-conductivity side the interface trace IS the scale and the
 tool refuses. A refusal there tells you nothing about that side; an
 INCONSISTENT on the side it does answer tells you a great deal.
 
+THE NEUMANN SIDE'S IMPORTED FLUX IS SILENTLY IGNORED WITHOUT A CONDITION.
+
+This is the single defect that has sunk the most nearly-correct coupled
+submissions, and it leaves no trace: the solver runs, converges, exits 0, and
+returns exactly the answer it would have returned with no flux at all.
+
+In Kratos, setting FACE_HEAT_FLUX on the interface NODES does nothing unless
+`ThermalFace2D2N` conditions exist on the interface EDGES -- the nodal value is
+only ever integrated BY a condition. Measured on one mesh, three runs differing
+only in this:
+
+    zero flux, conditions present     max|T| = 2.307291e-03
+    flux on nodes, NO conditions      max|T| = 2.307291e-03   BIT-IDENTICAL
+    flux on nodes AND conditions      max|T| = 3.605675e-03
+
+Two real submissions died exactly here: side A correct to three digits, side B
+reporting 2.367e-03 and 2.342e-03 against a true 3.670e-03 -- the no-flux
+answer -- with the interface FIELD matching across the seam to 0.000e+00, so
+only the flux jump betrayed it, growing 8.139e-01, 9.066e-01, 9.530e-01 under
+refinement instead of shrinking.
+
+THE SHAPE IS GENERAL, not Kratos-specific: a boundary value attached to nodes
+but never integrated over a facet contributes nothing. 4C has the same trap
+twice -- the `DESIGN ... THERMO ...` condition sections are never evaluated in a
+standalone Thermo problem, and a body source must sit on the condition whose
+geometry type matches the ELEMENT DIMENSION (LINE 1D / SURF 2D / VOL 3D).
+
+HOW TO CATCH IT IN ONE STEP, before any coupling iteration: solve the Neumann
+side ONCE with the imported flux set to zero, then ONCE with your real flux,
+and compare. If the two fields are identical, the flux never reached the
+operator. That costs one extra solve and is the only check that sees this.
+
 CHECK THE INTERFACE SIGN BEFORE YOU SUBMIT: verify_interface_flux(...).
 
     verify_interface_flux(interface_files="<all interface_level*_[AB].csv>",

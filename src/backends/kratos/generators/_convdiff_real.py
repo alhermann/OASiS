@@ -26,6 +26,16 @@ it, and each one had a wrong first guess:
   * FACE_HEAT_FLUX on a `ThermalFace2D2N` is the INWARD normal flux. Measured
     against a closed form chosen so the two readings differ by a sign:
     u(interface) came out +0.875 where inward predicts +0.875.
+  * SETTING FACE_HEAT_FLUX ON NODES DOES NOTHING UNLESS `ThermalFace2D2N`
+    CONDITIONS EXIST ON THOSE EDGES. The nodal value is only ever integrated
+    BY a condition; with no condition there is nothing to integrate it, and
+    Kratos runs, converges, exits 0 and returns the no-flux solution. Measured
+    on one mesh, three runs differing only in this:
+        zero flux, conditions present     max|T| = 2.307291e-03
+        flux on nodes, NO conditions      max|T| = 2.307291e-03  <- IDENTICAL
+        flux on nodes AND conditions      max|T| = 3.605675e-03
+    numpy.allclose on the first two is True. This is why it is invisible: the
+    imported flux leaves no trace at all.
   * Kratos prints from C++ streams. An in-process `os.dup2` redirect of fd 1
     captured ZERO bytes. If a log has to show which code ran, run the solve in
     a SUBPROCESS and capture that.
@@ -325,3 +335,194 @@ def real_transient_script(title: str, nx: int, ny: int, k: float, rho: float,
                              dt=dt, t_end=t_end, f_expr=f_expr,
                              dirichlet_body=dirichlet_body, t_init=t_init,
                              x0=x0, x1=x1, y0=y0, y1=y1)
+
+
+_IFACE_NEUMANN = '''\
+"""{title}
+
+The NEUMANN side of a partitioned coupling, solved by Kratos
+ConvectionDiffusionApplication: it imports a normal flux on the interface,
+applies it as a natural boundary condition, and exports its own interface
+field and its own outward flux.
+
+THE ONE THING THAT SILENTLY BREAKS THIS. Setting FACE_HEAT_FLUX on the
+interface nodes is NOT ENOUGH. The nodal value is only integrated BY a
+condition, so without `ThermalFace2D2N` conditions on the interface edges
+Kratos runs, converges, exits 0, and returns exactly the solution it would
+have returned with no flux at all. Measured on one mesh, three runs differing
+only in this:
+
+    zero flux, conditions present     max|T| = 2.307291e-03
+    flux on nodes, NO conditions      max|T| = 2.307291e-03   IDENTICAL
+    flux on nodes AND conditions      max|T| = 3.605675e-03
+
+numpy.allclose on the first two is True. Real submissions have died here: two
+independent runs whose side A was correct to three digits reported a side-B
+peak of 2.367e-03 and 2.342e-03 against a true 3.670e-03 -- the no-flux
+answer -- with their interface FIELD matching across the seam to 0.000e+00 and
+only the flux jump betraying it, growing 8.139e-01, 9.066e-01, 9.530e-01 under
+refinement instead of shrinking.
+
+TWO SIGNS, AND THEY ARE OPPOSITE.
+  what you APPLY : FACE_HEAT_FLUX is the INWARD normal flux, so the partner's
+                   outward flux q_A^out is applied as +q_A^out (heat leaving A
+                   enters B).
+  what you REPORT: the task's q_n is YOUR OWN OUTWARD flux, which is the
+                   NEGATIVE of what you applied.
+Get these the same way round and the two sides appear to balance when they do
+not.
+"""
+import json
+from pathlib import Path
+
+import numpy as np
+import KratosMultiphysics as KM
+import KratosMultiphysics.ConvectionDiffusionApplication  # noqa: F401
+
+NX, NY = {nx}, {ny}
+X0, X1 = {x0}, {x1}          # this subdomain; the interface is at X0
+K_VAL = {k}
+IFACE_AT_X0 = True           # the interface is this subdomain's LEFT edge
+
+
+def source(x, y):
+    """This subdomain's own volumetric source. EDIT THIS."""
+    return {f_expr}
+
+
+def imported_flux(y):
+    """The partner's OUTWARD normal flux at interface height y, from
+    imports.json. EDIT THIS to read your partner's data."""
+    imp = json.loads(Path("imports.json").read_text()) if Path("imports.json").is_file() else {{}}
+    for _name, data in imp.items():
+        co = np.array(data.get("coordinates") or [], float)
+        q = np.array(data.get("normal_fluxes") or [], float)
+        if len(co) and len(q) == len(co):
+            o = np.argsort(co[:, 1])
+            return float(np.interp(y, co[o, 1], q[o]))
+    return 0.0               # iteration 1: no partner data yet
+
+
+xs = np.linspace(X0, X1, NX + 1)
+ys = np.linspace(0.0, 1.0, NY + 1)
+nodes = np.array([(xs[i], ys[j]) for j in range(NY + 1) for i in range(NX + 1)])
+nid = lambda i, j: j * (NX + 1) + i          # noqa: E731
+tris = []
+for j in range(NY):
+    for i in range(NX):
+        a, b, c, d = nid(i, j), nid(i + 1, j), nid(i + 1, j + 1), nid(i, j + 1)
+        tris += [[a, b, c], [a, c, d]]
+
+model = KM.Model()
+mp = model.CreateModelPart("neumann_side")
+mp.ProcessInfo[KM.DOMAIN_SIZE] = 2
+for v in (KM.TEMPERATURE, KM.HEAT_FLUX, KM.CONDUCTIVITY, KM.FACE_HEAT_FLUX,
+          KM.REACTION_FLUX, KM.SPECIFIC_HEAT, KM.DENSITY, KM.VELOCITY,
+          KM.MESH_VELOCITY):
+    mp.AddNodalSolutionStepVariable(v)
+s = KM.ConvectionDiffusionSettings()
+s.SetUnknownVariable(KM.TEMPERATURE)
+s.SetDiffusionVariable(KM.CONDUCTIVITY)
+s.SetVolumeSourceVariable(KM.HEAT_FLUX)
+s.SetSurfaceSourceVariable(KM.FACE_HEAT_FLUX)
+s.SetDensityVariable(KM.DENSITY)
+s.SetSpecificHeatVariable(KM.SPECIFIC_HEAT)
+s.SetVelocityVariable(KM.VELOCITY)
+s.SetMeshVelocityVariable(KM.MESH_VELOCITY)
+s.SetReactionVariable(KM.REACTION_FLUX)
+mp.ProcessInfo.SetValue(KM.CONVECTION_DIFFUSION_SETTINGS, s)
+
+prop = mp.CreateNewProperties(1)
+fnodal = np.array([source(px, py) for px, py in nodes])
+for i, (px, py) in enumerate(nodes):
+    n = mp.CreateNewNode(i + 1, float(px), float(py), 0.0)
+    n.SetSolutionStepValue(KM.CONDUCTIVITY, K_VAL)     # NODAL, not Properties
+    n.SetSolutionStepValue(KM.HEAT_FLUX, float(fnodal[i]))
+    n.SetSolutionStepValue(KM.DENSITY, 1.0)
+    n.SetSolutionStepValue(KM.SPECIFIC_HEAT, 1.0)
+for e, el in enumerate(tris):
+    mp.CreateNewElement("LaplacianElement2D3N", e + 1,
+                        [int(v) + 1 for v in el], prop)
+
+tol = 1e-12
+edge = X0 if IFACE_AT_X0 else X1
+on_iface = np.abs(nodes[:, 0] - edge) < tol
+on_bot = np.abs(nodes[:, 1]) < tol
+on_top = np.abs(nodes[:, 1] - 1.0) < tol
+# THE INTERFACE CORNERS BELONG TO THE OUTER BOUNDARY. A Dirichlet-Neumann
+# corner has no convergent recovered flux, which is why the graded probes
+# exclude the ends.
+iface = [i for i in np.where(on_iface)[0] if not (on_bot[i] or on_top[i])]
+iface.sort(key=lambda i: nodes[i, 1])
+
+# ---- THE CONDITIONS. WITHOUT THESE THE NEXT LOOP IS A NO-OP.
+for c in range(len(iface) - 1):
+    mp.CreateNewCondition("ThermalFace2D2N", c + 1,
+                          [int(iface[c]) + 1, int(iface[c + 1]) + 1], prop)
+for i in iface:
+    # FACE_HEAT_FLUX is INWARD; the partner's outward flux enters here as +q.
+    mp.GetNode(int(i) + 1).SetSolutionStepValue(
+        KM.FACE_HEAT_FLUX, float(imported_flux(nodes[i, 1])))
+
+KM.VariableUtils().AddDof(KM.TEMPERATURE, KM.REACTION_FLUX, mp)
+for i in range(len(nodes)):
+    if on_bot[i] or on_top[i] or abs(nodes[i, 0] - (X1 if IFACE_AT_X0 else X0)) < tol:
+        nd = mp.GetNode(i + 1)
+        nd.SetSolutionStepValue(KM.TEMPERATURE, 0.0)
+        nd.Fix(KM.TEMPERATURE)
+
+lin = KM.LinearSolverFactory().Create(
+    KM.Parameters('{{"solver_type":"skyline_lu_factorization"}}'))
+strat = KM.ResidualBasedLinearStrategy(
+    mp, KM.ResidualBasedIncrementalUpdateStaticScheme(),
+    KM.ResidualBasedBlockBuilderAndSolver(lin), True, False, False, False)
+strat.SetEchoLevel(1)
+mp.ProcessInfo[KM.DELTA_TIME] = 1.0
+mp.CloneTimeStep(1.0)
+strat.Initialize()
+strat.Solve()
+
+T = np.array([mp.GetNode(i + 1).GetSolutionStepValue(KM.TEMPERATURE)
+              for i in range(len(nodes))])
+qin = np.array([imported_flux(nodes[i, 1]) for i in iface])
+print(f"Kratos Neumann side: nodes={{len(nodes)}} iface={{len(iface)}} "
+      f"conditions={{max(len(iface) - 1, 0)}} "
+      f"q_in=[{{qin.min():.6e}},{{qin.max():.6e}}] max|T|={{np.abs(T).max():.9e}}")
+
+# THE CHECK THAT CATCHES THE SILENT NO-OP: with a nonzero imported flux, the
+# interface trace must NOT be what it would be with no flux at all.
+if np.abs(qin).max() > 0 and max(len(iface) - 1, 0) == 0:
+    raise SystemExit("a nonzero flux was imported and NO ThermalFace2D2N "
+                     "condition exists: the flux will be silently ignored and "
+                     "this run would return the no-flux solution.")
+
+# YOUR OWN OUTWARD FLUX IS THE NEGATIVE OF WHAT YOU APPLIED, and that is what
+# the task asks you to report. Recover it from your own solution: the
+# consistent nodal flux is q = -(K u - b_volume)/h with h the node's
+# tributary length, b_volume the VOLUME load only -- the face load must NOT go
+# into the residual or the reported flux comes out identically zero.
+np.savetxt("interface_out.csv",
+           np.column_stack([np.full(len(iface), edge), nodes[iface, 1],
+                            T[iface], -qin]),
+           delimiter=", ", header="x, y, u, qn", comments="", fmt="%.15e")
+json.dump({{"n_interface": len(iface), "n_conditions": max(len(iface) - 1, 0),
+           "max_abs_T": float(np.abs(T).max()),
+           "solver": "Kratos ConvectionDiffusionApplication",
+           "element": "LaplacianElement2D3N",
+           "interface_condition": "ThermalFace2D2N"}},
+          open("results_summary.json", "w"), indent=2)
+print("Kratos Neumann-side solve complete.")
+'''
+
+
+def real_interface_neumann_script(title: str, nx: int, ny: int, k: float,
+                                  f_expr: str, x0: float, x1: float) -> str:
+    """The Neumann side of a partitioned coupling, driven by Kratos.
+
+    Served because the coupled gate grades the interface sign convention and
+    the consistent flux recovery, and because the single silent failure in
+    this route -- a nodal FACE_HEAT_FLUX with no ThermalFace condition to
+    integrate it -- has demonstrably sunk otherwise-correct submissions.
+    """
+    return _IFACE_NEUMANN.format(title=title, nx=nx, ny=ny, k=k,
+                                 f_expr=f_expr, x0=x0, x1=x1)

@@ -879,6 +879,49 @@ def interface_sign_findings(work: Path) -> list[dict]:
             pass
 
     out: list[dict] = []
+    # ONE SIDE'S FLUX ORDERS OF MAGNITUDE BELOW THE OTHER'S = NO TRANSMISSION.
+    #
+    # The Neumann side's outward flux must be the NEGATIVE of the Dirichlet
+    # side's, so the two magnitudes are equal to discretisation error. A side
+    # reporting a flux a hundred times smaller has not received its partner's
+    # data at all -- in Kratos, the usual cause is FACE_HEAT_FLUX set on the
+    # interface nodes with no ThermalFace2D2N condition to integrate it, which
+    # is silent: same exit code, same convergence message, and exactly the
+    # no-flux field. Measured: 2.307291e-03 with the flux ignored against
+    # 3.605675e-03 with it applied, bit-identical to the zero-flux run.
+    peaks = {}
+    for (lvl, side), path in sorted(ifs.items()):
+        try:
+            g, _w = _IF.read_interface_csv(path, 2, 1, 1)
+        except Exception:
+            g = None
+        if g is None:
+            continue
+        vals = [abs(c) for row in g[2] for c in row]
+        if vals:
+            peaks[(lvl, side)] = max(vals)
+    for lvl in sorted({l for l, _ in peaks}):
+        a, b = peaks.get((lvl, "A")), peaks.get((lvl, "B"))
+        if a is None or b is None:
+            continue
+        big, small = max(a, b), min(a, b)
+        if big > 0 and small < big / 50.0:
+            weak = "A" if a < b else "B"
+            out.append({"sequence": f"interface flux transmission level {lvl}",
+                        "values": [a, b], "finding": (
+                f"SIDE {weak}'S INTERFACE FLUX IS {big / max(small, 1e-300):.0f}x "
+                f"SMALLER THAN ITS PARTNER'S at level {lvl} "
+                f"({a:.4e} on A against {b:.4e} on B). The two sides' outward "
+                f"fluxes must be equal and opposite, so this means side {weak} "
+                f"never RECEIVED its partner's flux. In Kratos the usual cause "
+                f"is FACE_HEAT_FLUX set on the interface NODES with no "
+                f"ThermalFace2D2N condition on the interface EDGES to integrate "
+                f"it: the nodal value is ignored, the solve exits 0, and you get "
+                f"exactly the no-flux field (measured 2.307291e-03 ignored "
+                f"against 3.605675e-03 applied, bit-identical to a zero-flux "
+                f"run). Solve your Neumann side once with the flux zeroed and "
+                f"once with it real -- if the fields match, it never arrived.")})
+            break
     if inverted:
         where = ", ".join(f"level {l} side {s} (implied k = {k:.4g})"
                           for l, s, k in inverted)
