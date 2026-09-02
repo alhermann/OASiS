@@ -476,6 +476,11 @@ def _bash_tool_for(workdir: Path, *, audit_on_submit: bool = False):
     # the fix there was never extended to the artefacts.
     _ART = ("residual_level*.csv", "interface_level*_[AB].csv",
             "solution_level*.csv")
+    # A PARTICIPANT SCRIPT WRITTEN BY HEREDOC IS STILL A PARTICIPANT SCRIPT.
+    # 18 of 18 runs on the coupled cell set FACE_HEAT_FLUX with no condition;
+    # catching that only on write_file would miss every agent that uses a
+    # heredoc, which this file already measured at 57% for RESULT.txt.
+    _SCRIPTS = ("*.py",)
 
     def _artefact_mtimes() -> dict:
         out = {}
@@ -486,6 +491,34 @@ def _bash_tool_for(workdir: Path, *, audit_on_submit: bool = False):
                 except OSError:
                     pass
         return out
+
+    def _script_mtimes() -> dict:
+        out = {}
+        for pat in _SCRIPTS:
+            for f in workdir.rglob(pat):
+                try:
+                    out[f] = f.stat().st_mtime
+                except OSError:
+                    pass
+        return out
+
+    def _script_check_after_shell(before: dict) -> str:
+        if not audit_on_submit:
+            return ""
+        try:
+            now = _script_mtimes()
+            touched = [f for f, t in now.items()
+                       if before.get(f) is None or t > before[f]]
+            for f in sorted(touched, key=lambda x: now[x], reverse=True):
+                try:
+                    got = _script_noop_check(f, f.read_text(errors="replace"))
+                except OSError:
+                    continue
+                if got:
+                    return got            # one finding per command, not per file
+        except Exception:                 # noqa: BLE001
+            return ""
+        return ""
 
     def _artefact_check_after_shell(before: dict) -> str:
         if not audit_on_submit:
@@ -531,6 +564,7 @@ def _bash_tool_for(workdir: Path, *, audit_on_submit: bool = False):
         """Run a shell command inside the cell's sandbox dir. Returns stdout+stderr (truncated to 12 KB)."""
         _before = _result_mtime()
         _before_art = _artefact_mtimes()
+        _before_scr = _script_mtimes()
         # THE WHOLE PROCESS GROUP DIES ON TIMEOUT, NOT JUST THE SHELL.
         #
         # This was subprocess.run(..., timeout=900). On timeout Python kills
@@ -555,7 +589,8 @@ def _bash_tool_for(workdir: Path, *, audit_on_submit: bool = False):
             out = (out_s or "") + (("\n[stderr]\n" + err_s) if err_s else "")
             out = out[-12000:] if len(out) > 12000 else out
             # A submission written by heredoc is still a submission.
-            return (out + _artefact_check_after_shell(_before_art)
+            return (out + _script_check_after_shell(_before_scr)
+                    + _artefact_check_after_shell(_before_art)
                     + _audit_after_shell(_before) + _time_left_note())
         except subprocess.TimeoutExpired:
             _kill_group(proc)
@@ -632,6 +667,7 @@ def _read_write_tools_for(workdir: Path, *, audit_on_submit: bool = False):
             # submission. See _early_artefact_check for the mtime measurement
             # that forced this.
             if audit_on_submit and p.name != "RESULT.txt":
+                reply += _script_noop_check(p, content)
                 reply += _early_artefact_check(workdir, p)
             if audit_on_submit and p.name == "RESULT.txt":
                 # A GIVE-UP FILED OVER FINISHED WORK, caught structurally.
@@ -1023,6 +1059,54 @@ def _work_on_disk_contradicting_a_give_up(work: Path) -> str:
           "finding alongside them, and keep working on the finding with "
           "whatever time is left."
     )
+
+
+def _script_noop_check(written: Path, content: str) -> str:
+    """A participant that sets a nodal flux and creates no condition is inert.
+
+    MEASURED, and this is the reason this check exists rather than another
+    paragraph of advice. Over the 18 OASiS runs of this cell served the fact:
+    18 of 18 called a knowledge door, 18 of 18 set FACE_HEAT_FLUX, and ZERO of
+    18 created the condition that makes it do anything. They find OASiS, they
+    read it, they get the concept, and the one line that turns a nodal value
+    into a boundary condition does not survive into the code.
+
+    The consequence is invisible at runtime: Kratos converges, exits 0, and
+    returns exactly the no-flux field -- 2.307291e-03 against 3.605675e-03
+    with the condition present, bit-identical to a zero-flux run.
+
+    So it is caught in the SCRIPT, when the script is written, before it has
+    run once. Prose next to the fact did not work eighteen times.
+    """
+    import re as _re
+
+    if written.suffix != ".py":
+        return ""
+    sets_flux = "FACE_HEAT_FLUX" in content
+    if not sets_flux:
+        return ""
+    has_cond = bool(_re.search(
+        r"CreateNewCondition\s*\(\s*[\"']"
+        r"(ThermalFace\dD\dN|FluxCondition\dD\dN)", content))
+    if has_cond:
+        return ""
+    return ("\n\n[early check of " + written.name + ", read from the script "
+            "you just wrote:]\n"
+            "  * THIS SCRIPT SETS FACE_HEAT_FLUX AND CREATES NO CONDITION, so "
+            "the flux will be silently discarded. A nodal value is only ever "
+            "integrated BY a condition; with none on the interface edges "
+            "Kratos runs, converges, exits 0 and returns exactly the field it "
+            "would have returned with no flux at all. Measured on one mesh: "
+            "zero flux 2.307291e-03, flux on nodes with no condition "
+            "2.307291e-03 (BIT-IDENTICAL), flux with conditions 3.605675e-03. "
+            "Add, over the interface edges in order:\n"
+            "        for c in range(len(iface) - 1):\n"
+            "            mp.CreateNewCondition(\"ThermalFace2D2N\", c + 1,\n"
+            "                                  [iface[c] + 1, iface[c+1] + 1], "
+            "prop)\n"
+            "    then set FACE_HEAT_FLUX on those nodes. FluxCondition2D2N "
+            "works too. 18 of the last 18 runs on this cell omitted this and "
+            "every one of them submitted the no-flux answer.")
 
 
 def _early_artefact_check(workdir: Path, written: Path) -> str:
