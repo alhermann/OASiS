@@ -76,7 +76,96 @@ def _script(name: str) -> str:
     if not p.is_file():
         return (f"[OASiS] participant script for '{name}' is missing from the "
                 f"install (expected data/coupling_participants/{p.name}).")
-    return p.read_text()
+    return _serve_participant(p)
+
+
+def _serve_participant(p: Path) -> str:
+    """THE ONE DOOR every participant is served through, and it FAILS CLOSED.
+
+    Option B says OASiS serves the handshake, the interface sign convention,
+    the consistent flux recovery and the exports schema, and does NOT serve a
+    working finite element solve. That was enforced by a marker convention plus
+    a call to `_elide_solve` -- and enforcement disappeared without anyone
+    removing the mechanism. Measured on the committed tree: `_elide_solve` was
+    called at ZERO call sites while all 30 participant files still carried the
+    markers, so every one of them was served WHOLE, solve included, and the
+    only thing that said so was a guard test failing quietly
+    (test_the_contract_survives_the_real_serving_door).
+
+    This file's own comment at `_elide_solve` records the same failure
+    happening once before -- four helpers served their variant with a bare
+    `p.read_text()`, so marking the files changed nothing an agent received.
+    The lesson written there is "the mechanism has to sit where every door
+    passes through it, not where the first one did", and there were five doors
+    again.
+
+    So there is now exactly one, and the permissive state is no longer the
+    default:
+
+      * marker present, region cut  -> serve the reduced text
+      * marker present, nothing cut -> REFUSE (that is a wiring bug, and
+                                       serving the solve is the failure it
+                                       would cause)
+      * marker absent               -> REFUSE the body, serve the module
+                                       docstring, which is where the contract,
+                                       the sign convention and the recovery
+                                       formula live
+
+    Absence of elision can no longer mean "serve everything".
+    """
+    if not p.is_file():
+        return (f"[OASiS] participant script for '{p.stem}' is missing from "
+                f"the install (expected data/coupling_participants/{p.name}).")
+    text = p.read_text()
+    if _SOLVE_BEGIN not in text:
+        doc = ""
+        try:
+            import ast as _ast
+            doc = _ast.get_docstring(_ast.parse(text)) or ""
+        except (SyntaxError, ValueError):
+            doc = ""
+        return (
+            f"[OASiS WITHHOLDS THE BODY OF {p.name}]\n"
+            f"This participant carries no SOLVE marker, so OASiS cannot tell "
+            f"which region is the solve and will not serve the file. What "
+            f"OASiS documents is its own interface -- the imports/exports "
+            f"handshake, the interface sign convention, the consistent flux "
+            f"recovery the gate grades against, and the iteration-1 fallback. "
+            f"The mesh, the form and the solve are yours to write.\n\n"
+            f"The contract, from this participant's own header:\n\n"
+            + (doc if doc else "(this file has no docstring either)")
+            + "\n")
+    served = _elide_solve(text)
+    # POSITIVE PROOF OF ELISION, NOT A LENGTH COMPARISON.
+    #
+    # My first version asked whether the result was SHORTER than the source.
+    # It is not, and cannot be relied on to be: `_elide_solve` appends the
+    # reconstruction contract naming what the hole must define, so a file
+    # whose solve was correctly cut can come back longer. That test refused 13
+    # of 30 participants outright and served 352 characters where the
+    # handshake, the exports schema and the sign convention should have been --
+    # withholding exactly what Option B says OASiS DOES serve.
+    #
+    # The proof that elision happened is the elision marker in the output, and
+    # that the marked source region is gone from it.
+    _cut_ok = _SOLVE_ELIDED in served
+    if _cut_ok:
+        _a = text.find(_SOLVE_BEGIN) + len(_SOLVE_BEGIN)
+        _b = text.find(_SOLVE_END, _a)
+        if _b > _a:
+            _body = text[_a:_b].strip()
+            if _body and _body in served:
+                _cut_ok = False        # marker echoed but the region survived
+    if not _cut_ok:
+        return (
+            f"[OASiS WITHHOLDS THE BODY OF {p.name}]\n"
+            f"The SOLVE marker is present but elision removed nothing, which "
+            f"is a wiring bug in OASiS, not a licence to hand over a working "
+            f"solve. Refusing rather than serving it. Report this: the file "
+            f"has the marker at least once and the elision left the marked "
+            f"region in place ({len(served)} characters served for a "
+            f"{len(text)}-character source).\n")
+    return served
 
 
 def _elide_solve(text: str) -> str:
@@ -1969,7 +2058,7 @@ def _threed_block(script_name: str) -> str:
         "in 3-D against 2 of 25 (8%) in 2-D. Unguarded, the whole-interface "
         "flux loses its order outright (0.52) and the L2 error inflates by "
         "19x to 83x.\n\n"
-        f"```python\n{p.read_text()}```\n")
+        f"```python\n{_serve_participant(p)}```\n")
 
 
 def _transient_block(script_name: str) -> str:
@@ -2004,7 +2093,7 @@ def _transient_block(script_name: str) -> str:
         "theta-combined right-hand side needs. Exporting it as 'the flux at "
         "t^(n+1)' injects an O(dt) error that looks like a scheme stuck at "
         "first order.\n\n"
-        f"```python\n{p.read_text()}```\n")
+        f"```python\n{_serve_participant(p)}```\n")
 
 
 def _role_block(script_name: str) -> str:
@@ -2027,7 +2116,7 @@ def _role_block(script_name: str) -> str:
         "applies them UNCHANGED as the natural boundary condition, and "
         "exports the interface values its solve produced. Use whichever role "
         "the problem assigns this subdomain; they are not interchangeable.\n\n"
-        f"```python\n{p.read_text()}```\n")
+        f"```python\n{_serve_participant(p)}```\n")
 
 
 def _vector_block(script_name: str) -> str:
@@ -2059,7 +2148,7 @@ def _vector_block(script_name: str) -> str:
         "reactions of the assembled residual), never by differencing the "
         "displacement field — a differenced traction converges one order too "
         "slowly and drags the coupled field order down with it.\n\n"
-        f"```python\n{p.read_text()}```\n")
+        f"```python\n{_serve_participant(p)}```\n")
 
 
 def _payload(title: str, sides: str, script_name: str, launch: str,

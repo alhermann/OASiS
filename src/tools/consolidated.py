@@ -6825,6 +6825,20 @@ while on the high-conductivity side the interface trace IS the scale and the
 tool refuses. A refusal there tells you nothing about that side; an
 INCONSISTENT on the side it does answer tells you a great deal.
 
+WHAT YOUR SOLVE MUST LEAVE BEHIND.
+
+OASiS serves the participant with the mesh/form/solve region CUT OUT, and the
+surviving code still uses the names that region defined. It is your solve, but
+it has a contract: whatever you write must leave behind the interface degrees
+of freedom, the assembled operator, and the solution vector the export block
+reads -- the served text names them where the hole is. A participant that runs
+but exports nothing has met the letter of the handshake and none of its point.
+
+That is checked from your own files: `couple` reports a participant as
+UNRESPONSIVE when its exports are byte-identical across iterations in which
+its imports changed, and a residual that falls to ~1e-18 in three or four
+steps is that, not convergence.
+
 THE NEUMANN SIDE'S IMPORTED FLUX IS SILENTLY IGNORED WITHOUT A CONDITION.
 
 This is the single defect that has sunk the most nearly-correct coupled
