@@ -2904,6 +2904,20 @@ def register_consolidated_tools(mcp: FastMCP):
             if _is_coupling_request(topic):
                 return _get_coupling_knowledge(solver, signal)
 
+            # THE LONG FORM, BECAUSE THE COMPACT BLOCK PROMISES IT.
+            #
+            # The served universal block was cut from 34,814 to 12,624
+            # characters and its closing line tells the agent it can ask for
+            # the rest with knowledge(topic="universal_full"). Before this
+            # branch existed that call returned the usage hint -- a promise
+            # made in the payload and not kept, which is the same defect this
+            # file records for 'postmortems' just below, and the same shape as
+            # every other mechanism here that did not reach its case.
+            if str(topic).strip().lower() in (
+                    "universal_full", "universal", "rules_full"):
+                from .knowledge import _UNIVERSAL_FULL
+                return _UNIVERSAL_FULL
+
             # Topics list must match the docstring + dispatch
             # branches. Audit 2026-06-01: 'postmortems' was
             # documented in the docstring and implemented at
@@ -2913,6 +2927,9 @@ def register_consolidated_tools(mcp: FastMCP):
             # session_insights' missing 'ingest'.)
             return (
                 "Usage: knowledge(topic, solver, physics, signal='')\n"
+                "  universal_full - the long form of the ten universal "
+                "rules, with the full measured evidence (22,501 further "
+                "characters; you probably do not need it)\n"
                 "Topics: physics, pitfalls, postmortems, materials, "
                 "overview, coupling, tsi, precice, input_guide, "
                 "solver_guidance, hardware, cross_backend, install\n"

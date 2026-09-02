@@ -973,7 +973,43 @@ Full detail, per backend: knowledge(topic="physics", solver=..., physics=...)
 # Concatenating rather than copying makes the two paths agree BY CONSTRUCTION,
 # so the next core edit cannot miss one. The core goes FIRST because truncation
 # cuts tails.
-_UNIVERSAL = _UNIVERSAL_CORE + _UNIVERSAL
+# SERVE THE CORE, KEEP THE TAIL RETRIEVABLE.
+#
+# This text is appended to EVERY door. Measured across the 208 (solver,
+# physics) pairs the server advertises: 7,241,312 of 12,716,844 served
+# characters -- 57% -- were this one block repeated, and a single door runs
+# 41,269 to 101,104 characters, roughly 11k to 21k tokens.
+#
+# Published effect sizes, same benchmark, one variable changed each time:
+#   AgentIF (arXiv 2505.16944)   beyond ~6,000 words of instruction,
+#                                instruction-satisfaction -> ~0 for EVERY
+#                                model tested
+#   SWE-agent (arXiv 2405.15793) full-file view 12.7% vs targeted 18.0%;
+#                                summarized retrieval 18.0% vs iterative 12.0%
+#   ACON (arXiv 2510.00615)      compression keeps >95% accuracy at 26-54%
+#                                fewer peak tokens, worth up to +46% for SMALL
+#                                models
+# And from our own side: 5 of 6 coupled runs wrote their submission at 93-99%
+# of their whole file-activity span; the only one that reached a gradeable
+# order with both prescribed codes proven submitted at 68%.
+#
+# WHAT IS CUT IS ONLY ELABORATION, and that was checked before cutting rather
+# than asserted: the core carries ALL TEN numbered rules and ALL SIXTEEN of the
+# decisive measurements and API calls -- 0.000000000e+00, 1.08e-15,
+# 2.307291e-03 vs 3.605675e-03, 8.875850e-02, 0.02514662, 1.2229e-02,
+# 1.115344e+00, 2.36e-16, 1.9796 vs 0.9815, (N-1)^2+1, 50/226/962,
+# basis.interpolator, bb_tree, find_containing_cell -- none of which appears
+# only in the tail. The tail's own numbered list is a restatement of core
+# rule 4.
+#
+# The tail is not deleted. `knowledge(topic="universal_full")` returns it.
+_UNIVERSAL_FULL = _UNIVERSAL_CORE + _UNIVERSAL
+_UNIVERSAL = _UNIVERSAL_CORE + (
+    "\nThe long form of these rules, with the full measured evidence behind "
+    "each, is available on request: knowledge(topic='universal_full'). It is "
+    "22,501 further characters and you almost certainly do not need it -- "
+    "beyond roughly 6,000 words of instruction, measured, models stop "
+    "following instructions altogether.\n")
 
 
 def register_knowledge_tools(mcp: FastMCP):
