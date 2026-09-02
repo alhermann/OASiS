@@ -114,3 +114,43 @@ def test_it_stays_quiet_on_the_correct_submission():
     b = [c[2] for c in coeffs if c[1] == "B"]
     assert a and all(0.5 < v < 2.0 for v in a), f"k_A not recovered: {a}"
     assert b and all(100 < v < 400 for v in b), f"k_B not recovered: {b}"
+
+
+def test_the_finding_arrives_on_the_SUBMISSION_WRITE_not_only_on_request():
+    """The tenth instance of the theme, and the reason this test exists.
+
+    verify_interface_flux was registered, worked, and was described in the
+    coupling must-read with the numbers from the round it decided. In the very
+    next round it was called by ZERO of six runs. The auto-audit on submit
+    reached FIVE of those six. Round 7 had already measured the same thing for
+    the audit tool itself: 1 of 51 agents called it voluntarily.
+
+    So the check is wired into the audit that fires when RESULT.txt is
+    written, and this test goes through that write rather than through the
+    tool, because the write is what every submitter does.
+    """
+    import shutil
+    import tempfile
+
+    if not WRONG.is_dir():
+        pytest.skip("seed303 run tree absent")
+    sys.path.insert(0, str(ROOT))
+    from langgraph_eval.agent import _read_write_tools_for
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        for f in WRONG.rglob("interface_level*_[AB].csv"):
+            shutil.copy(f, tmp / f.name)
+        for f in WRONG.rglob("solution_level*_[AB].csv"):
+            shutil.copy(f, tmp / f.name)
+        assert list(tmp.glob("interface_level*")), "fixture copy found nothing"
+        tools = _read_write_tools_for(tmp, audit_on_submit=True)
+        wf = [t for t in tools if t.name == "write_file"][0]
+        out = wf.invoke({"path": "RESULT.txt",
+                         "content": "LEVELS = 3\nMESH_INDEPENDENCE = CONVERGED\n"})
+        assert "AUTO-AUDIT" in out, f"no audit ran on the submission write: {out[:300]}"
+        assert "WRONG SIGN" in out.upper(), (
+            "the submission carries a flux computed with the INWARD normal "
+            f"and the write did not say so:\n{out[:800]}")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)

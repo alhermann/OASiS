@@ -788,6 +788,132 @@ def contract_findings(work: Path) -> list[dict]:
     return out
 
 
+def interface_sign_findings(work: Path) -> list[dict]:
+    """The interface flux sign, from the agent's OWN files. Coupled cells only.
+
+    WHY THIS IS IN THE AUDIT AND NOT ONLY IN A TOOL. The check was exposed as
+    `verify_interface_flux`, described in the coupling must-read with the
+    numbers from the round it decided, and then called by ZERO of six runs in
+    the next round -- while the auto-audit on submit reached five of those six.
+    That is the same finding round 7 recorded for the audit itself: a
+    calibrated check plus an instruction to run it was used by 1 of 51 agents.
+    Voluntary checking does not happen, so this one is not voluntary.
+
+    What it asserts, needing no reference solution: for a flux really computed
+    from your own solution, q_n(x) / (-du/dn)(x) equals k at every interface
+    point, so the ratio is CONSTANT along the interface whatever k is -- and
+    POSITIVE, because the task defines q_n with the OUTWARD normal.
+
+    Measured on two real submissions with the answers sealed:
+      C2_27b_MCP_seed303, graded COMPLETED_UNPHYSICAL at order 1.2434 with
+        BOTH prescribed codes proven and the interface field matching to
+        0.000e+00: level 3 side B implied coefficient -250.8, against +198.1
+        and +200.3 at levels 1 and 2. It had the sign right on the coarse
+        meshes and flipped it on the finest.
+      the 4C+Kratos reference, graded CORRECT at order 1.9796: all six sides
+        positive, +0.98 to +1.30 where k = 1 and +200.4 to +206.7 where
+        k = 200 -- the check recovering both conductivities from the
+        submission alone.
+    """
+    import re as _re
+
+    try:
+        import sys as _sys
+        _here = str(Path(__file__).resolve().parents[1])
+        if _here not in _sys.path:
+            _sys.path.insert(0, _here)
+        from blind_eval import interface as _IF
+    except Exception:
+        return []
+
+    def _index(pattern):
+        out = {}
+        for f in sorted(work.rglob(pattern)):
+            m = _re.search(r"level(\d+)_([AB])", f.name)
+            if m:
+                out[(int(m.group(1)), m.group(2))] = f
+        return out
+
+    ifs, sols = _index("interface_level*_[AB].csv"), _index("solution_level*_[AB].csv")
+    if not ifs:
+        return []                       # not a coupled submission: say nothing
+
+    inverted, assessed, jumps = [], 0, {}
+    for (lvl, side), path in sorted(ifs.items()):
+        try:
+            gi, _why = _IF.read_interface_csv(path, 2, 1, 1)
+        except Exception:
+            gi = None
+        if gi is None:
+            continue
+        ipts, _iv, iq = gi
+        sp = sols.get((lvl, side))
+        if sp is None:
+            continue
+        try:
+            gs, _why = _IF.read_interface_csv(sp, 2, 1, 0)
+            if gs is None:
+                continue
+            sign = 1.0 if side == "A" else -1.0
+            dudn = _IF.recover_normal_derivative(
+                gs[0], gs[1], ipts, 0, ipts[0][0] if len(ipts) else 0.0, sign)
+            res = _IF.flux_ratio_consistency(iq, dudn)
+        except Exception:
+            continue
+        for comp in res.get("per_component") or []:
+            k = comp.get("implied_coefficient")
+            if isinstance(k, (int, float)):
+                assessed += 1
+                if k < 0:
+                    inverted.append((lvl, side, k))
+    for lvl in sorted({l for l, _ in ifs}):
+        a, b = ifs.get((lvl, "A")), ifs.get((lvl, "B"))
+        if not (a and b):
+            continue
+        try:
+            ga, _ = _IF.read_interface_csv(a, 2, 1, 1)
+            gb, _ = _IF.read_interface_csv(b, 2, 1, 1)
+            if ga and gb:
+                jumps[lvl] = _IF.two_sided_jumps(ga, gb).get("jump_q_rel")
+        except Exception:
+            pass
+
+    out: list[dict] = []
+    if inverted:
+        where = ", ".join(f"level {l} side {s} (implied k = {k:.4g})"
+                          for l, s, k in inverted)
+        out.append({"sequence": "interface flux sign", "values": [], "finding": (
+            "INTERFACE FLUX HAS THE WRONG SIGN at " + where + ". Your "
+            "reported q_n is proportional to your own field's normal "
+            "derivative but NEGATIVE, so it was computed with the INWARD "
+            "normal. The task defines q_n = -(K grad u) . n_out with n_out "
+            "pointing OUT of the subdomain. On the NEUMANN side the flux you "
+            "IMPORT and the flux you REPORT are opposite -- Kratos's "
+            "FACE_HEAT_FLUX is the inward flux -- so write the NEGATIVE of "
+            "the value you applied. With the sign reversed the two sides "
+            "appear to balance when they do not, and the observed order "
+            "cannot see it.")})
+    trend = [jumps[l] for l in sorted(jumps)
+             if isinstance(jumps.get(l), (int, float))]
+    if len(trend) >= 2 and not all(trend[i + 1] < trend[i]
+                                   for i in range(len(trend) - 1)):
+        out.append({"sequence": "interface flux jump", "values": trend,
+                    "finding": (
+            "THE FLUX JUMP DOES NOT SHRINK under refinement (" +
+            ", ".join(f"{v:.3e}" for v in trend) + "). A jump that stays "
+            "O(1) as h halves means the iteration converged to a fixed "
+            "point of the WRONG transmission condition, which a clean "
+            "convergence order cannot reveal. Check the SIGN first.")})
+    if not out and assessed == 0:
+        out.append({"sequence": "interface flux sign", "values": [], "finding": (
+            "THE INTERFACE FLUX SIGN COULD NOT BE CHECKED: your interface "
+            "files were read but the flux could not be compared with your own "
+            "field. Write solution_level<k>_<side>.csv for every level and "
+            "side on the prescribed probe grid, and this check becomes "
+            "available. This is NOT a clean bill.")})
+    return out
+
+
 def audit(work_dir: str, claimed_order: float | None = None) -> dict:
     """The three questions, answered from the agent's own files."""
     work = Path(work_dir)
@@ -803,6 +929,10 @@ def audit(work_dir: str, claimed_order: float | None = None) -> dict:
         # field files at all, and the ambiguity is about which field file to
         # read — so reporting only the ambiguity told the agent to tidy its
         # filenames while saying nothing about a coupling that never converged.
+        # THE INTERFACE FINDING SURVIVES AN AMBIGUOUS FIELD SET, for the
+        # same reason the residual one does: it reads interface files, not
+        # the per-level field slot that collided.
+        findings = findings + interface_sign_findings(work)
         return {"sequences_found": 0, "clean": False,
                 "findings": findings + [
                     {"sequence": "level files", "values": [],
@@ -897,6 +1027,7 @@ def audit(work_dir: str, claimed_order: float | None = None) -> dict:
                 "outside the domain, a tolerance floor).")
             findings.append(entry)
     findings.extend(contract_findings(Path(work_dir)))
+    findings.extend(interface_sign_findings(work))
     return {
         "sequences_found": len(seqs),
         "findings": findings,
