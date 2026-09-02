@@ -6222,6 +6222,40 @@ def _get_coupling_knowledge(solver: str = "", signal: str = ""):
     return _front_load_coupling(payload, solver)
 
 
+# A COUPLED SIDE RUN BY A BINARY STILL NEEDS ITS DECK GRAMMAR.
+#
+# Measured on the C2 cell, whose side A is 4C: of the four deck-death
+# diagnostics this project measured against the built binary, a coupling
+# request for fourc served ZERO. They are not in the coupling corpus at all —
+# they live in the backend's deck grammar, which reaches the agent only if it
+# happens to ask topic='physics' with physics='heat' or 'thermo' (4/4 there,
+# 2/4 for conjugate_heat_transfer, 0/4 on the pitfalls route).
+#
+# So an agent told to run one side of a coupling with 4C, asking the coupling
+# topic about 4C, gets the handshake and none of the reasons its input file
+# will die. The deck grammar is the run interface for a binary; a coupled task
+# does not make it less necessary, it makes it necessary in a harder setting.
+#
+# Appended AFTER the front-loader, for the same reason the continuation is:
+# material added before the cut is the first thing the head trims.
+_DECK_DRIVEN = {"fourc": ("backends.fourc.deck_grammar", "FOURC_DECK_GRAMMAR")}
+
+
+def _append_deck_grammar(payload: str, solver: str) -> str:
+    key = (solver or "").strip().lower()
+    where = _DECK_DRIVEN.get(key)
+    if not where or not isinstance(payload, str):
+        return payload
+    try:
+        mod = __import__(where[0], fromlist=[where[1]])
+        block = getattr(mod, where[1], "")
+    except Exception:                                   # noqa: BLE001
+        return payload
+    if not isinstance(block, str) or not block.strip() or block in payload:
+        return payload
+    return payload + "\n\n" + block
+
+
 # How much of the cut material one signalled request may bring back. Sized so
 # that must-read + reply + continuation stays near the same order as an
 # ordinary coupling reply rather than dumping the whole 65k corpus, which is
@@ -6477,9 +6511,10 @@ def _front_load_coupling(payload: str, solver: str = "") -> str:
     # on>') — so OASiS was directing agents at the one door that dropped the
     # text they were being sent to find.
     if not isinstance(payload, str):
-        return payload
+        return _append_deck_grammar(payload, solver)
     if len(_COUPLING_MUST_READ) + len(payload) <= _COUPLING_HEAD_LIMIT:
-        return _COUPLING_MUST_READ + payload
+        return _append_deck_grammar(
+            _COUPLING_MUST_READ + payload, solver)
     budget = _COUPLING_HEAD_LIMIT - len(_COUPLING_MUST_READ)
     head = _COUPLING_MUST_READ + payload[:budget]
     # Cut on a section boundary so no instruction is truncated mid-sentence --
@@ -6518,7 +6553,7 @@ def _front_load_coupling(payload: str, solver: str = "") -> str:
             f"standalone until it writes exports.json; get the SECOND one "
             f"running; then call couple(); then write the deliverables. Ask "
             f"for more text only when a specific step has failed.\n")
-    return head + hint
+    return _append_deck_grammar(head + hint, solver)
 
 
 def _get_tsi_knowledge():
