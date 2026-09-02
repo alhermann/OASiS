@@ -226,17 +226,61 @@ def _pin_backend_runtime_env(env: dict[str, str], *,
             env[key] = str(path)
 
 
+_ACTION_BUDGET = None        # (limit, counter) set by the runner
+_ACTIONS_USED = 0
+
+
+def note_action() -> None:
+    """Count one tool call, so the agent can be told what it has left."""
+    global _ACTIONS_USED
+    _ACTIONS_USED += 1
+
+
 def _time_left_note() -> str:
-    """`[clock: N min left of M]`, or nothing when no deadline is set."""
-    if _DEADLINE is None:
-        return ""
-    import time as _t
-    left = _DEADLINE[0] - _t.time()
-    total = _DEADLINE[1]
-    if left <= 0:
-        return "\n[clock: budget spent]"
-    return (f"\n[clock: {int(left // 60)} min left of "
-            f"{int(total // 60)}]")
+    """What the agent has left -- in ACTIONS as well as minutes.
+
+    THE CLOCK WAS NEVER THE BINDING CONSTRAINT. Measured from file mtimes over
+    six coupled runs: five wrote their submission at 93-99% of their whole
+    file-activity span, with 8 to 115 seconds of activity after it, and the
+    only run that reached a gradeable order with both prescribed codes proven
+    submitted at 68%. They run out of ACTIONS, and a note in minutes cannot
+    tell a model that it has eight tool calls left of fifty.
+
+    BATS (arXiv 2511.17006) measured the bare budget tracker at 40.4% fewer
+    searches and 31.3% lower cost at a budget of ten, with ReAct going
+    12.6% -> 24.6% on BrowseComp once budget awareness was added. This is the
+    cheapest of the four interventions that measurement pointed at.
+
+    Both halves are omitted when unset, so nothing is invented: an unset
+    deadline or budget prints nothing rather than a guess.
+    """
+    parts = []
+    if _DEADLINE is not None:
+        import time as _t
+        left = _DEADLINE[0] - _t.time()
+        total = _DEADLINE[1]
+        parts.append("clock: budget spent" if left <= 0 else
+                     f"clock: {int(left // 60)} min left of {int(total // 60)}")
+    # NO INVENTED ACTION LIMIT. The graph ceiling is RECURSION_LIMIT = 1000 and
+    # run_blind.py's own comment says it "sits above what the clock can" reach,
+    # so there is no action budget to count down to. Reporting "465 of 500
+    # left" would tell the agent it has room while the clock is what ends the
+    # run. What is true and useful is how many actions it has SPENT, and how
+    # much clock remains -- so the urgency trigger is keyed on the clock.
+    if _ACTIONS_USED:
+        parts.append(f"actions spent: {_ACTIONS_USED}")
+    if _DEADLINE is not None:
+        import time as _t
+        frac = (_DEADLINE[0] - _t.time()) / max(_DEADLINE[1], 1.0)
+        if frac <= 0.25:
+            parts.append(
+                "WRITE THE DELIVERABLE NOW, with whatever levels you have. "
+                "Measured over six coupled runs: five wrote their submission "
+                "at 93-99% of their activity span and had 8 to 115 seconds "
+                "left to fix anything; the one that reached a gradeable order "
+                "with both codes proven wrote it at 68%. A partial submission "
+                "is graded. An unwritten one is not.")
+    return ("\n[" + " | ".join(parts) + "]") if parts else ""
 
 
 def _format_audit_reply(findings) -> str:
@@ -564,6 +608,7 @@ def _bash_tool_for(workdir: Path, *, audit_on_submit: bool = False):
     @tool
     def run_bash(command: str) -> str:
         """Run a shell command inside the cell's sandbox dir. Returns stdout+stderr (truncated to 12 KB)."""
+        note_action()
         _before = _result_mtime()
         _before_art = _artefact_mtimes()
         _before_scr = _script_mtimes()
