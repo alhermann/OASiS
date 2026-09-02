@@ -796,8 +796,33 @@ def _oasis_mcp_client(workdir: Path | None = None):
     env["FOURC_ROOT"] = env.get("FOURC_ROOT", str(Path.home() / "4C"))
     env["FOURC_BINARY"] = env.get(
         "FOURC_BINARY", str(Path.home() / "4C/build/4C"))
-    env["LD_LIBRARY_PATH"] = env.get(
-        "LD_LIBRARY_PATH", "/opt/4C-dependencies/lib")
+    # LD_LIBRARY_PATH CARRIES MORE THAN ONE SOLVER, AND `get(default)` DROPS
+    # THE REST.
+    #
+    # This was env.get("LD_LIBRARY_PATH", "/opt/4C-dependencies/lib"): if the
+    # outer environment had the variable set to anything at all, 4C's
+    # dependency path was silently discarded, and preCICE's was never added
+    # under any circumstance. Measured on this host: `import precice` fails
+    # with "libprecice.so.3: cannot open shared object file" although
+    # /opt/precice/lib/libprecice.so.3 -> libprecice.so.3.1.2 is present and
+    # the Python binding is installed, and it succeeds the moment
+    # /opt/precice/lib is on the path (returns 3.1.2;v3.1.2). 103 of the C2
+    # run directories mention preCICE, so agents do reach for that path and
+    # it could not load for any of them.
+    #
+    # Composed rather than defaulted: every required entry, then whatever was
+    # inherited, order preserved, duplicates dropped, and entries that do not
+    # exist on this host left out so a stale path cannot mask a real one.
+    _lib_dirs = ["/opt/4C-dependencies/lib", "/opt/precice/lib"]
+    _seen, _parts = set(), []
+    for _d in _lib_dirs + [
+            x for x in env.get("LD_LIBRARY_PATH", "").split(":") if x]:
+        if _d in _seen:
+            continue
+        _seen.add(_d)
+        if Path(_d).is_dir():
+            _parts.append(_d)
+    env["LD_LIBRARY_PATH"] = ":".join(_parts)
     _pin_backend_runtime_env(env)
     source_repo = Path(os.environ.get(
         "OASIS_SOURCE_SNAPSHOT", str(REPO))).resolve()
