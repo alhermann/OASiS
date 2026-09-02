@@ -40,11 +40,85 @@ class ThermoGenerator(BaseGenerator):
                 },
             },
             "boundary_conditions": {
-                "DESIGN SURF THERMO DIRICH CONDITIONS": "Prescribed temperature",
-                "DESIGN SURF THERMO NEUMANN CONDITIONS": "Prescribed heat flux",
-                "DESIGN SURF THERMO CONVECTION CONDITIONS": "Convective heat transfer (h, T_inf)",
+                "DESIGN SURF DIRICH CONDITIONS": (
+                    "Prescribed temperature. PLAIN name, no THERMO — see the "
+                    "silently-ignored-conditions pitfall below"),
+                "DESIGN LINE DIRICH CONDITIONS": (
+                    "Prescribed temperature on an edge (the outer boundary of a "
+                    "2D thermal domain)"),
+                "DESIGN POINT DIRICH CONDITIONS": (
+                    "Prescribed temperature at single nodes — one condition per "
+                    "node is how a SPATIALLY VARYING trace is imposed without "
+                    "fitting a FUNCT, which is what a coupled Dirichlet side "
+                    "needs"),
+                "DESIGN VOL NEUMANN CONDITIONS": (
+                    "Volumetric heat source in 3D: VAL x FUNCT(x,y,z) integrated "
+                    "at the Gauss points"),
+                "DESIGN SURF NEUMANN CONDITIONS": (
+                    "In 3D a boundary heat flux; in 2D the VOLUMETRIC SOURCE, "
+                    "because a 2D element IS a surface"),
+                "DESIGN LINE NEUMANN CONDITIONS": (
+                    "In 2D a boundary heat flux; in 1D the volumetric source"),
+                "DESIGN THERMO CONVECTION SURF CONDITIONS": (
+                    "Convective heat transfer (h, T_inf) — this one really is "
+                    "spelled with THERMO"),
             },
             "pitfalls": [
+                "[Input] A STANDALONE `Thermo` problem needs the PLAIN "
+                "condition sections — `DESIGN SURF DIRICH`, `DESIGN LINE "
+                "DIRICH`, `DESIGN POINT DIRICH`, `DESIGN VOL/SURF/LINE "
+                "NEUMANN`. The `DESIGN ... THERMO ...` Dirichlet and Neumann "
+                "sections exist, parse without complaint, and are then NEVER "
+                "EVALUATED: they build conditions named ThermoSurfaceNeumann / "
+                "ThermoDirichlet, while "
+                "core/fem/src/discretization/4C_fem_discretization_evaluate.cpp"
+                ":242 matches only Line/Surface/VolumeNeumann and "
+                "thermo/src/element/4C_thermo_ele_impl.cpp radiation() asks "
+                "for \"SurfaceNeumann\" in 2D (\"VolumeNeumann\" in 3D, "
+                "\"LineNeumann\" in 1D). tsi/4C_tsi_utils.cpp:32 renames "
+                "ThermoSurfaceNeumann -> SurfaceNeumann, and it does that ONLY "
+                "for the cloned discretisations of TSI/STI/SSTI — which is why "
+                "the THERMO spelling is right there and wrong here. "
+                "Signal: there is NO error. 4C prints 'processor 0 finished "
+                "normally', exits 0, writes its .control and VTK output, and "
+                "the temperature field is IDENTICALLY ZERO — a load and a "
+                "boundary condition that were both silently dropped. Check for "
+                "it directly: a nonzero source with all-zero output is not a "
+                "solver failure, it is an unattached condition. 4C's own "
+                "standalone thermo tests are the ground truth: "
+                "thermo3D_FBC_statics.4C.yaml uses DESIGN VOL NEUMANN + DESIGN "
+                "SURF DIRICH, thermo-line.4C.yaml uses DESIGN POINT DIRICH + "
+                "DESIGN LINE NEUMANN. (Verified by execution 2026-09-02: with "
+                "the THERMO sections, max|T| = 0.000000000e+00; with the plain "
+                "sections the same deck agrees with an independently assembled "
+                "Q1 system to max|4C - independent|/scale = 1.08e-15, and "
+                "THERMO TRI3 reproduces u = x/L to 0.0e+00.)",
+                "[Input] The VOLUMETRIC source lives on the condition whose "
+                "GEOMETRY TYPE MATCHES THE ELEMENT DIMENSION, not on a "
+                "'volume' section: LINE in 1D, SURF in 2D, VOL in 3D. "
+                "radiation() sets radiation_ = ONOFF * VAL * FUNCT(x_gp, t) and "
+                "evaluate_fext integrates fext += N r detJ w, so `VAL: [1.0]` "
+                "with `FUNCT: [1]` and FUNCT1 = f(x,y) gives exactly "
+                "integral f N dA with the SAME sign as -div(k grad u) = f. "
+                "Attach the whole 2D domain via DSURF-NODE TOPOLOGY listing "
+                "every node as DSURFACE 1. Signal: picking DESIGN VOL NEUMANN "
+                "for a 2D mesh is the same silent zero as the pitfall above — "
+                "the condition exists, matches no element, and contributes "
+                "nothing. (Verified by execution 2026-09-02.)",
+                "[Output] Runtime-VTK `node_gid` is 0-BASED while the ids you "
+                "write in NODE COORDS are 1-based, and the .vtu carries one "
+                "point PER ELEMENT CORNER, not one per node (measured: 160 "
+                "points and 54 distinct gids for a 40-element QUAD4 mesh). So "
+                "results must be SCATTERED by gid — `out[int(gid)] = value` — "
+                "never zipped against your own node order and never offset by "
+                "one. Enable it with THERMAL DYNAMIC/RUNTIME VTK OUTPUT: "
+                "{OUTPUT_THERMO: true, TEMPERATURE: true, NODE_GID: true} plus "
+                "IO/RUNTIME VTK OUTPUT: {INTERVAL_STEPS: 1, "
+                "OUTPUT_DATA_FORMAT: ascii}. Signal: an off-by-one or a zip "
+                "gives a field with the RIGHT maximum and the wrong values "
+                "everywhere — measured 67% pointwise error against 1e-15 once "
+                "scattered correctly, which is why the maximum is not a check. "
+                "(Verified by execution 2026-09-02.)",
                 "[Syntax] MAT_Fourier.CONDUCT is a tensor-typed "
                 "input — even for isotropic conductivity the value "
                 "must be wrapped as 'constant: [k]' (a list under a "

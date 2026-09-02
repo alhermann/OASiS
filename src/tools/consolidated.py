@@ -6522,6 +6522,28 @@ while on the high-conductivity side the interface trace IS the scale and the
 tool refuses. A refusal there tells you nothing about that side; an
 INCONSISTENT on the side it does answer tells you a great deal.
 
+EACH SIDE'S run_level<k>_<side>.log MUST CARRY THAT SOLVER'S OWN OUTPUT.
+
+`NDOF = <n>` alone is code-agnostic: it cannot show WHICH code produced the
+side, so a coupled claim built on it is unproven no matter how good the numbers
+are. Capture the solver's console output into the log next to your NDOF line --
+4C's banner and git SHA, Kratos's strategy telemetry, whatever your code
+prints. This was measured: a run whose numbers were genuinely second order was
+credited to two prescribed codes it had invoked NEITHER of, on the strength of
+fourteen ten-byte files reading `NDOF = <n>`.
+
+Two ways that capture silently fails, both measured:
+  * redirecting Python's stdout around an in-process solve captures ZERO bytes
+    from a code that prints through C++ streams -- os.dup2 on fd 1 around a
+    Kratos solve produced a 0-byte file. RUN THE SOLVE IN A SUBPROCESS and
+    capture that subprocess's stdout; then the capture cannot miss.
+  * a template that assembles and solves the system itself never prints
+    anything from the named code, because the named code never ran. If a
+    template you were given has no import of, or call to, the code the task
+    names, it is the wrong artefact for a task that names it -- ask for the
+    real route. An independent assembly is a fine CHECK on the solver's answer
+    and a fatal substitute for it.
+
 """
 _COUPLING_MUST_READ += "\n" + _PER_SIDE_NAMING
 

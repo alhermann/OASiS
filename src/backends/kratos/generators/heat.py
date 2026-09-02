@@ -1,66 +1,29 @@
 """Kratos heat conduction generators and knowledge."""
 
 
+from ._convdiff_real import CROSS_CHECK_NOTE, real_convdiff_script
+
+
 def _heat_2d_kratos(params: dict) -> str:
-    """FORMAT TEMPLATE — values are defaults, determine appropriate values for your specific problem.
+    """FORMAT TEMPLATE - values are defaults, determine appropriate values for your specific problem.
 
-    Heat conduction using Kratos ConvectionDiffusion."""
+    Steady heat conduction -div(k grad T) = f, solved BY KRATOS
+    (ConvectionDiffusionApplication, LaplacianElement2D3N).
+
+    The previous body of this function emitted a numpy/scipy assembly whose own
+    first line read "Heat conduction - Kratos (manual assembly)" and which
+    never imported KratosMultiphysics. See _convdiff_real for the API facts and
+    for what that cost.
+    """
     nx = params.get("nx", 32)
-    T_left = params.get("T_left", 100.0)
-    T_right = params.get("T_right", 0.0)
-    return f'''\
-"""Heat conduction — Kratos (manual assembly)"""
-import numpy as np
-from scipy.sparse import lil_matrix
-from scipy.sparse.linalg import spsolve
-import json
-
-nx, ny = {nx}, {nx}
-nid = 1; node_map = {{}}; coords = {{}}
-for j in range(ny+1):
-    for i in range(nx+1):
-        coords[nid] = (i/nx, j/ny)
-        node_map[(i,j)] = nid; nid += 1
-n_nodes = nid - 1
-
-elements = []
-for j in range(ny):
-    for i in range(nx):
-        n1,n2,n3,n4 = node_map[(i,j)],node_map[(i+1,j)],node_map[(i+1,j+1)],node_map[(i,j+1)]
-        elements.append((n1,n2,n4)); elements.append((n2,n3,n4))
-
-K = lil_matrix((n_nodes, n_nodes))
-for tri in elements:
-    ids = [t-1 for t in tri]
-    x = np.array([coords[t][0] for t in tri])
-    y = np.array([coords[t][1] for t in tri])
-    area = 0.5 * abs((x[1]-x[0])*(y[2]-y[0]) - (x[2]-x[0])*(y[1]-y[0]))
-    b = np.array([y[1]-y[2], y[2]-y[0], y[0]-y[1]])
-    c = np.array([x[2]-x[1], x[0]-x[2], x[1]-x[0]])
-    Ke = (1.0/(4.0*area)) * (np.outer(b,b) + np.outer(c,c))
-    for a in range(3):
-        for b_idx in range(3):
-            K[ids[a], ids[b_idx]] += Ke[a, b_idx]
-K = K.tocsr()
-
-# Dirichlet BCs — set for your problem
-left = {{node_map[(0,j)]-1 for j in range(ny+1)}}
-right = {{node_map[(nx,j)]-1 for j in range(ny+1)}}
-interior = sorted(set(range(n_nodes)) - left - right)
-u = np.zeros(n_nodes)
-for n in left: u[n] = {T_left}
-for n in right: u[n] = {T_right}
-rhs = -K.dot(u)
-u[interior] = spsolve(K[np.ix_(interior, interior)], rhs[interior])
-
-print(f"Temperature: max={{u.max():.6f}}")
-import meshio
-pts = np.array([[coords[i+1][0], coords[i+1][1], 0.0] for i in range(n_nodes)])
-cells = np.array([[t-1 for t in tri] for tri in elements])
-meshio.Mesh(pts, [("triangle", cells)], point_data={{"temperature": u}}).write("result.vtu")
-summary = {{"max_value": float(u.max()), "n_nodes": n_nodes}}
-with open("results_summary.json", "w") as _f: json.dump(summary, _f, indent=2)
-'''
+    return real_convdiff_script(
+        title="Steady heat conduction -div(k grad T) = f, Kratos",
+        nx=nx, ny=params.get("ny", nx), k=params.get("k", 1.0),
+        f_expr=str(params.get("f", 0.0)),
+        g_expr=(f"{params.get('T_left', 100.0)} if x <= X0 + 1e-12 "
+                f"else {params.get('T_right', 0.0)}"),
+        x0=params.get("x0", 0.0), x1=params.get("x1", 1.0),
+        y0=params.get("y0", 0.0), y1=params.get("y1", 1.0))
 
 
 def _heat_transient_2d_kratos(params: dict) -> str:
