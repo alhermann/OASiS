@@ -1027,10 +1027,34 @@ def export_findings(work: Path) -> list[dict]:
         if key not in per_level or len(vals) > len(per_level[key][2]):
             per_level[key] = (xs, ys, vals, f.name)
 
+    # REQUIRE THE ARITHMETIC SIGNATURE, AT MORE THAN ONE LEVEL.
+    #
+    # The first version fired whenever distinct*2 < n at ANY level, and that is
+    # far too loose. Measured against the grader on 25 KR1 runs carrying that
+    # looser flag: EIGHT of them grade CORRECT at order 2.0045, 1.9884, 1.9754
+    # and 1.8426. Their real distinct counts are 7974-8585 of 9261 -- 86 to 93
+    # per cent -- and the flag came from ONE coarse level collapsing to a single
+    # value, which a genuine nearest-node export never does. Nearest-node
+    # sampling collapses EVERY level, and it collapses them lawfully: on a mesh
+    # of N cells per side it returns exactly (N-1)^2+1 distinct interior values.
+    # FC1 seed 11 and FC2 seed 2 hit 50, 226, 962 out of 1936 -- 7^2+1, 15^2+1,
+    # 31^2+1 -- at all three levels.
+    #
+    # So the test is the exact signature, at two levels or more. Accusing eight
+    # correct submissions to catch four defective ones is a worse trade than
+    # missing some, and it is the same error as the row-order check that was
+    # written, measured and deleted.
+    hits = []
     for lvl, (xs, ys, vals, name) in sorted(per_level.items()):
         n = len(vals)
         distinct = len({round(v, 12) for v in vals})
-        if distinct * 2 < n:
+        root = _math.isqrt(max(distinct - 1, 1))
+        if distinct > 1 and root * root + 1 == distinct and distinct * 4 < n:
+            hits.append((lvl, name, distinct, n))
+    if len(hits) < 2:
+        hits = []
+    for lvl, name, distinct, n in hits:
+        if True:
             # (N-1)^2+1 for the mesh that would explain it, reported so the
             # agent can recognise its own mesh
             nn = int(_math.isqrt(max(distinct - 1, 1))) + 1
@@ -1051,10 +1075,6 @@ def export_findings(work: Path) -> list[dict]:
                 f"is exactly what that submission reported. Interpolate inside "
                 f"the element that CONTAINS each probe point; this is a "
                 f"post-processing fix and does not need the solver re-run.")})
-        # NO ROW-ORDER CHECK HERE, DELIBERATELY. See (2) in the docstring:
-        # the grader coordinate-matches, so transposition is harmless, and the
-        # check that flagged it was removed after being proven a false alarm.
-        del xs, ys
     return findings
 
 
