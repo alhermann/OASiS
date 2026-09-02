@@ -889,6 +889,67 @@ Full detail, per backend: knowledge(topic="physics", solver=..., physics=...)
    so it froze at 1.115344e+00 while the free-DOF residual was 2.36e-16, and
    a run printed "Newton did not converge" for 49 iterations on a problem it
    had already solved.
+
+10. READ YOUR FIELD AT THE PROBE POINTS BY INTERPOLATION, NEVER BY NEAREST
+    NODE. The probe points are chosen so they are NOT mesh nodes. Answering
+    with the value at the closest node is O(h) accurate, so it caps your
+    reported order at 1 no matter how good the solve was.
+
+    PROVEN against the sealed answer, one solve exported two ways and nothing
+    else changed:
+        interpolated       CORRECT            order 1.9796
+        nearest node       CONFIDENTLY_WRONG  order 0.9815
+    A second cell gave +1.9516 interpolated against +1.0179 nearest-node, and
+    +1.0179 is exactly what that submission reported.
+
+    CHECK IT FOR FREE, no reference needed: count the DISTINCT values you
+    wrote. Nearest-node sampling on a mesh of N cells per side can only ever
+    return (N-1)^2 + 1 distinct interior values, so 1936 probe points collapse
+    to 50, 226 and 962 at N = 8, 16, 32. Measured on real submissions: four
+    reported exactly 50/1936, 226/1936, 962/1936; a correct one reported
+    1908/1928/1936. If distinct is far below the probe count, you sampled
+    nodes.
+
+    THE FIX IS POST-PROCESSING -- you do not re-run the solver, you re-read
+    it. Every backend already has the call:
+        FEniCSx / dolfinx  THREE calls, not one -- verified here:
+                             tree  = geometry.bb_tree(msh, msh.topology.dim)
+                             cand  = geometry.compute_collisions_points(tree, pts)
+                             cells = geometry.compute_colliding_cells(msh, cand, pts)
+                             sel   = [cells.links(i)[0] for i in range(len(pts))]
+                             u.eval(pts, sel)
+                           `pts` must be an (n,3) array even in 2-D, with the
+                           third column zero. Measured on an 8x8 P1 mesh:
+                           0.788581 against the exact 0.815493 at an interior
+                           point, and 1.000000 exactly at a node.
+        NGSolve            u(mesh(px, py))          -- mesh(...) locates the
+                           element and evaluates inside it
+        DUNE-fem           uh(global_point) if your version supports it,
+                           otherwise uh.localFunction(element) with the LOCAL
+                           coordinate from element.geometry.local(point).
+                           NOT RE-VERIFIED on this install at the time of
+                           writing -- treat as the shape of the call, not as a
+                           checked signature, and print the result at a node
+                           where you know the answer before trusting it.
+        Kratos             no built-in point evaluator: find the element whose
+                           nodes bracket the point and combine its nodal
+                           values with the shape functions -- for a P1
+                           triangle that is the barycentric combination
+                           l1*u1 + l2*u2 + l3*u3
+        4C                 read the VTU and interpolate in the containing
+                           cell. Verified: `grid.find_containing_cell(pts)`
+                           returns the cell index, and
+                           `pv.PolyData(pts).sample(grid)['u']` interpolates
+                           directly -- measured 9.2 and 14.4 on a linear ramp
+                           where the nodes are 0..24, i.e. genuinely between
+                           nodes rather than snapped to one.
+        scikit-fem         basis.interpolator(u)(points) -- verified;
+                           `points` is (dim, n), i.e. TRANSPOSED relative to
+                           the (n, dim) most codes want. Measured 0.060935 and
+                           0.072783 on a refined MeshTri.
+    If you write your own, the P1-triangle barycentric form above is six lines
+    and exact; do NOT fall back to argmin over node coordinates, which is the
+    defect this rule exists to stop.
 """
 
 
