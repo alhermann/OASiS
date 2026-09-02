@@ -2145,6 +2145,96 @@ from .knowledge import _UNIVERSAL as _UNIVERSAL_BLOCK          # noqa: E402
 from .knowledge import _UNIVERSAL_CORE as _UNIVERSAL_CORE      # noqa: E402
 
 
+# THE FIRST 1500 CHARACTERS DECIDE THE RUN, SO THEY GO FIRST.
+#
+# Measured over every door an agent can open for a coupled task: 145,321
+# characters served, of which the lines carrying a decisive fact total 571 --
+# 0.4%. One prepare_simulation reply is 44,000 to 83,000 characters, and the
+# coupled runs call it twice. File mtimes then show 5 of 6 submitting at 93-99%
+# of their whole file-activity span; the only run that ever reached a gradeable
+# order with both prescribed codes proven is the one that submitted at 68%.
+#
+# The corpus is not removed -- it is reordered. An agent that reads only the
+# top of the reply now gets the facts that separate CORRECT from
+# CONFIDENTLY_WRONG, each with the measurement behind it.
+_DECIDING_FACTS = {
+    "fourc": (
+        "1. A standalone `Thermo` problem SILENTLY IGNORES every "
+        "`DESIGN ... THERMO ...` Dirichlet/Neumann section: it parses, prints "
+        "'processor 0 finished normally', exits 0, and the field is "
+        "IDENTICALLY ZERO (measured max|T| = 0.000000000e+00). Use the PLAIN "
+        "sections -- DESIGN SURF/LINE/POINT DIRICH, DESIGN VOL/SURF/LINE "
+        "NEUMANN. With those the same deck matches an independent assembly to "
+        "1.08e-15.\n"
+        "2. The body source lives on the condition whose GEOMETRY TYPE MATCHES "
+        "THE ELEMENT DIMENSION: LINE in 1D, SURF in 2D, VOL in 3D. The wrong "
+        "one attaches to no element and contributes nothing, silently.\n"
+        "3. Every load entry is ONOFF[i] * VAL[i] * FUNCT[i](x,t) -- FUNCT "
+        "SCALES VAL. `VAL: 0` with a function set is an identically zero load "
+        "that parses and exits 0 (measured: error flat at 1.0000 across all "
+        "levels, order exactly 0.0000).\n"
+        "4. Runtime-VTK `node_gid` is 0-BASED while NODE COORDS ids are "
+        "1-based, and the .vtu carries one point PER ELEMENT CORNER (160 "
+        "points, 54 distinct gids, for a 40-element mesh). Scatter results by "
+        "gid: `out[int(gid)] = value`. Zipping instead gives a field with the "
+        "RIGHT maximum and 67% pointwise error.\n"
+        "5. A spatially varying interface trace needs one DESIGN POINT DIRICH "
+        "condition PER NODE -- no fitted FUNCT required."),
+    "kratos": (
+        "1. `LaplacianElement2D3N` exists; `LaplacianElement2D4N` does NOT "
+        "('is not registered'). 2D is P1 TRIANGLES.\n"
+        "2. CONDUCTIVITY, DENSITY, SPECIFIC_HEAT and HEAT_FLUX are read "
+        "NODALLY through ConvectionDiffusionSettings, NOT from Properties. "
+        "Setting conductivity only on Properties gives a singular system "
+        "(measured: nodal 999 + Properties 1 -> 999).\n"
+        "3. The reaction-carrying DOF overload is `AddDof(var, reaction, mp)`; "
+        "there is no AddDofWithReaction. Omitting the reaction and then asking "
+        "the strategy for reactions aborts in EVERY worker thread.\n"
+        "4. SETTING FACE_HEAT_FLUX ON NODES DOES NOTHING WITHOUT A CONDITION "
+        "on those edges -- ThermalFace2D2N or FluxCondition2D2N. The nodal "
+        "value is only integrated BY a condition. Measured on one mesh: zero "
+        "flux -> max|T| 2.307291e-03; flux on nodes with no condition -> "
+        "2.307291e-03, BIT-IDENTICAL; flux with conditions -> 3.605675e-03. "
+        "Two real submissions died here, reporting the no-flux answer with "
+        "their interface field matching to 0.000e+00.\n"
+        "5. FACE_HEAT_FLUX is the INWARD normal flux, while a task's q_n is "
+        "OUTWARD -- so the number you REPORT is the negative of the one you "
+        "APPLY.\n"
+        "6. The volumetric HEAT_FLUX is the NODAL value at one centroid point "
+        "(mean(f)*A/3); the exact mass matrix is 50% off.\n"
+        "7. Kratos prints from C++ streams: an in-process stdout redirect "
+        "captures ZERO bytes. Run the solve in a SUBPROCESS if the log has to "
+        "show which code ran."),
+}
+_DECIDING_UNIVERSAL = (
+    "* READ YOUR FIELD AT THE PROBE POINTS BY INTERPOLATION, NEVER BY NEAREST "
+    "NODE. Proven against the sealed answer: one solve exported two ways gave "
+    "CORRECT at order 1.9796 interpolated and CONFIDENTLY_WRONG at 0.9815 by "
+    "nearest node. Free self-check: nearest-node sampling can only return "
+    "(N-1)^2+1 distinct values, so 1936 probes collapse to 50/226/962 at "
+    "N=8/16/32.\n"
+    "* GATE BEFORE YOU SUBMIT, at EVERY level: the solver REPORTED convergence "
+    "(not merely that nothing raised), peak|u| > 0, and your load is not "
+    "constant. Then compute log2(|L1-L2|/|L2-L3|) yourself.\n"
+    "* ON A COUPLED SIDE, the consistent outward flux is "
+    "q = -(K u - b_volume)/h with h the node's tributary length. The FACE "
+    "load must NOT go into that residual -- include it and the reported flux "
+    "comes out identically zero.")
+
+
+def _deciding_block(solver: str, physics: str) -> str:
+    """The lead block: what decides this run, before the corpus."""
+    key = (solver or "").strip().lower()
+    facts = _DECIDING_FACTS.get(key, "")
+    if not facts and not _DECIDING_UNIVERSAL:
+        return ""
+    head = (f"# WHAT DECIDES THIS RUN — {solver}/{physics}\n"
+            f"# (read this before the corpus below; each line was measured by "
+            f"execution)\n\n")
+    body = (facts + "\n\n" if facts else "") + _DECIDING_UNIVERSAL
+    return head + body + "\n\n" + "-" * 70 + "\n\n"
+
+
 def register_consolidated_tools(mcp: FastMCP):
     """Register all consolidated tools — ~12 tools instead of 48."""
 
@@ -5678,7 +5768,27 @@ def register_consolidated_tools(mcp: FastMCP):
                 variant, variant_note = _select_template_variant(
                     physics, list(p.template_variants))
                 try:
-                    content = backend.generate_input(matched_physics, variant, {})
+                    # A SMALL MESH FOR A DOCUMENTATION TEMPLATE.
+                    #
+                    # The generators default to nx=ny=32, which for an
+                    # inline-mesh code means a 33x33 = 1089-node listing.
+                    # Measured on prepare_simulation("fourc", "heat"): the
+                    # template alone was 39,200 of the reply's 82,949
+                    # characters -- 47% -- and 271 of its 774 lines were
+                    # NODE COORDS. Those lines teach nothing and displace what
+                    # does: over every door an agent can open for a coupled
+                    # task the payload came to 145,321 characters while the
+                    # lines carrying a decisive fact totalled 571, or 0.4%.
+                    # The agent must generate its own mesh anyway -- the
+                    # blind tasks prescribe THREE levels -- so a listing of
+                    # one fixed mesh is the one part of the template that
+                    # cannot be reused.
+                    #
+                    # 3x3 keeps the structure visible (every section, the
+                    # topology, the ordering) at a fraction of the size. The
+                    # note below tells the agent to scale it.
+                    content = backend.generate_input(
+                        matched_physics, variant, {"nx": 3, "ny": 3, "nz": 3})
                     fmt = backend.input_format().value
                     truncated = len(content) > TEMPLATE_LIMIT
                     body = content[:TEMPLATE_LIMIT]
@@ -5686,7 +5796,20 @@ def register_consolidated_tools(mcp: FastMCP):
                               if truncated else "")
                     stub_tag = _stub_template_tag(content, fmt)
                     note = f"\n{variant_note}\n" if variant_note else ""
-                    parts.append(f"## Template ({variant}){stub_tag}\n{note}```{fmt}\n{body}{suffix}\n```\n")
+                    mesh_note = ""
+                    if any(k in content for k in ("NODE COORDS", "NODE ",
+                                                  "COORD ")):
+                        mesh_note = (
+                            "\nTHE MESH HERE IS 3x3 AND ILLUSTRATIVE. It shows "
+                            "the sections, the node ordering and the topology "
+                            "blocks; it is NOT the mesh your task wants. Every "
+                            "blind task prescribes its own refinement sequence, "
+                            "so GENERATE the node and element lists in a loop "
+                            "and emit one deck per level. A hard-coded listing "
+                            "is the one part of this template you cannot "
+                            "reuse.\n")
+                    parts.append(f"## Template ({variant}){stub_tag}\n{note}"
+                                 f"{mesh_note}```{fmt}\n{body}{suffix}\n```\n")
                 except Exception as exc:
                     # Surface the failure: the catalog claims a
                     # template exists (p.template_variants is
@@ -5732,7 +5855,8 @@ def register_consolidated_tools(mcp: FastMCP):
         # This is the same defect the comment at the knowledge() call site
         # already records, applied to the door that was missed: a fix landed
         # at one call site when there were two.
-        return (f"# Preparation for {matched_physics} on {solver}\n\n"
+        return (_deciding_block(solver, matched_physics)
+                + f"# Preparation for {matched_physics} on {solver}\n\n"
                 + "\n---\n".join(parts) + _UNIVERSAL_BLOCK)
 
     # ═══════════════════════════════════════════════════════════
