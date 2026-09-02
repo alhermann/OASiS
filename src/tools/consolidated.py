@@ -6361,6 +6361,25 @@ normally one smaller because iteration 1 has no previous iterate and therefore
 no residual. Get ONE participant writing exports.json standalone first, then the
 second, then call couple: that order costs the fewest attempts.
 
+THE RESIDUAL YOU REPORT MUST MEASURE THE TWO SIDES, NOT AN ITERATE.
+
+INTERFACE_RESIDUAL is the disagreement between your two subdomains at the
+shared interface probes, computed from the two profiles you exported:
+
+    field:  max|u_A - u_B|  / max(|u_A|, |u_B|)
+    flux:   max|q_A + q_B|  / max(|q_A|, |q_B|)   (outward normals, so they
+                                                   must CANCEL, not match)
+    INTERFACE_RESIDUAL = the larger of the two.
+
+An update norm, one side's own solver residual, or the driver's iterate
+difference all fall to 1e-7 while the two codes still disagree completely.
+Reporting one of those is the most common way a coupled answer is lost: of the
+coupled submissions on record that exported both sides, 17 of 31 report a
+residual below 1e-5 that their OWN two files contradict -- one with a 189% flux
+mismatch behind a reported 1.12e-07 -- and it happens whether or not the run
+uses these tools. Recompute the number from the files you just wrote. If it is
+not small, the coupling has not converged, whatever the iteration history says.
+
 IF YOU DRIVE THE LOOP YOURSELF, IT MUST ACTUALLY ITERATE. A closed-form
 sequence written into that file — 1.0, 0.5, 0.25, 0.125, … or any r*q^k — is
 DETECTED and graded as fabrication, not as a result. Two checks, both stated
