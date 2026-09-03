@@ -43,8 +43,14 @@ cd /home/alexander/Schreibtisch/ofa-v2
 export OASIS_BLIND_KEYS=/home/alexander/Schreibtisch/qwen_uplift_test/campaign3_blind/keys
 export OASIS_REPO=/home/alexander/Schreibtisch/ofa-v2
 PY=/home/alexander/Schreibtisch/open-fem-agent/.venv/bin/python
-OUTDIR=campaign3_blind/grades_2026_09_01
-LOG=campaign3_blind/regrade_2026_09_01.log
+# AS-RUN REGRADE 2026-09-03: graded against the problems tree the runs
+# actually saw (OASIS_BLIND_PROBLEMS points at the 64ea4d4c extract; the
+# ledgers' own task_sha256 match it 154/154 where a hash exists, and NO
+# historical text demanded own-solver output, so the per-code gate takes
+# the honest UNPROVEN branch for the whole back-catalogue instead of
+# punishing runs for a clause added today).
+OUTDIR=campaign3_blind/grades_asrun_2026_09_03
+LOG=campaign3_blind/regrade_asrun_2026_09_03.log
 
 # Every seed carrying a full or near-full matrix. Singleton seeds are scatter
 # re-runs of one cell and are graded with the round that owns them.

@@ -237,3 +237,96 @@ def test_it_is_silent_on_a_submission_that_grades_correct():
         import pytest as _p
         _p.skip("reference submission not on this machine")
     assert _sign_findings(ref) == []
+
+
+# ═══════════ the two round-15 defects, caught from the files alone ═══════════
+#
+# seed1502: coupling genuinely converged (9.8e-07, 21 iterations) and the
+# interface files carry 9, 17 and 33 rows across the levels -- its own mesh
+# nodes -- against a FIXED probe grid. Everything it computed died on the
+# sampling. seed1501: residual_level3.csv ends at 2.3162e-08 while its own
+# exported interface files disagree by 3.65e-03 in u at every level -- the
+# iteration converged a different quantity than the files contain.
+
+def _all_findings(work):
+    import sys
+    sys.path.insert(0, str(ROOT / "src"))
+    from tools.result_audit import interface_sign_findings
+    return interface_sign_findings(work)
+
+
+def test_rows_growing_with_the_level_are_named(tmp_path):
+    for k, n in ((1, 9), (2, 17), (3, 33)):
+        for side in ("A", "B"):
+            rows = ["x, y, u, qn"] + [
+                f"0.625, {i/(n-1)!r}, {1e-3*(i+1)!r}, "
+                f"{(0.5 if side=='A' else -0.5)!r}" for i in range(n)]
+            (tmp_path / f"interface_level{k}_{side}.csv").write_text(
+                "\n".join(rows))
+    got = [f for f in _all_findings(tmp_path)
+           if "ROWS GROW" in f["finding"]]
+    assert got, "silent on a mesh-node interface trace"
+    assert "9, 17, 33" in got[0]["finding"]
+    assert "no re-solve is needed" in got[0]["finding"]
+
+
+def test_a_constant_row_count_is_left_alone(tmp_path):
+    for k in (1, 2, 3):
+        for side in ("A", "B"):
+            rows = ["x, y, u, qn"] + [
+                f"0.625, {i/43!r}, {1e-3*(i+1)!r}, "
+                f"{(0.5 if side=='A' else -0.5)!r}" for i in range(44)]
+            (tmp_path / f"interface_level{k}_{side}.csv").write_text(
+                "\n".join(rows))
+    assert [f for f in _all_findings(tmp_path)
+            if "ROWS GROW" in f["finding"]] == []
+
+
+def test_a_residual_that_is_not_the_files_disagreement_is_named(tmp_path):
+    for k in (1, 2, 3):
+        for side in ("A", "B"):
+            u0 = 1.0 if side == "A" else 1.01        # 1% relative jump
+            rows = ["x, y, u, qn"] + [
+                f"0.625, {i/43!r}, {u0 + 1e-6*i!r}, "
+                f"{(0.5 if side=='A' else -0.5)!r}" for i in range(44)]
+            (tmp_path / f"interface_level{k}_{side}.csv").write_text(
+                "\n".join(rows))
+        (tmp_path / f"residual_level{k}.csv").write_text(
+            "iteration,interface_residual\n1,1e-2\n2,1e-5\n3,2.3e-08\n")
+    got = [f for f in _all_findings(tmp_path)
+           if "IS NOT THE DISAGREEMENT" in f["finding"]]
+    assert got, "silent on a residual five orders below the files' jump"
+    assert "your loop is reading different data than it writes" \
+        in got[0]["finding"]
+
+
+def test_a_residual_that_matches_the_files_is_left_alone(tmp_path):
+    for k in (1, 2, 3):
+        for side in ("A", "B"):
+            u0 = 1.0 if side == "A" else 1.0 + 1e-9   # jump ~ the residual
+            rows = ["x, y, u, qn"] + [
+                f"0.625, {i/43!r}, {u0 + 1e-6*i!r}, "
+                f"{(0.5 if side=='A' else -0.5)!r}" for i in range(44)]
+            (tmp_path / f"interface_level{k}_{side}.csv").write_text(
+                "\n".join(rows))
+        (tmp_path / f"residual_level{k}.csv").write_text(
+            "iteration,interface_residual\n1,1e-2\n2,1e-5\n3,1e-9\n")
+    assert [f for f in _all_findings(tmp_path)
+            if "IS NOT THE DISAGREEMENT" in f["finding"]] == []
+
+
+def test_both_fire_on_the_real_runs_and_not_on_the_reference():
+    for run, phrase in (
+        ("C2_27b_MCP_seed1502", "ROWS GROW"),
+        ("C2_27b_MCP_seed1501", "IS NOT THE DISAGREEMENT"),
+    ):
+        w = ROOT / "campaign3_blind/runs" / run / "work"
+        if not w.exists():
+            import pytest as _p
+            _p.skip(f"{run} absent")
+        assert [f for f in _all_findings(w) if phrase in f["finding"]], run
+    ref = Path("/tmp/claude-1001/-home-alexander-4C/"
+               "b1c8e459-ec06-467a-bad7-474c74f9d0f3/scratchpad/c2_real/"
+               "submission")
+    if ref.exists():
+        assert _all_findings(ref) == []

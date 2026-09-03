@@ -1018,6 +1018,101 @@ def interface_sign_findings(work: Path) -> list[dict]:
             "the value you applied. With the sign reversed the two sides "
             "appear to balance when they do not, and the observed order "
             "cannot see it.")})
+    # A FIXED PROBE GRID HAS THE SAME ROW COUNT AT EVERY LEVEL.
+    #
+    # MEASURED, C2_27b_MCP_seed1502: its coupling genuinely converged
+    # (9.8e-07 in 21 iterations at the finest level) and its interface files
+    # carry 9, 17 and 33 rows across the three levels -- its own mesh nodes,
+    # which change under refinement -- against a contract that fixes the probe
+    # points once for all levels. Everything it computed was thrown away on
+    # the sampling. The signal needs no task knowledge: rows that GROW with
+    # the level are a mesh trace; a fixed grid cannot do that.
+    rowcounts: dict = {}
+    for (lvl, side), path in sorted(ifs.items()):
+        try:
+            g, _w = _IF.read_interface_csv(path, 2, 1, 1)
+        except Exception:
+            g = None
+        if g is not None:
+            rowcounts.setdefault(side, {})[lvl] = len(g[0])
+    for side, per in sorted(rowcounts.items()):
+        ns = [per[l] for l in sorted(per)]
+        if len(ns) >= 2 and len(set(ns)) > 1 and all(
+                b > a for a, b in zip(ns, ns[1:])):
+            out.append({"sequence": f"interface rows side {side}",
+                        "values": ns, "finding": (
+                f"INTERFACE ROWS GROW WITH THE LEVEL on side {side}: "
+                + ", ".join(str(n) for n in ns) + " rows across the levels. "
+                "The interface probe points are FIXED -- the same points at "
+                "every mesh level -- so every interface_level<k>_<side>.csv "
+                "must have the SAME rows in the same order. A growing count "
+                "means you wrote your own mesh nodes instead of evaluating "
+                "(interpolating) your solution AT the prescribed points. A "
+                "run that did this had genuinely converged its coupling to "
+                "9.8e-07 and scored zero on the sampling alone. Re-read the "
+                "task's INTERFACE PROBE POINTS line and evaluate your "
+                "existing solution there; no re-solve is needed.")})
+            break
+    # THE RESIDUAL YOU CONVERGED MUST BE THE DISAGREEMENT IN YOUR FILES.
+    #
+    # MEASURED, C2_27b_MCP_seed1501: residual_level3.csv ends at 2.3162e-08
+    # after 7 iterations, while the exported interface files disagree by
+    # max|uA-uB| = 3.65e-03 -- IDENTICAL at all three levels -- and the flux
+    # sum by ~0.8. Five orders between what the iteration measured and what
+    # the submission contains means the iteration converged some OTHER
+    # quantity (a different set of points, a previous iterate, one side's
+    # internal state) than the fields that were written out. The observed
+    # order was 0.1830 and nothing in the run said why.
+    resid_final: dict = {}
+    for f in sorted(work.rglob("residual_level*.csv")):
+        m = _re.search(r"residual_level(\d+)\.csv$", f.name)
+        if not m:
+            continue
+        try:
+            rows = [r for r in f.read_text(errors="replace").splitlines()
+                    if r.strip()][1:]
+            resid_final[int(m.group(1))] = abs(float(rows[-1].split(",")[-1]))
+        except Exception:
+            continue
+    mismatch = []
+    for lvl, claimed in sorted(resid_final.items()):
+        a, b = ifs.get((lvl, "A")), ifs.get((lvl, "B"))
+        if not (a and b) or claimed <= 0:
+            continue
+        try:
+            ga, _ = _IF.read_interface_csv(a, 2, 1, 0)
+            gb, _ = _IF.read_interface_csv(b, 2, 1, 0)
+            if not (ga and gb):
+                continue
+            ua = [v for row in ga[1] for v in row]
+            ub = [v for row in gb[1] for v in row]
+            n = min(len(ua), len(ub))
+            if n == 0:
+                continue
+            scale = max(max(abs(v) for v in ua[:n]), 1e-300)
+            jump = max(abs(ua[i] - ub[i]) for i in range(n)) / scale
+            if jump > 100.0 * claimed and jump > 1e-3:
+                mismatch.append((lvl, claimed, jump))
+        except Exception:
+            continue
+    if mismatch:
+        where = ", ".join(f"level {l}: claimed {c:.2e} vs measured {j:.2e}"
+                          for l, c, j in mismatch)
+        out.append({"sequence": "residual vs files", "values":
+                    [j for _l, _c, j in mismatch], "finding": (
+            "THE RESIDUAL YOUR ITERATION CONVERGED IS NOT THE DISAGREEMENT "
+            "IN YOUR FILES (" + where + "). The relative field jump computed "
+            "from your own interface_level<k>_A/B.csv is orders of magnitude "
+            "above the final value in residual_level<k>.csv, so the quantity "
+            "your coupling loop measured is not the quantity you exported -- "
+            "a different point set, a stale iterate, or one side's internal "
+            "state. A run with exactly this signature reported 2.3e-08 "
+            "converged while its files disagreed by 3.65e-03 at every level. "
+            "Recompute the mismatch FROM THE TWO FILES you are about to "
+            "submit -- max|uA-uB| over the interface rows, divided by "
+            "max|uA| -- and iterate on THAT; if it does not match your "
+            "loop's residual, your loop is reading different data than it "
+            "writes.")})
     trend = [jumps[l] for l in sorted(jumps)
              if isinstance(jumps.get(l), (int, float))]
     if len(trend) >= 2 and not all(trend[i + 1] < trend[i]

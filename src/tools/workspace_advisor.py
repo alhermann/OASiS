@@ -659,7 +659,17 @@ def _early_artefact_check(workdir: Path, written: Path) -> str:
     try:
         if _re.fullmatch(r"residual_level\d+\.csv", name):
             from tools.result_audit import residual_findings
-            seen, found = set(), []
+            # THE RESIDUAL FILE IS THE MOMENT TO CHECK IT AGAINST THE
+            # INTERFACE FILES: measured on seed1501, the interfaces existed
+            # first and the residual landed last, so a check that fires only
+            # on interface writes never sees the finished pair.
+            try:
+                from tools.result_audit import interface_sign_findings
+                rv = [f for f in interface_sign_findings(workdir)
+                      if "IS NOT THE DISAGREEMENT" in f.get("finding", "")]
+            except Exception:                       # noqa: BLE001
+                rv = []
+            seen, found = set(), list(rv)
             for f in residual_findings(workdir):
                 if not (name in str(f.get("sequence", ""))
                         or "IDENTICAL" in f.get("finding", "")):
@@ -700,8 +710,14 @@ def _early_artefact_check(workdir: Path, written: Path) -> str:
             if not both:
                 return ""                  # the other side is not written yet
             found = interface_sign_findings(workdir)
-            hard = [f for f in found if "WRONG SIGN" in f.get("finding", "")
-                    or "DOES NOT SHRINK" in f.get("finding", "")]
+            # The two round-15 defects join the filter: a probe-set that
+            # tracks the mesh (rows grow per level), and an iteration whose
+            # residual is not the disagreement in the exported files.
+            _HARD = ("WRONG SIGN", "DOES NOT SHRINK", "SAME SIGN",
+                     "ROWS GROW WITH THE LEVEL",
+                     "IS NOT THE DISAGREEMENT IN YOUR FILES")
+            hard = [f for f in found
+                    if any(k in f.get("finding", "") for k in _HARD)]
             if hard:
                 return ("\n\n[early check of the interface at level " + lvl
                         + ", from your own files:]\n"
