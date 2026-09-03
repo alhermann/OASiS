@@ -514,6 +514,7 @@ def _bash_tool_for(workdir: Path, *, audit_on_submit: bool = False):
             # was instrumented, and could not see the case it was built for.
             head = ""
             if "COULD_NOT_COMPLETE" in body.upper():
+                head += _giveup_blames_the_clock(body, _frac_wall_used())
                 try:
                     head = _work_on_disk_contradicting_a_give_up(workdir)
                 except Exception:                      # noqa: BLE001
@@ -664,6 +665,7 @@ def _bash_tool_for(workdir: Path, *, audit_on_submit: bool = False):
             # file, only a traceback it misread.
             return (out
                     + (_registry_error_check(out) + _eaten_error_check(out)
+                       + _env_after_wrapper_check(command)
                        if audit_on_submit else "")
                     + _script_check_after_shell(_before_scr)
                     + _artefact_check_after_shell(_before_art)
@@ -763,6 +765,10 @@ def _read_write_tools_for(workdir: Path, *, audit_on_submit: bool = False):
                         _contra = ""
                     if _contra:
                         reply += "\n\n" + _contra
+                    # FIRES WITH OR WITHOUT WORK ON DISK: the run this was
+                    # built for had none, so the check above stayed silent.
+                    reply += _giveup_blames_the_clock(
+                        content, _frac_wall_used())
                 try:
                     findings = _audit_submission(p, content)
                 except Exception as e:               # noqa: BLE001
@@ -1387,6 +1393,147 @@ def _discarded_proof_check(written: Path, content: str) -> str:
         "a graded order of 1.94 -- wrote three lines of its own prose here and "
         "could not be credited for any of it. For reference, a real capture of "
         "these two codes is 2947 and 1476 bytes.")
+
+
+def _frac_wall_used() -> float | None:
+    """Fraction of the wall budget spent, from the same source as the note."""
+    if _DEADLINE is None:
+        return None
+    import time as _t
+    total = max(_DEADLINE[1], 1.0)
+    return max(0.0, min(1.0, (total - (_DEADLINE[0] - _t.time())) / total))
+
+
+_TIME_WORDS = ("insufficient time", "ran out of time", "time budget",
+               "not enough time", "time constraint", "time limit",
+               "within the 45", "45-minute", "out of clock", "time ran out")
+
+
+def _giveup_blames_the_clock(content: str, frac_used: float | None) -> str:
+    """A give-up citing time, filed with most of the clock unspent.
+
+    MEASURED, and it is now the leading failure of this cell rather than a
+    footnote. Round 14's OASiS arm: C2_27b_MCP_seed1401 wrote "Insufficient
+    time to complete the full coupled simulation implementation within the
+    45-minute budget" after 1279 of 2700 seconds -- 47% -- and seed1403 did the
+    same at 1323 s, 49%. Median wall for the arm was 1323 s against a 2700 s
+    ceiling, and median actions 50, DOWN from 72 the round before. They did not
+    run out of time. They stopped.
+
+    THE CLOCK NOTE ALREADY REACHES THEM, so this is not an information gap:
+    seed1401's own transcript carries `[clock: 28 min left of 45 | actions
+    spent: 7]` and later `[clock: 27 min left of 45 | actions spent: 14]`, and
+    it then wrote that it had insufficient time. Telling an agent the number
+    did not stop it from asserting the opposite -- the same lesson as the flux
+    condition, where prose failed eighteen times and the pasted line worked
+    3/3. So this quotes its own two numbers back at the moment it files the
+    claim, which is the only moment the claim can still be withdrawn.
+
+    It fires whether or not anything is on disk, which is what distinguishes it
+    from _work_on_disk_contradicting_a_give_up: that one needs finished work to
+    point at, and seed1401 had none, so nothing fired at all for the run that
+    most needed it.
+    """
+    low = content.lower()
+    if "could_not_complete" not in low:
+        return ""
+    if not any(w in low for w in _TIME_WORDS):
+        return ""
+    if frac_used is None or frac_used > 0.75:
+        return ""                       # it really was late; do not argue
+    pct = int(round(frac_used * 100))
+    return (
+        "\n\nYOU ARE FILING A GIVE-UP THAT BLAMES THE CLOCK, AND THE CLOCK "
+        "DISAGREES.\n  You have used " + str(pct) + "% of your wall budget. "
+        + str(100 - pct) + "% of it is still ahead of you, and the note at the "
+        "end of every command you have run has been telling you the minutes "
+        "left. COULD_NOT_COMPLETE is graded as nothing at all, so filing it "
+        "now spends the remaining " + str(100 - pct) + "% on nothing.\n"
+        "  Do the cheapest thing that can still be graded, in this order, and "
+        "do not build anything you have not yet needed:\n"
+        "    1. ONE level, end to end, and write its deliverables the moment "
+        "it runs. A level on disk cannot be taken away by the clock.\n"
+        "    2. Then the next level, by changing only the mesh count -- reuse "
+        "the same scripts.\n"
+        "    3. Then the third, then RESULT.txt from the files you have.\n"
+        "  Two runs before you filed this same note at 47% and 49% of the "
+        "budget after building machinery for all three levels and writing none "
+        "of them. Write level one first.")
+
+
+_WRAPPERS = ("stdbuf", "timeout", "nice", "nohup", "ionice", "setsid")
+
+
+def _env_after_wrapper_check(command: str) -> str:
+    """`stdbuf -oL VAR=x prog` runs VAR=x as the program. Measured.
+
+    C2_27b_MCP_seed1401 was served `stdbuf -oL -eL <binary> deck out` and also
+    wanted a library path, so it wrote
+
+        stdbuf -oL -eL LD_LIBRARY_PATH=/opt/4C-dependencies/lib .../4C deck out
+
+    and got `stdbuf: cannot run the command 'LD_LIBRARY_PATH=...'`. An
+    assignment is only an assignment at the START of a command; after a wrapper
+    it is just the first argument, which the wrapper treats as the program
+    name. Measured on one rejected deck, diagnostic lines recovered:
+
+        stdbuf -oL -eL LD_LIBRARY_PATH=... 4C ...     0   (nothing ran)
+        LD_LIBRARY_PATH=... stdbuf -oL -eL 4C ...     2
+        stdbuf -oL -eL env LD_LIBRARY_PATH=... 4C ... 2
+
+    So the run's own 4C invocation never executed, and the primitive that was
+    supposed to make its errors visible is what broke it. GENERAL to every
+    wrapper that takes a command -- stdbuf, timeout, nice, nohup, ionice,
+    setsid -- and it is a common way to lose a run silently, because the
+    wrapper's complaint does not look like a solver failure.
+
+    And on this machine it was not needed at all: the shell the agent gets
+    already exports LD_LIBRARY_PATH=/opt/4C-dependencies/lib, and
+    `/home/alexander/4C/build/4C --help` prints `4C - Multiphysics` through it
+    with no prefix.
+    """
+    toks = command.split()
+    for i, tk in enumerate(toks):
+        base = tk.rsplit("/", 1)[-1]
+        if base not in _WRAPPERS:
+            continue
+        for nxt in toks[i + 1:]:
+            if nxt.startswith("-"):
+                continue                        # still the wrapper's options
+            # A WRAPPER'S OWN ARGUMENT IS NOT THE PROGRAM. `timeout` takes a
+            # duration and `nice -n` a level, so the first non-option token is
+            # not necessarily the command: measured, the first version of this
+            # went silent on `timeout 900 OMP_NUM_THREADS=4 ./solver` because
+            # it stopped at `900`.
+            if _re_mod.fullmatch(r"\d+(\.\d+)?[smhd]?", nxt):
+                continue
+            if "=" in nxt and not nxt.startswith("=") and "/" not in \
+                    nxt.split("=", 1)[0]:
+                var = nxt.split("=", 1)[0]
+                return (
+                    "\n\n[the command you just ran did not execute what you "
+                    "think it did]\n"
+                    "  * `" + base + " ... " + var + "=...` RUNS `" + var
+                    + "=...` AS THE PROGRAM. An assignment is only an "
+                    "assignment at the very start of a command; after a "
+                    "wrapper it is the wrapper's first argument, so " + base
+                    + " tried to execute a file named `" + nxt.split("=")[0]
+                    + "=...` and your real command never ran at all. Put the "
+                    "assignment first, or use env:\n"
+                    "        " + var + "=... " + base + " -oL -eL <binary> "
+                    "<args>\n"
+                    "        " + base + " -oL -eL env " + var + "=... "
+                    "<binary> <args>\n"
+                    "    Measured on one rejected deck, diagnostic lines "
+                    "recovered: wrapper-then-assignment 0, assignment-first 2, "
+                    "`env` form 2. AND ON THIS MACHINE YOU DO NOT NEED IT: "
+                    "your shell already exports "
+                    "LD_LIBRARY_PATH=/opt/4C-dependencies/lib, and the 4C "
+                    "binary prints `4C - Multiphysics` through it with no "
+                    "prefix at all. Check with `echo $LD_LIBRARY_PATH` before "
+                    "adding one.")
+            break                               # first real argument decides
+    return ""
 
 
 def _eaten_error_check(output: str) -> str:

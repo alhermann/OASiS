@@ -792,6 +792,14 @@ another agent. What they saw was this:
     naming the defect never reaches you and only the MPI boilerplate survives.
     Invoke it as
         stdbuf -oL -eL <binary> deck.4C.yaml out 2>&1 | tee run.log
+    with NO environment prefix: your shell already exports
+    LD_LIBRARY_PATH=/opt/4C-dependencies/lib. If you ever do prefix a
+    wrapper, the assignment goes FIRST -- `stdbuf -oL VAR=x prog` makes
+    stdbuf execute a file named `VAR=x` and your command never runs at
+    all. Measured diagnostic lines recovered:
+        stdbuf -oL -eL VAR=x 4C deck out       0   (nothing ran)
+        VAR=x stdbuf -oL -eL 4C deck out       2
+        stdbuf -oL -eL env VAR=x 4C deck out   2
     or under `mpirun -np 1`. Measured on one rejected deck, same deck, four
     invocations: plain capture 429 bytes with NO reason; `2>&1` merged 429
     bytes, still no reason; `stdbuf -oL -eL` 2164 bytes carrying

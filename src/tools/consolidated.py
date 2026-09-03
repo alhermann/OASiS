@@ -2181,6 +2181,8 @@ _DECIDING_FACTS = {
         "5. A spatially varying interface trace needs one DESIGN POINT DIRICH "
         "condition PER NODE -- no fitted FUNCT required.\n"
         "6. INVOKE IT AS `stdbuf -oL -eL /path/to/4C deck.4C.yaml out`, OR AS "
+        "Your shell ALREADY exports LD_LIBRARY_PATH=/opt/4C-dependencies/lib, so add no prefix -- and if you ever do add one, an assignment must come BEFORE the wrapper: `stdbuf -oL VAR=x prog` makes stdbuf try to execute a file called `VAR=x` and your command never runs. Measured: wrapper-then-assignment recovered 0 diagnostic lines, assignment-first 2, `stdbuf ... env VAR=x prog` 2. "
+        "OR AS "
         "`mpirun -np 1 ...`. 4C's stdout is BLOCK-BUFFERED, and when a deck is "
         "rejected MPI_Abort tears the process down before that buffer is "
         "flushed, so the line naming the defect is destroyed and all you get "
