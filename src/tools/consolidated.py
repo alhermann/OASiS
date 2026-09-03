@@ -2173,6 +2173,12 @@ from .knowledge import _UNIVERSAL_CORE as _UNIVERSAL_CORE      # noqa: E402
 # The corpus is not removed -- it is reordered. An agent that reads only the
 # top of the reply now gets the facts that separate CORRECT from
 # CONFIDENTLY_WRONG, each with the measurement behind it.
+# One entry per live server: which backends prepare_simulation has seen.
+# Keyed by id(mcp) so parallel servers in one process cannot bleed into
+# each other; a second key (id, 'served') marks the must-read as sent.
+_PREPARED_SOLVERS: dict = {}
+
+
 _DECIDING_FACTS = {
     "fourc": (
         "1. A standalone `Thermo` problem SILENTLY IGNORES every "
@@ -5710,6 +5716,36 @@ def register_consolidated_tools(mcp: FastMCP):
         if not backend:
             return f"Unknown solver: {solver}"
 
+        # A SECOND prepare_simulation WITH A DIFFERENT SOLVER IS A COUPLING.
+        #
+        # Measured, round 18 of the coupled development cell: two of the three
+        # OASiS runs called prepare_simulation twice -- once per prescribed
+        # code -- and NEVER opened a knowledge door, so the coupled must-read
+        # (the couple() recipe, the fields-vs-evidence hierarchy, the
+        # measured-not-modelled history rule, the captured-log contract)
+        # never reached them at all. It hung off a door they did not open,
+        # while the door they DID open is the one server.py tells every agent
+        # to call first. Same defect the _UNIVERSAL_BLOCK comment below
+        # records, one layer up.
+        #
+        # Preparing two DIFFERENT backends in one session is the agent's own
+        # signature of a partitioned coupling -- no task knowledge is used.
+        # The must-read is prepended ONCE, on the call that reveals it.
+        _prepared = _PREPARED_SOLVERS.setdefault(id(mcp), set())
+        _coupling_head = ""
+        if _prepared and backend.name() not in _prepared \
+                and not _PREPARED_SOLVERS.get((id(mcp), "served")):
+            _coupling_head = (
+                "# YOU HAVE NOW PREPARED TWO DIFFERENT CODES IN THIS SESSION.\n"
+                "# If your task couples them -- two subdomains exchanging "
+                "interface data --\n# everything below the line is the "
+                "coupled must-read. If your task uses\n# one code only, "
+                "skip to the physics payload after the rule.\n"
+                "\n\n" + _COUPLING_MUST_READ
+                + "\n" + "-" * 70 + "\n\n")
+            _PREPARED_SOLVERS[(id(mcp), "served")] = True
+        _prepared.add(backend.name())
+
         # Warn up front if the REQUESTED backend is not usable on this install.
         # Otherwise a user follows the returned template and only discovers at
         # run time that the solver can't run (user-session finding). The guidance
@@ -5923,7 +5959,8 @@ def register_consolidated_tools(mcp: FastMCP):
         # This is the same defect the comment at the knowledge() call site
         # already records, applied to the door that was missed: a fix landed
         # at one call site when there were two.
-        return (_deciding_block(solver, matched_physics)
+        return (_coupling_head
+                + _deciding_block(solver, matched_physics)
                 + f"# Preparation for {matched_physics} on {solver}\n\n"
                 + "\n---\n".join(parts) + _UNIVERSAL_BLOCK)
 
