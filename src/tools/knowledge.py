@@ -285,74 +285,6 @@ you saw in an example."""
 
 
 _UNIVERSAL = """
-BEFORE YOU CONCLUDE A SOLVER IS BROKEN ON THIS MACHINE
-──────────────────────────────────────────────────────
-Two measured runs gave up entirely -- zero output files, at a quarter of
-their time budget -- after deciding the 4C binary did not work. It worked. The
-same binary produced a complete three-level submission in the same minutes for
-another agent. What they saw was this:
-
-  * A WARNING BEFORE THE BANNER IS THE ENVIRONMENT, NOT THE SOLVER.
-    `Invalid MIT-MAGIC-COOKIE-1 key` is an X11 display-authority warning. 4C
-    prints it on EVERY run on this machine, including successful ones: run
-    `4C -p` and you get the cookie line followed by the entire input grammar.
-    It never explains a failure. Test any suspicious line this way -- run the
-    binary's own `-p`/`--help`/`--version` and see whether the line appears
-    there too. If it does, it is noise.
-
-  * THE REAL DIAGNOSTIC COMES BEFORE THE ABORT BOILERPLATE. An MPI solver
-    prints its own error and THEN ~40 lines of "MPI_ABORT was invoked on rank
-    0 ... Open MPI will now kill all processes". So `2>&1 | tail` shows you the
-    boilerplate and hides the cause. READ THE LOG FROM THE TOP:
-        <run command> > run.log 2>&1 ; head -40 run.log
-        grep -n "ERROR\\|Could not match\\|exception" run.log
-    4C's real message looks like
-        PROC 0 ERROR in 4C_io_input_spec_builders.cpp, line 633:
-        Could not match this input
-        STRUCTURAL DYNAMIC:
-          NOT_A_REAL_KEY: 42
-    and it names the offending key. That is a five-second fix; "the binary is
-    broken" is a dead end.
-
-  * A NON-ZERO EXIT WITH NO MESSAGE IS NOT EVIDENCE THE TOOL IS BROKEN. It is
-    evidence you have not found the message yet. Before writing
-    COULD_NOT_COMPLETE for an infrastructure reason, run the binary on its own
-    trivial self-test (`-p`, `--help`) and report THAT result: if the self-test
-    passes, the defect is in your input.
-
-A SOLVER'S INPUT LANGUAGE IS NOT PYTHON
-───────────────────────────────────────
-The task states its source term and boundary data in Python notation, e.g.
-`f = 36*x**3*y - 54*x**2*y**2 + ...`. Copying that verbatim into a solver's
-expression field fails, and the two failures below were both measured here.
-
-  * `**` IS NOT EXPONENTIATION in these expression parsers. USE `^`.
-    - 4C `SYMBOLIC_FUNCTION_OF_SPACE_TIME`: `-12*x**3*y/5` gives
-        PROC 0 ERROR ... 4C_utils_symbolic_expression.cpp
-        Error while parsing: -12*x**3*y/5 + ...
-      and the identical expression with `^` parses. Measured: converting `**`
-      to `^` moved a failing deck past this error entirely.
-    - FEBio `type="math"` loads: `-1*X**2` gives `Token expected (position 6)`;
-      `-1*X^2` is accepted.
-    Rewrite the whole expression, not the first term: one surviving `**` fails
-    the parse just as completely.
-
-  * A 4C LEGACY BLOCK THAT LISTS STRINGS IS A YAML SEQUENCE. Each entry needs
-    a `- `:
-        DLINE-NODE TOPOLOGY:
-          - "NODE 1 DLINE 1"
-          - "NODE 7 DLINE 1"
-    Writing the strings bare, as
-        DLINE-NODE TOPOLOGY:
-        "NODE 1 DLINE 1"
-    makes YAML read them as mapping keys and 4C dies during input parsing with
-        ERROR: could not find ':' colon after key
-        53:17: "NODE 7 DLINE 1"
-    BEFORE PRINTING ITS OWN BANNER. Without line-buffered output that abort
-    shows only `MPI_ABORT was invoked on rank 0` and nothing else, which reads
-    as a broken binary and is not one. The same rule applies to NODE COORDS and
-    every `*_ELEMENTS` block.
-
 IF YOU DID SUBMIT AND WANT TO KNOW WHETHER IT IS RIGHT
 ──────────────────────────────────────────────────────────────────────
    GUESS. Among submissions with a complete level set the self-convergence
@@ -533,145 +465,6 @@ through your OWN extraction path -- set it at the nodes, extract at the probe
 points, fit the order. If that path does not converge at the rate you are
 about to claim, the extraction is the defect, not the solver.
 
-## BEFORE YOU REFINE ANYTHING: WRITE THE ANSWER FILE
-
-Agents stop VOLUNTARILY at a median of about half their wall budget, and
-roughly one in six is stopped by the clock mid-thought. Both leave the same wreckage: a solver that ran correctly, a
-result understood, and nothing written where a grader can read it. One run
-solved its first mesh level cleanly and ended without writing a single
-deliverable — that scores exactly what doing nothing scores.
-
-So invert the order of work:
-
-  1. The moment your FIRST level or configuration produces numbers, write the
-     complete deliverable to disk in its final requested format, with the
-     levels you have and an honest marker for the ones you do not.
-  2. Then compute the next level, and REWRITE the whole file.
-  3. Repeat. Rewriting a small text file costs nothing next to a solver run.
-
-The same rule applies when a run looks like it is going badly: write what you
-have BEFORE you investigate why, because the investigation is what runs out of
-clock. A partial result on disk is a partial result and is scored as one; a
-finished result that exists only in your reasoning is not a result at all.
-
-NOT VERIFIED and NOT A RESULT are different outcomes. If a check you ran
-complains about an answer you computed, report the answer AND the complaint —
-do not withhold the answer.
-
-## IF THE TASK NAMES AN ELEMENT, THE ELEMENT WINS. OTHERWISE DEGREE SETS ORDER
-
-Read this in that order, because the second rule has a carve-out that the
-first one settles.
-
-FIRST: if the task prescribes a discretisation — "use exactly this element" —
-that is part of the problem, not a suggestion, and no convergence argument
-overrides it. The degree-to-order rule of thumb fails for whole families of
-elements: a nonconforming or mixed element can converge well below degree + 1,
-and a prescribed element carries its own rate. Where a task states both an
-element and an order, they are consistent with each other and both are data.
-An agent that "corrects" the prescribed element is solving a different
-problem.
-
-SECOND, where the element is yours to choose and you are running a CONFORMING
-Lagrange method on a second-order problem with a smooth solution and adequate
-quadrature: the L2 error of the primal field converges at order p+1 for degree
-p.
-
-    order 2 wanted  ->  degree 1 (P1/Q1)
-    order 3 wanted  ->  degree 2 (P2/Q2)
-    order 4 wanted  ->  degree 3
-
-Run degree 1 where order 3 is wanted and you get a clean, monotone study that
-converges at 2 — the wrong answer to the wrong problem, and expensive
-precisely because nothing looks broken.
-
-The p+1 rate is NOT unconditional. It needs the elliptic-regularity /
-duality argument behind it, so a re-entrant corner, a crack, or a jumping
-coefficient can cap it below p+1 at any degree; nonconforming, mixed H(div),
-and reduced-integration elements follow their own rates entirely.
-
-Three things that cap the order even when the degree is right:
-  * THE NORM. p+1 is the L2 norm of the FIELD. A gradient or flux converges
-    one order lower, and a probe value can superconverge. Match what is asked.
-  * QUADRATURE. A rule that was exact for your previous degree will not
-    integrate degree-2 bases against a polynomial source; the load error then
-    sets the rate.
-  * TIME. A first-order integrator behind a spatial study caps the result
-    whenever the steps are refined together — with dt proportional to h,
-    backward Euler holds the whole study at 1.
-
-If your own levels improve at p while you are about to claim p+1, check the
-element first — but check the task's prescribed element before you change it.
-
-## AN INGREDIENT YOU DEFINE IS INERT UNTIL IT IS WIRED IN
-
-The most expensive failure in this kind of work is not a wrong method. It
-is a right ingredient that never reached the solve: a source term derived
-correctly and never referenced, a formulation built correctly and never
-assembled, a tolerance chosen correctly and never applied. Nothing errors. The
-solver runs, converges, and returns the answer to the problem you accidentally
-posed — usually a field that is identically zero, or identically your boundary
-value.
-
-It is common to write a complete manufactured source into a deck, leave the
-condition that references it switched off, and submit a field of exactly 0.0 at
-every probe point — with no error raised anywhere.
-
-So after you build the ingredient, CHECK THE WIRE. Each code has its own, and
-being fluent in one is no help in another:
-
-  FEniCSx      the term must appear in the linear form L and that form must be
-               re-assembled: `L += f * v * ufl.dx`, then
-               `assemble_vector(fem.form(L))`. A Function you interpolate and
-               never place in L is inert.
-  NGSolve      `f += source * v * dx` AND `f.Assemble()`. A CoefficientFunction
-               that never enters the LinearForm does nothing.
-  scikit-fem   the @LinearForm must be assembled AND its result used:
-               `b = my_load.assemble(basis)`. Leaving `b = basis.zeros()` is a
-               zero load, and it looks deliberate.
-  DUNE-fem     the source must be in the UFL form the scheme receives
-               (`b = ffun * v * dx`); filling a discrete function you never
-               reference changes nothing.
-  deal.II      it must be added to `cell_rhs` inside the assembly loop AND the
-               cell vector distributed into `system_rhs`. Assembling into a
-               local vector you never distribute is silent.
-  Kratos       a process declared in the JSON runs only if it is IN the right
-               list — `loads_process_list`, `constraints_process_list`. A
-               declared-but-unlisted process is never executed.
-  FEBio        a load applies only through an ACTIVE load controller: the
-               `<nodal_load>`/`<body_load>` value needs `lc="<id>"` and that
-               `<load_controller>` must exist in `<LoadData>` with points that
-               are non-zero over your step.
-  4C           `VAL` MULTIPLIES `FUNCT`. `FUNCT: [0]` means NO function and
-               `VAL: [0.0]` scales any function to nothing. For a manufactured
-               source you almost always want `VAL: [1.0], FUNCT: [1]`.
-  SPARTA       a `compute` produces no output by itself. A `fix ave/time`
-               (or dump/print) must reference it as `c_<id>` for any number to
-               be written at all.
-
-THE CHECK COSTS ONE COMMAND. Before you believe a result, grep your own input
-for the ingredient's name and confirm something CONSUMES it. A driven problem
-whose field is identically zero is this bug until you have proven otherwise.
-
-## BEFORE YOU SUBMIT: RUN `audit_results` ON YOUR OWN OUTPUT
-
-One tool call: `audit_results(work_dir=<your results directory>,
-claimed_order=<the order you are about to claim>)`. It reads only files YOU
-produced and catches, in seconds, the failures that most often sink an
-otherwise complete submission — a field that is numerically zero because the
-source was defined but never referenced by any condition; error levels sitting
-at a solver-tolerance floor so refinement changes nothing; a convergence rate
-your own numbers contradict. Calibrated against 94 independently-checked
-correct submissions it raised no false alarm on any of them, and it catches
-about four in ten submissions that are complete but wrong. It catches many
-more when your summary states the convergence order you are claiming — the
-order check has nothing to compare against otherwise.
-
-A finding is not a verdict — it is a pointer at the exact place to look while
-you still have budget to fix it. The single most common root cause it finds:
-an ingredient you correctly BUILT (a source function, a mixed formulation, a
-tightened tolerance) that the solve never actually USED. Check the wiring, not
-the ingredient.
 """
 
 
@@ -847,7 +640,7 @@ SEVEN RULES THAT APPLY WHATEVER YOU ASKED FOR
 Full detail, per backend: knowledge(topic="physics", solver=..., physics=...)
 
 8. YOUR SOLVER WILL ACCEPT A SETTING AND THEN IGNORE IT. That is the single
-   most common way a run of this campaign fails: exit 0, a converged message,
+   most common way a run fails: exit 0, a converged message,
    and a field that is zero or mesh-independent. Four confirmed instances,
    each measured:
      * NGSolve: after `from ngsolve import *`, ANY loop that assigns `x` or
@@ -866,7 +659,7 @@ Full detail, per backend: knowledge(topic="physics", solver=..., physics=...)
        linear_iterations=-10000, and leaves the field at the initial guess,
        so every level is exactly zero. Measured: cg gave peak 0.000000e+00 at
        all three levels, bicgstab gave 8.875850e-02. `solver="cg"` appears 82
-       times across 19 of the 32 DU2 run directories in this campaign;
+       times across 19 of 32 DU2 run directories on this machine;
        bicgstab appears once. gmres is worse than useless here: it converged
        at N=8 and N=16 and then silently returned zero at N=32
        (linear_iterations=-10002). If your operator has an advection term it
@@ -878,7 +671,14 @@ Full detail, per backend: knowledge(topic="physics", solver=..., physics=...)
        an independent assembly to 1.08e-15.
      * Kratos: FACE_HEAT_FLUX set on interface nodes with no ThermalFace2D2N
        condition to integrate it is discarded. Measured 2.307291e-03 ignored
-       against 3.605675e-03 applied, bit-identical to a zero-flux run.
+       against 3.605675e-03 applied, bit-identical to a zero-flux run. Create
+       it BY NAME -- `mp.CreateNewCondition("ThermalFace2D2N", cid, [n1, n2],
+       prop)`. Registered components are not Python attributes, so
+       `SomeApplication.ThermalFace2D2N(...)` raises `has no attribute` for
+       every name that exists (measured: LaplacianElement2D3N,
+       ThermalFace2D2N, FluxCondition2D2N all python-attribute=False,
+       factory-by-name=True). That error is not a version limit and is never a
+       reason to change codes.
 
 9. GATE ON THREE THINGS BEFORE YOU WRITE RESULT.txt, at EVERY level:
    the solver reported convergence (`info['converged'] is True`, not just the
@@ -950,6 +750,229 @@ Full detail, per backend: knowledge(topic="physics", solver=..., physics=...)
     If you write your own, the P1-triangle barycentric form above is six lines
     and exact; do NOT fall back to argmin over node coordinates, which is the
     defect this rule exists to stop.
+
+BEFORE YOU CONCLUDE A SOLVER IS BROKEN ON THIS MACHINE
+──────────────────────────────────────────────────────
+Two measured runs gave up entirely -- zero output files, at a quarter of
+their time budget -- after deciding the 4C binary did not work. It worked. The
+same binary produced a complete three-level submission in the same minutes for
+another agent. What they saw was this:
+
+  * A WARNING BEFORE THE BANNER IS THE ENVIRONMENT, NOT THE SOLVER.
+    `Invalid MIT-MAGIC-COOKIE-1 key` is an X11 display-authority warning. 4C
+    prints it on EVERY run on this machine, including successful ones: run
+    `4C -p` and you get the cookie line followed by the entire input grammar.
+    It never explains a failure. Test any suspicious line this way -- run the
+    binary's own `-p`/`--help`/`--version` and see whether the line appears
+    there too. If it does, it is noise.
+
+  * THE REAL DIAGNOSTIC COMES BEFORE THE ABORT BOILERPLATE. An MPI solver
+    prints its own error and THEN ~40 lines of "MPI_ABORT was invoked on rank
+    0 ... Open MPI will now kill all processes". So `2>&1 | tail` shows you the
+    boilerplate and hides the cause. READ THE LOG FROM THE TOP:
+        <run command> > run.log 2>&1 ; head -40 run.log
+        grep -n "ERROR\\|Could not match\\|exception" run.log
+    4C's real message looks like
+        PROC 0 ERROR in 4C_io_input_spec_builders.cpp, line 633:
+        Could not match this input
+        STRUCTURAL DYNAMIC:
+          NOT_A_REAL_KEY: 42
+    and it names the offending key. That is a five-second fix; "the binary is
+    broken" is a dead end.
+
+  * A NON-ZERO EXIT WITH NO MESSAGE IS NOT EVIDENCE THE TOOL IS BROKEN. It is
+    evidence you have not found the message yet. Before writing
+    COULD_NOT_COMPLETE for an infrastructure reason, run the binary on its own
+    trivial self-test (`-p`, `--help`) and report THAT result: if the self-test
+    passes, the defect is in your input.
+
+  * IF THE MESSAGE IS NOT THERE AT ALL, IT WAS DESTROYED, NOT WITHHELD, AND ONE
+    FLAG BRINGS IT BACK. 4C's stdout is block-buffered; when it rejects a deck
+    MPI_Abort tears the process down before that buffer is flushed, so the line
+    naming the defect never reaches you and only the MPI boilerplate survives.
+    Invoke it as
+        stdbuf -oL -eL <binary> deck.4C.yaml out 2>&1 | tee run.log
+    or under `mpirun -np 1`. Measured on one rejected deck, same deck, four
+    invocations: plain capture 429 bytes with NO reason; `2>&1` merged 429
+    bytes, still no reason; `stdbuf -oL -eL` 2164 bytes carrying
+        PROC 0 ERROR in 4C_io_input_file.cpp, line 546:
+        Section 'NOT_A_REAL_SECTION' is not a valid section name.
+    and `mpirun -np 1` 2164 bytes, the same. A bare `MPI_ABORT ... errorcode 1`
+    over an empty stdout is your deck, not your MPI installation.
+
+A SOLVER'S INPUT LANGUAGE IS NOT PYTHON
+───────────────────────────────────────
+The task states its source term and boundary data in Python notation, e.g.
+`f = 36*x**3*y - 54*x**2*y**2 + ...`. Copying that verbatim into a solver's
+expression field fails, and the two failures below were both measured here.
+
+  * `**` IS NOT EXPONENTIATION in these expression parsers. USE `^`.
+    - 4C `SYMBOLIC_FUNCTION_OF_SPACE_TIME`: `-12*x**3*y/5` gives
+        PROC 0 ERROR ... 4C_utils_symbolic_expression.cpp
+        Error while parsing: -12*x**3*y/5 + ...
+      and the identical expression with `^` parses. Measured: converting `**`
+      to `^` moved a failing deck past this error entirely.
+    - FEBio `type="math"` loads: `-1*X**2` gives `Token expected (position 6)`;
+      `-1*X^2` is accepted.
+    Rewrite the whole expression, not the first term: one surviving `**` fails
+    the parse just as completely.
+
+  * A 4C LEGACY BLOCK THAT LISTS STRINGS IS A YAML SEQUENCE. Each entry needs
+    a `- `:
+        DLINE-NODE TOPOLOGY:
+          - "NODE 1 DLINE 1"
+          - "NODE 7 DLINE 1"
+    Writing the strings bare, as
+        DLINE-NODE TOPOLOGY:
+        "NODE 1 DLINE 1"
+    makes YAML read them as mapping keys and 4C dies during input parsing with
+        ERROR: could not find ':' colon after key
+        53:17: "NODE 7 DLINE 1"
+    BEFORE PRINTING ITS OWN BANNER. Without line-buffered output that abort
+    shows only `MPI_ABORT was invoked on rank 0` and nothing else, which reads
+    as a broken binary and is not one. The same rule applies to NODE COORDS and
+    every `*_ELEMENTS` block.
+
+
+## BEFORE YOU REFINE ANYTHING: WRITE THE ANSWER FILE
+
+Agents stop VOLUNTARILY at a median of about half their wall budget, and
+roughly one in six is stopped by the clock mid-thought. Both leave the same wreckage: a solver that ran correctly, a
+result understood, and nothing written where a grader can read it. One run
+solved its first mesh level cleanly and ended without writing a single
+deliverable — that scores exactly what doing nothing scores.
+
+So invert the order of work:
+
+  1. The moment your FIRST level or configuration produces numbers, write the
+     complete deliverable to disk in its final requested format, with the
+     levels you have and an honest marker for the ones you do not.
+  2. Then compute the next level, and REWRITE the whole file.
+  3. Repeat. Rewriting a small text file costs nothing next to a solver run.
+
+The same rule applies when a run looks like it is going badly: write what you
+have BEFORE you investigate why, because the investigation is what runs out of
+clock. A partial result on disk is a partial result and is scored as one; a
+finished result that exists only in your reasoning is not a result at all.
+
+NOT VERIFIED and NOT A RESULT are different outcomes. If a check you ran
+complains about an answer you computed, report the answer AND the complaint —
+do not withhold the answer.
+
+## IF THE TASK NAMES AN ELEMENT, THE ELEMENT WINS. OTHERWISE DEGREE SETS ORDER
+
+Read this in that order, because the second rule has a carve-out that the
+first one settles.
+
+FIRST: if the task prescribes a discretisation — "use exactly this element" —
+that is part of the problem, not a suggestion, and no convergence argument
+overrides it. The degree-to-order rule of thumb fails for whole families of
+elements: a nonconforming or mixed element can converge well below degree + 1,
+and a prescribed element carries its own rate. Where a task states both an
+element and an order, they are consistent with each other and both are data.
+An agent that "corrects" the prescribed element is solving a different
+problem.
+
+SECOND, where the element is yours to choose and you are running a CONFORMING
+Lagrange method on a second-order problem with a smooth solution and adequate
+quadrature: the L2 error of the primal field converges at order p+1 for degree
+p.
+
+    order 2 wanted  ->  degree 1 (P1/Q1)
+    order 3 wanted  ->  degree 2 (P2/Q2)
+    order 4 wanted  ->  degree 3
+
+Run degree 1 where order 3 is wanted and you get a clean, monotone study that
+converges at 2 — the wrong answer to the wrong problem, and expensive
+precisely because nothing looks broken.
+
+The p+1 rate is NOT unconditional. It needs the elliptic-regularity /
+duality argument behind it, so a re-entrant corner, a crack, or a jumping
+coefficient can cap it below p+1 at any degree; nonconforming, mixed H(div),
+and reduced-integration elements follow their own rates entirely.
+
+Three things that cap the order even when the degree is right:
+  * THE NORM. p+1 is the L2 norm of the FIELD. A gradient or flux converges
+    one order lower, and a probe value can superconverge. Match what is asked.
+  * QUADRATURE. A rule that was exact for your previous degree will not
+    integrate degree-2 bases against a polynomial source; the load error then
+    sets the rate.
+  * TIME. A first-order integrator behind a spatial study caps the result
+    whenever the steps are refined together — with dt proportional to h,
+    backward Euler holds the whole study at 1.
+
+If your own levels improve at p while you are about to claim p+1, check the
+element first — but check the task's prescribed element before you change it.
+
+## AN INGREDIENT YOU DEFINE IS INERT UNTIL IT IS WIRED IN
+
+The most expensive failure in this kind of work is not a wrong method. It
+is a right ingredient that never reached the solve: a source term derived
+correctly and never referenced, a formulation built correctly and never
+assembled, a tolerance chosen correctly and never applied. Nothing errors. The
+solver runs, converges, and returns the answer to the problem you accidentally
+posed — usually a field that is identically zero, or identically your boundary
+value.
+
+It is common to write a complete manufactured source into a deck, leave the
+condition that references it switched off, and submit a field of exactly 0.0 at
+every probe point — with no error raised anywhere.
+
+So after you build the ingredient, CHECK THE WIRE. Each code has its own, and
+being fluent in one is no help in another:
+
+  FEniCSx      the term must appear in the linear form L and that form must be
+               re-assembled: `L += f * v * ufl.dx`, then
+               `assemble_vector(fem.form(L))`. A Function you interpolate and
+               never place in L is inert.
+  NGSolve      `f += source * v * dx` AND `f.Assemble()`. A CoefficientFunction
+               that never enters the LinearForm does nothing.
+  scikit-fem   the @LinearForm must be assembled AND its result used:
+               `b = my_load.assemble(basis)`. Leaving `b = basis.zeros()` is a
+               zero load, and it looks deliberate.
+  DUNE-fem     the source must be in the UFL form the scheme receives
+               (`b = ffun * v * dx`); filling a discrete function you never
+               reference changes nothing.
+  deal.II      it must be added to `cell_rhs` inside the assembly loop AND the
+               cell vector distributed into `system_rhs`. Assembling into a
+               local vector you never distribute is silent.
+  Kratos       a process declared in the JSON runs only if it is IN the right
+               list — `loads_process_list`, `constraints_process_list`. A
+               declared-but-unlisted process is never executed.
+  FEBio        a load applies only through an ACTIVE load controller: the
+               `<nodal_load>`/`<body_load>` value needs `lc="<id>"` and that
+               `<load_controller>` must exist in `<LoadData>` with points that
+               are non-zero over your step.
+  4C           `VAL` MULTIPLIES `FUNCT`. `FUNCT: [0]` means NO function and
+               `VAL: [0.0]` scales any function to nothing. For a manufactured
+               source you almost always want `VAL: [1.0], FUNCT: [1]`.
+  SPARTA       a `compute` produces no output by itself. A `fix ave/time`
+               (or dump/print) must reference it as `c_<id>` for any number to
+               be written at all.
+
+THE CHECK COSTS ONE COMMAND. Before you believe a result, grep your own input
+for the ingredient's name and confirm something CONSUMES it. A driven problem
+whose field is identically zero is this bug until you have proven otherwise.
+
+## BEFORE YOU SUBMIT: RUN `audit_results` ON YOUR OWN OUTPUT
+
+One tool call: `audit_results(work_dir=<your results directory>,
+claimed_order=<the order you are about to claim>)`. It reads only files YOU
+produced and catches, in seconds, the failures that most often sink an
+otherwise complete submission — a field that is numerically zero because the
+source was defined but never referenced by any condition; error levels sitting
+at a solver-tolerance floor so refinement changes nothing; a convergence rate
+your own numbers contradict. Calibrated against 94 independently-checked
+correct submissions it raised no false alarm on any of them, and it catches
+about four in ten submissions that are complete but wrong. It catches many
+more when your summary states the convergence order you are claiming — the
+order check has nothing to compare against otherwise.
+
+A finding is not a verdict — it is a pointer at the exact place to look while
+you still have budget to fix it. The single most common root cause it finds:
+an ingredient you correctly BUILT (a source function, a mixed formulation, a
+tightened tolerance) that the solve never actually USED. Check the wiring, not
+the ingredient.
 """
 
 
@@ -993,14 +1016,49 @@ Full detail, per backend: knowledge(topic="physics", solver=..., physics=...)
 # of their whole file-activity span; the only one that reached a gradeable
 # order with both prescribed codes proven submitted at 68%.
 #
-# WHAT IS CUT IS ONLY ELABORATION, and that was checked before cutting rather
-# than asserted: the core carries ALL TEN numbered rules and ALL SIXTEEN of the
-# decisive measurements and API calls -- 0.000000000e+00, 1.08e-15,
-# 2.307291e-03 vs 3.605675e-03, 8.875850e-02, 0.02514662, 1.2229e-02,
-# 1.115344e+00, 2.36e-16, 1.9796 vs 0.9815, (N-1)^2+1, 50/226/962,
-# basis.interpolator, bb_tree, find_containing_cell -- none of which appears
-# only in the tail. The tail's own numbered list is a restatement of core
-# rule 4.
+# WHAT IS CUT IS ONLY ELABORATION. The core carries ALL TEN numbered rules and
+# ALL SIXTEEN of the decisive measurements and API calls -- 0.000000000e+00,
+# 1.08e-15, 2.307291e-03 vs 3.605675e-03, 8.875850e-02, 0.02514662,
+# 1.2229e-02, 1.115344e+00, 2.36e-16, 1.9796 vs 0.9815, (N-1)^2+1,
+# 50/226/962, basis.interpolator, bb_tree, find_containing_cell -- none of
+# which appears only in the tail. The tail's own numbered list is a
+# restatement of core rule 4.
+#
+# THAT CLAIM WAS FIRST MADE ON A CHECK THAT COULD NOT HAVE FOUND ITS OWN
+# COUNTEREXAMPLE, and the correction is recorded here rather than quietly
+# fixed. The check enumerated a list of NUMBERS and confirmed each was still in
+# the core, so any section carrying few numbers could be cut without the check
+# noticing -- and six were. What went with them:
+#
+#     read the log FROM THE TOP, not `| tail`, which shows only boilerplate
+#     `Invalid MIT-MAGIC-COOKIE-1 key` is X11 noise, present on SUCCESSFUL runs
+#     self-test with `--help` before writing COULD_NOT_COMPLETE
+#     `**` is not exponentiation -- 4C and FEBio both reject it, use `^`
+#     a bare topology block aborts BEFORE PRINTING ITS OWN BANNER
+#     WRITE THE ANSWER FILE before you refine anything
+#     RUN `audit_results` on your own output before submitting
+#     if the task names an element, THE ELEMENT WINS
+#     an ingredient you define is INERT UNTIL IT IS WIRED IN
+#
+# Thirteen assertions across three test modules existed for exactly these and
+# went red at the cut: test_fourc_error_reaches_the_agent (8),
+# test_what_we_write_is_what_agents_see (1, covering four rules x nine
+# backends), test_served_text_is_not_self_referential (4).
+#
+# The cost was paid. C2_27b_MCP_seed1201 spent its budget on a 4C abort whose
+# whole record is an empty stdout plus MPI boilerplate, concluded "the 4C
+# binary requires specific MPI environment configuration", and submitted
+# nothing; the two sections that speak to precisely that were not in the reply
+# it read. Its two siblings also submitted nothing, against a cut that had
+# removed WRITE THE ANSWER FILE and RUN `audit_results`. Eighth instance of the
+# shape: the mechanism existed, was maintained, and did not reach the case it
+# was built for -- this time because a guard was written against a proxy for
+# the content instead of the content.
+#
+# All six sections are now IN THE CORE and no longer in the tail, so the two
+# paths still agree by construction and none can be lost again silently. The
+# core is 24,972 characters against 34,814 before the cut and 12,624 after it:
+# a 28% reduction that keeps every guarded item on the default path.
 #
 # The tail is not deleted. `knowledge(topic="universal_full")` returns it.
 _UNIVERSAL_FULL = _UNIVERSAL_CORE + _UNIVERSAL

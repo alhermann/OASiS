@@ -78,6 +78,14 @@ def _heat_interface_neumann_kratos(params: dict) -> str:
         flux on nodes AND conditions    max|T| = 3.605675e-03
     numpy.allclose on the first two is True.
 
+    The condition is created BY NAME through the factory,
+    `mp.CreateNewCondition("ThermalFace2D2N", cid, [n1, n2], prop)`, and never
+    as a Python attribute: registered components live in a C++ registry, so
+    `SomeApplication.ThermalFace2D2N(...)` raises `has no attribute` for every
+    name that exists -- measured python-attribute=False and
+    factory-by-name=True for LaplacianElement2D3N, ThermalFace2D2N and
+    FluxCondition2D2N alike. That AttributeError is not a version limit.
+
     And it is not hypothetical. A submitted coupled run whose side A was
     correct to three digits, whose two prescribed codes both genuinely ran and
     whose interface FIELD matched across the seam to 0.000e+00, reported a

@@ -502,10 +502,28 @@ def _bash_tool_for(workdir: Path, *, audit_on_submit: bool = False):
                 return ""
             if before is not None and rt.stat().st_mtime <= before:
                 return ""            # untouched by this command
-            findings = _audit_submission(rt, rt.read_text(errors="replace"))
+            body = rt.read_text(errors="replace")
+            # THE GIVE-UP CHECK BELONGS ON THIS PATH TOO, and its absence here
+            # cost a whole run. C2_27b_MCP_seed1202 finished the work -- six
+            # solution files, six interface files, three residual histories and
+            # six run logs, the complete deliverable set -- and then wrote
+            # COULD_NOT_COMPLETE. The check built for exactly that fired zero
+            # times, because it hung on write_file alone while this same file
+            # already records that 57% of submitters write RESULT.txt by shell
+            # only. Nineteenth instance of the shape: the mechanism existed,
+            # was instrumented, and could not see the case it was built for.
+            head = ""
+            if "COULD_NOT_COMPLETE" in body.upper():
+                try:
+                    head = _work_on_disk_contradicting_a_give_up(workdir)
+                except Exception:                      # noqa: BLE001
+                    head = ""
+                if head:
+                    head = "\n\n" + head
+            findings = _audit_submission(rt, body)
         except Exception as exc:                       # noqa: BLE001
             return f"\n[auto-audit unavailable: {type(exc).__name__}]"
-        return _format_audit_reply(findings)
+        return head + _format_audit_reply(findings)
 
     # THE PER-LEVEL ARTEFACTS ARE WRITTEN BY THE AGENT'S OWN SOLVER SCRIPTS,
     # WHICH NO write_file HOOK CAN SEE.
@@ -557,6 +575,7 @@ def _bash_tool_for(workdir: Path, *, audit_on_submit: bool = False):
                 try:
                     _txt = f.read_text(errors="replace")
                     got = (_script_noop_check(f, _txt)
+                           + _registry_attribute_check(f, _txt)
                            + _extra_script_checks(f, _txt))
                 except OSError:
                     continue
@@ -592,6 +611,7 @@ def _bash_tool_for(workdir: Path, *, audit_on_submit: bool = False):
                     continue
                 newest = max(same, key=lambda f: now[f])
                 got = (_level_index_check(workdir, newest)
+                       + _identical_levels_check(workdir, newest)
                        + _early_artefact_check(workdir, newest))
                 if got:
                     blocks.append(got)
@@ -637,7 +657,13 @@ def _bash_tool_for(workdir: Path, *, audit_on_submit: bool = False):
             out = (out_s or "") + (("\n[stderr]\n" + err_s) if err_s else "")
             out = out[-12000:] if len(out) > 12000 else out
             # A submission written by heredoc is still a submission.
-            return (out + _script_check_after_shell(_before_scr)
+            # THE REGISTRY CHECK READS THE OUTPUT, NOT THE DISK: the run that
+            # this check exists for left no attribute-constructor call in any
+            # file, only a traceback it misread.
+            return (out
+                    + (_registry_error_check(out) + _eaten_error_check(out)
+                       if audit_on_submit else "")
+                    + _script_check_after_shell(_before_scr)
                     + _artefact_check_after_shell(_before_art)
                     + _audit_after_shell(_before) + _time_left_note())
         except subprocess.TimeoutExpired:
@@ -716,7 +742,9 @@ def _read_write_tools_for(workdir: Path, *, audit_on_submit: bool = False):
             # that forced this.
             if audit_on_submit and p.name != "RESULT.txt":
                 reply += _level_index_check(workdir, p)
+                reply += _identical_levels_check(workdir, p)
                 reply += _script_noop_check(p, content)
+                reply += _registry_attribute_check(p, content)
                 reply += _extra_script_checks(p, content)
                 reply += _early_artefact_check(workdir, p)
             if audit_on_submit and p.name == "RESULT.txt":
@@ -1109,6 +1137,223 @@ def _work_on_disk_contradicting_a_give_up(work: Path) -> str:
           "finding alongside them, and keep working on the finding with "
           "whatever time is left."
     )
+
+
+_REGISTRY_SIG = r"[A-Z][A-Za-z0-9_]*\d+D\d+N"
+# The three real Python attributes on this install that match the signature
+# above are ExactMortarIntegrationUtility{2D2N,3D3N,3D4N} -- measured by
+# scanning dir(KratosMultiphysics) and dir(ConvectionDiffusionApplication),
+# which hold 3 and 0 such names respectively. Excluding the utility family
+# covers all three, so the checks below cannot fire on a legitimate call.
+_REGISTRY_NOT_A_COMPONENT = ("Utility", "Utilities", "Process", "Factory",
+                             "Modeler")
+
+
+def _looks_like_registry_component(name: str) -> bool:
+    return not any(w in name for w in _REGISTRY_NOT_A_COMPONENT)
+
+
+def _REGISTRY_MSG(name: str, where: str) -> str:
+    """The one general truth about reaching a Kratos component from Python."""
+    return (
+        "\n\n[" + where + "]\n"
+        "  * `SomeApplication." + name + "` IS NOT HOW A REGISTERED KRATOS "
+        "COMPONENT IS REACHED, AND THIS AttributeError IS NOT EVIDENCE THAT "
+        + name + " IS MISSING. Kratos elements and conditions live in a C++ "
+        "registry and are built BY NAME through a factory on the model part; "
+        "none of them is exposed as a Python attribute. Measured on this "
+        "install, every one of the three:\n"
+        "        LaplacianElement2D3N   python-attribute=False  "
+        "factory-by-name=True\n"
+        "        ThermalFace2D2N        python-attribute=False  "
+        "factory-by-name=True\n"
+        "        FluxCondition2D2N      python-attribute=False  "
+        "factory-by-name=True\n"
+        "    LaplacianElement2D3N is the element your own solve already runs "
+        "on, so the AttributeError says nothing whatever about existence. "
+        "Build it by name instead:\n"
+        "        mp.CreateNewCondition(\"" + name + "\", cid, [n1, n2], prop)\n"
+        "        mp.CreateNewElement(\"LaplacianElement2D3N\", eid, "
+        "[a, b, c], prop)\n"
+        "    DO NOT CHANGE CODES OVER THIS. A previous run on this cell read "
+        "this same AttributeError as \"not available in version 10.3.0\", "
+        "abandoned the two codes the task prescribes, went looking for a "
+        "third, and submitted nothing at all.")
+
+
+def _registry_attribute_check(written: Path, content: str) -> str:
+    """A registered component written as a module attribute never resolves.
+
+    MEASURED, C2_27b_MCP_seed1203. The served pitfall NAMES the condition, and
+    the write-time check hands over the exact factory line, and the run still
+    wrote `KM.ConvectionDiffusionApplication.ThermalFace2D2N(condition_id,
+    ...)`. Python raised `has no attribute 'ThermalFace2D2N'`; the agent
+    concluded the condition does not exist in this Kratos version, considered
+    replacing both prescribed codes with FEniCSx, and ran out of clock. The
+    condition exists -- so does every other name it would have reached that
+    way.
+    """
+    import re as _re
+
+    if written.suffix != ".py":
+        return ""
+    for m in _re.finditer(r"\.\s*(" + _REGISTRY_SIG + r")\s*\(", content):
+        if _looks_like_registry_component(m.group(1)):
+            return _REGISTRY_MSG(
+                m.group(1),
+                "early check of " + written.name + ", read from the script "
+                "you just wrote")
+    return ""
+
+
+def _registry_error_check(output: str) -> str:
+    """The same truth, keyed on the ERROR the agent actually read.
+
+    This is the channel that matters. The broken constructor in seed1203 was
+    not in any file at the end of the run -- all three of its scripts hold
+    zero attribute-constructor calls -- so a check that reads what is on disk
+    would have missed it. What the agent ended up with was the traceback, and
+    the traceback is what it misread.
+    """
+    import re as _re
+
+    m = _re.search(r"has no attribute ['\"](" + _REGISTRY_SIG + r")['\"]",
+                   output)
+    if m and _looks_like_registry_component(m.group(1)):
+        return _REGISTRY_MSG(
+            m.group(1),
+            "the command you just ran hit an AttributeError on a Kratos "
+            "component name")
+    return ""
+
+
+import re as _re_mod                                   # noqa: E402
+
+_LEVEL_FILE = _re_mod.compile(
+    r"^(?P<stem>solution)_level(?P<k>\d+)(?P<side>_[AB])?\.csv$")
+
+
+def _value_column(p: Path) -> list[str] | None:
+    """The last column of a probe file, as raw text -- exact by construction."""
+    try:
+        rows = [r for r in p.read_text(errors="replace").splitlines() if r.strip()]
+    except OSError:
+        return None
+    if len(rows) < 3:
+        return None
+    if any(c.isalpha() for c in rows[0]):
+        rows = rows[1:]
+    out = []
+    for r in rows:
+        parts = r.split(",")
+        if len(parts) < 2:
+            return None
+        out.append(parts[-1].strip())
+    return out or None
+
+
+def _identical_levels_check(workdir: Path, written: Path) -> str:
+    """The same field submitted at every level. An order cannot come from it.
+
+    MEASURED, C2_27b_MCP_seed1202. Its side A is BIT-IDENTICAL at all three
+    levels -- max|u_i - u_j| = 0.000e+00 for every pair, peak 0.1332715818041668
+    three times -- so it solved subdomain A once and wrote the same 1936 values
+    into solution_level1_A.csv, solution_level2_A.csv and solution_level3_A.csv.
+    log2(|L1-L2| / |L2-L3|) is 0/0 on that. Its side B does refine
+    (2.307290e-03, 2.364044e-03, 2.370374e-03), which is what makes the copied
+    side A a silent defect rather than an obvious one: the submission looks
+    like a three-level study and half of it is one solve.
+
+    The shape is general and not coupled-specific: a level index that never
+    reaches the mesh, or a solve whose result is written in a loop that forgot
+    to re-solve, produces exactly this on any cell. It is also the cheapest
+    fabrication signature there is -- identical bytes.
+    """
+    m = _LEVEL_FILE.match(written.name)
+    if m is None:
+        return ""
+    k = int(m.group("k"))
+    side = m.group("side") or ""
+    mine = _value_column(written)
+    if mine is None:
+        return ""
+    for other_k in (k - 1, k + 1):
+        if other_k < 1:
+            continue
+        sib = written.with_name(f"solution_level{other_k}{side}.csv")
+        if not sib.exists():
+            continue
+        theirs = _value_column(sib)
+        if theirs is None or len(theirs) != len(mine):
+            continue
+        if theirs == mine:
+            return (
+                "\n\n[early check of " + written.name + ", against "
+                + sib.name + ":]\n"
+                "  * THESE TWO LEVELS ARE BIT-IDENTICAL -- all "
+                + str(len(mine)) + " values equal, so the difference between "
+                "them is exactly zero. A convergence order is computed from "
+                "level DIFFERENCES: log2(|L1-L2|/|L2-L3|) on identical levels "
+                "is 0/0, and a submission whose levels do not differ cannot "
+                "show an order however correct each level is. Either the solve "
+                "ran once and the result was written into every level file, or "
+                "the level index never reached the mesh -- print the node or "
+                "DOF count inside the solve at each level and check that it "
+                "actually changes. A run that did this wrote the same 1936 "
+                "values three times on one subdomain while the other subdomain "
+                "refined normally, so nothing else in the submission looked "
+                "wrong.")
+    return ""
+
+
+def _eaten_error_check(output: str) -> str:
+    """A nonzero exit whose captured output does not contain the reason.
+
+    MEASURED, C2_27b_MCP_seed1201. Its run_log.txt reads, in full: `4C stdout:`
+    (empty), then the MPI_ABORT boilerplate, then `4C return code: 1`. From
+    that the run concluded "the 4C binary requires specific MPI environment
+    configuration", listed it as blocker number one, and filed
+    COULD_NOT_COMPLETE.
+
+    The reason had not been withheld, it had been destroyed. 4C's stdout is
+    block-buffered and MPI_Abort tears the process down before the flush. Same
+    rejected deck, three invocations, measured: plain capture 429 bytes with no
+    reason at all; `2>&1` merged 429 bytes, still none; `stdbuf -oL -eL` 2164
+    bytes carrying `Section 'NOT_A_REAL_SECTION' is not a valid section name.`;
+    `mpirun -np 1` 2164 bytes, identical.
+
+    OASiS's own runner has wrapped 4C in `stdbuf -oL` for a long time. An agent
+    that invokes the binary itself never saw that, which is the same shape of
+    defect as the four before it: the mechanism existed and did not reach the
+    case it was built for.
+    """
+    if "MPI_ABORT was invoked" not in output:
+        return ""
+    # If the reason IS present, this is a normal diagnosable failure.
+    for marker in ("ERROR in", "not a valid section", "is not registered",
+                   "Traceback (most recent call last)"):
+        if marker in output:
+            return ""
+    return (
+        "\n\n[the command you just ran aborted and the reason is NOT in what "
+        "came back]\n"
+        "  * THIS IS NOT AN MPI OR ENVIRONMENT PROBLEM. 4C's stdout is "
+        "block-buffered, and when it rejects a deck MPI_Abort tears the "
+        "process down before that buffer is flushed, so the one line naming "
+        "the defect is destroyed and only the MPI boilerplate survives. Run "
+        "it again, unchanged, as:\n"
+        "        stdbuf -oL -eL /home/alexander/4C/build/4C deck.4C.yaml out "
+        "2>&1 | tee run.log\n"
+        "    or `mpirun -np 1 ...`. Measured on one rejected deck, same deck, "
+        "three invocations: plain capture 429 bytes with NO reason; `2>&1` "
+        "merged 429 bytes, still no reason; stdbuf 2164 bytes carrying `PROC 0 "
+        "ERROR in 4C_io_input_file.cpp, line 546: Section "
+        "'NOT_A_REAL_SECTION' is not a valid section name.`; mpirun 2164 "
+        "bytes, the same. `No protocol specified` and `Invalid "
+        "MIT-MAGIC-COOKIE-1 key` are X11 noise from a headless session and "
+        "appear on successful runs too -- they are not the failure. A previous "
+        "run on this cell read this exact output as an MPI configuration "
+        "issue and submitted nothing.")
 
 
 def _script_noop_check(written: Path, content: str) -> str:

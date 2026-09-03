@@ -101,16 +101,49 @@ def test_it_supplies_no_physics(tmp_path):
         assert leak not in out, f"the notice leaks method: {leak!r}"
 
 
-def test_only_the_oasis_arm_gets_it():
-    """The bare arm must be untouched — this is an OASiS gate."""
-    src = (REPO / "langgraph_eval" / "agent.py").read_text()
-    assert "audit_on_submit=True" in src
-    i = src.index("_work_on_disk_contradicting_a_give_up(workdir)")
-    # the call sits inside the audit_on_submit branch, which only
-    # build_mcp_agent sets
-    head = src[:i]
-    assert "if audit_on_submit and p.name ==" in head[-2000:], (
-        "the give-up check is not inside the OASiS-only branch")
+def test_only_the_oasis_arm_gets_it(tmp_path):
+    """The bare arm must be untouched — this is an OASiS gate.
+
+    ASKED OF THE BEHAVIOUR, ON EVERY CHANNEL, not of the source text. The
+    earlier version located the call site and asserted that the 2000 characters
+    before it contained `if audit_on_submit and p.name ==`. That is a proxy for
+    "OASiS-only", and it went red the moment the check was ALSO wired to the
+    shell path — where it is equally OASiS-only, guarded by
+    `if not audit_on_submit: return ""` at the top of _audit_after_shell.
+
+    A guard written against a proxy passes when the property is broken in a way
+    the proxy does not see, and fails when the property holds in a way it does
+    not recognise. This one did the second. Both channels are now driven and
+    both arms are checked, which is the property itself.
+    """
+    import sys
+    sys.path.insert(0, str(REPO))
+    from langgraph_eval.agent import _bash_tool_for, _read_write_tools_for
+
+    body = "COULD_NOT_COMPLETE\nran out of time\n"
+    for k in (1, 2, 3):
+        for side in ("A", "B"):
+            (tmp_path / f"solution_level{k}_{side}.csv").write_text(
+                "x, y, u\n0.1, 0.1, 1.0e-03\n0.2, 0.2, 2.0e-03\n")
+        (tmp_path / f"residual_level{k}.csv").write_text(
+            "iteration,interface_residual\n1,3.4e-01\n2,1.5e-03\n3,7.1e-06\n")
+
+    MARK = "FILING A GIVE-UP ON TOP OF WORK THAT IS ON DISK"
+    seen = {}
+    for arm in (True, False):
+        write = next(t for t in _read_write_tools_for(
+            tmp_path, audit_on_submit=arm) if t.name == "write_file")
+        shell = _bash_tool_for(tmp_path, audit_on_submit=arm)
+        by_write = write.invoke({"path": "RESULT.txt", "content": body})
+        by_shell = shell.invoke(
+            {"command": "cat > RESULT.txt <<'XEOF'\n" + body + "XEOF"})
+        seen[arm] = (MARK in by_write, MARK in by_shell)
+
+    assert seen[True] == (True, True), (
+        "the OASiS arm must be told on BOTH channels; 57% of submitters write "
+        f"RESULT.txt by shell only. got write/shell = {seen[True]}")
+    assert seen[False] == (False, False), (
+        f"the bare arm must be told on neither channel; got {seen[False]}")
 
 
 def test_a_placeholder_only_export_does_not_fire(tmp_path):

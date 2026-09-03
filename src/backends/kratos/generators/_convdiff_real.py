@@ -36,6 +36,19 @@ it, and each one had a wrong first guess:
         flux on nodes AND conditions      max|T| = 3.605675e-03
     numpy.allclose on the first two is True. This is why it is invisible: the
     imported flux leaves no trace at all.
+  * THE COMPONENT NAME GOES IN A STRING, THROUGH THE FACTORY:
+        mp.CreateNewCondition("ThermalFace2D2N", cid, [n1, n2], prop)
+    Elements and conditions live in a C++ registry and NONE of them is a
+    Python attribute, so `SomeApplication.ThermalFace2D2N(...)` raises
+    `has no attribute` for every name that does exist. Measured on this
+    install, all three the same way:
+        LaplacianElement2D3N   python-attribute=False  factory-by-name=True
+        ThermalFace2D2N        python-attribute=False  factory-by-name=True
+        FluxCondition2D2N      python-attribute=False  factory-by-name=True
+    So that AttributeError is never evidence a component is missing. One run
+    read it as "not available in version 10.3.0" and abandoned the codes its
+    task prescribed. A name that IS absent fails differently, inside
+    CreateNewCondition: `The Condition "ThermalFace2D" is not registered!`.
   * Kratos prints from C++ streams. An in-process `os.dup2` redirect of fd 1
     captured ZERO bytes. If a log has to show which code ran, run the solve in
     a SUBPROCESS and capture that.

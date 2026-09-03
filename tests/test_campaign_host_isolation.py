@@ -5,8 +5,16 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+
+# The harness tests need the LangGraph extras, which live in a
+# separate virtualenv (.venv-lg). Without this guard a run from
+# the corpus interpreter aborts COLLECTION, so the whole suite
+# reports nothing rather than skipping these few modules.
+pytest.importorskip("langchain_core")
 
 from langgraph_eval import agent as A  # noqa: E402
 

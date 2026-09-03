@@ -12,7 +12,15 @@ never audits; a non-submission write never audits.
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+# The harness tests need the LangGraph extras, which live in a
+# separate virtualenv (.venv-lg). Without this guard a run from
+# the corpus interpreter aborts COLLECTION, so the whole suite
+# reports nothing rather than skipping these few modules.
+pytest.importorskip("langchain_core")
+
 from langgraph_eval.agent import _read_write_tools_for          # noqa: E402
 
 

@@ -102,19 +102,42 @@ class TestHonestyGuardChecksUseNotPresence(unittest.TestCase):
         self.assertIn(".Run()", t)
         self.assertEqual([], b.validate_input(t))
 
+    # A ROUTE DECLARED NOT RUNNABLE IS NOT A DISHONEST TEMPLATE.
+    #
+    # linear_elasticity/2d_nonlinear returns a reference entry that says so in
+    # its first three lines and then records what was measured:
+    # TotalLagrangianElement2D3N with KirchhoffSaintVenantPlaneStrain2DLaw
+    # under Newton-Raphson hits MAX ITERATIONS on every load step and returns
+    # tip uy = -2.2917e+00 where the verified linear answer on the same mesh
+    # and load is 3.3040e-02, a factor of 69 at a load small enough that the
+    # two must agree. Serving that, labelled, is the honest option; serving a
+    # plausible-looking deck that diverges is the dishonest one.
+    #
+    # The exemption is the exact declared sentence and nothing broader, so a
+    # template cannot pass by being vague about whether it runs.
+    _DECLARED_NOT_RUNNABLE = "NOT a runnable input"
+
     def test_every_template_still_passes(self):
         b = self._backend()
-        rejected = []
+        rejected, declared = [], []
         for p in b.supported_physics():
             for v in (p.template_variants or ["default"]):
                 try:
                     t = b.generate_input(p.name, v, {})
                 except Exception:      # noqa: BLE001 - a different defect
                     continue
-                if b.validate_input(t):
+                if not b.validate_input(t):
+                    continue
+                if self._DECLARED_NOT_RUNNABLE in t:
+                    declared.append(f"{p.name}:{v}")
+                else:
                     rejected.append(f"{p.name}:{v}")
         self.assertEqual([], rejected,
                          "tightening the guard turned working templates red")
+        self.assertEqual(["linear_elasticity:2d_nonlinear"], sorted(declared),
+                         "the set of routes declared non-runnable changed; "
+                         "either one was added without a measurement behind "
+                         "it, or the declared one silently started passing")
 
     def test_a_material_point_count_off_the_allowed_set_is_refused(self):
         """The generator must not emit a deck Kratos will reject by name.

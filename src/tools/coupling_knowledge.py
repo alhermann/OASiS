@@ -289,7 +289,7 @@ that most often sink a coupled submission:
     a sampler that reads the nearest NODE instead of interpolating, which caps
         your measured convergence order at 1 however good the solve was
 
-It costs one call. Measured across this campaign, 3% of coupled runs used it,
+It costs one call. Measured, 3% of coupled runs used it,
 and the defects above account for most of the submissions that were graded
 malformed or fabricated rather than wrong.
 
@@ -1106,7 +1106,7 @@ Every cell is graded at a FIXED grid of points that does not move with your
 mesh, so the points sit INSIDE elements, not on nodes.
 
 READING THE NEAREST NODE'S VALUE CAPS YOUR MEASURED ORDER AT 1, WHATEVER YOUR
-SOLVER DID. This is the single most common scoring defect in this campaign:
+SOLVER DID. This is the single most common scoring defect measured:
 144 runs did it, and their observed orders cluster at 0 and 1. Nearest-node
 lookup is a piecewise-CONSTANT reconstruction with O(h) error, so it dominates
 the O(h^2) or O(h^3) error of the solve and you measure the reconstruction
@@ -1271,7 +1271,7 @@ tidy invented one. Write the rows you have.
 _NGSOLVE_DOFS = """
 NGSolve: THE THREE CALLS A PARTICIPANT NEEDS, AND THE ONE THAT DOES NOT EXIST
 ─────────────────────────────────────────────────────────────────────────────
-Measured across this campaign's runs, NGSolve dof access is the largest
+Measured across many runs, NGSolve dof access is the largest
 remaining cluster of API errors -- `GetDofNrs(): incompatible function
 arguments` and `'BaseVector' object has no attribute 'Size'` between them
 account for a dozen failures, each costing the run several minutes of
