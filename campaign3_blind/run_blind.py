@@ -1320,8 +1320,14 @@ def main():
     os.environ["OASIS_SOURCE_GIT_COMMIT"] = source_build["git_commit"]
     os.environ["OASIS_SOURCE_SHA256"] = source_build["source_sha256"]
     sys.path.insert(0, str(Path(source_build["snapshot_path"]) / "src"))
+    # flush=True: this line identifies WHICH BUILD a live round is on, and
+    # block-buffered stdout held it back until process exit -- a launch at
+    # 10:38 on 4bd716d7 showed 997f53e1 (the previous round's line) as the
+    # newest entry in the cell log for its whole lifetime, which reads as a
+    # stale snapshot when it is only a stale buffer.
     print(f"[source build] {source_build['git_commit'][:12]} "
-          f"sha256={source_build['source_sha256'][:16]}... (immutable)")
+          f"sha256={source_build['source_sha256'][:16]}... (immutable)",
+          flush=True)
 
     preflight_or_die(a.problems)
 
