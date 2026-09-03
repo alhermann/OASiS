@@ -434,3 +434,55 @@ def test_the_real_round20_runs_fire_and_the_correct_one_does_not():
     if ok.exists():
         assert [f for f in _all_findings(ok)
                 if f["sequence"] == "interface flux constructed"] == []
+
+
+# ═══════ the family reads the file's OWN header, not the scalar layout ═══════
+#
+# MEASURED, C1_27b_MCP_seed2302. Every check read interface CSVs through the
+# scalar heat layout x,y,u,qn; on C1's thermo-mechanical schema
+# x,y,T,ux,uy,qn,tx,ty that takes ty -- identically zero on both sides -- as
+# THE flux. Both wrong ways at once: the all-zero branch fired twice on a flux
+# that is 0.42 in truth (a false finding served to the agent), and the mirror
+# branch stayed silent while qn AND tx were bit-exactly negated at every
+# level. C2-shape anchoring inside the product.
+
+def _write_8col(tmp_path, mirror=True):
+    ys = [0.25 + (i + 0.5) * 0.5 / 44 for i in range(44)]
+    for k in (1, 2, 3):
+        for side, sgn in (("A", 1.0), ("B", -1.0 if mirror else -1.0)):
+            rows = ["x,y,T,ux,uy,qn,tx,ty"]
+            for i, y in enumerate(ys):
+                qn = sgn * (0.4 + 0.01 * i)
+                tx = sgn * 0.02
+                if not mirror and side == "B":
+                    qn += 1e-06                     # a real, small mismatch
+                rows.append(f"0.625,{y!r},{0.26 - 1e-3*i!r},2.5e-05,2.5e-05,"
+                            f"{qn!r},{tx!r},0.0")
+            (tmp_path / f"interface_level{k}_{side}.csv").write_text(
+                "\n".join(rows))
+
+
+def test_an_8col_mirror_fires_and_the_zero_branch_stays_silent(tmp_path):
+    _write_8col(tmp_path, mirror=True)
+    fs = _all_findings(tmp_path)
+    assert [f for f in fs if f["sequence"] == "interface flux constructed"], \
+        "mirror silent on an 8-column trace"
+    assert not [f for f in fs if f["sequence"] == "interface flux all zero"], \
+        "the ty=0 column was read as THE flux again"
+
+
+def test_an_8col_real_mismatch_is_left_alone(tmp_path):
+    _write_8col(tmp_path, mirror=False)
+    fs = _all_findings(tmp_path)
+    assert not [f for f in fs if f["sequence"] == "interface flux constructed"]
+    assert not [f for f in fs if f["sequence"] == "interface flux all zero"]
+
+
+def test_the_real_c1_run_fires_the_mirror_not_the_zero():
+    w = ROOT / "campaign3_blind/runs/C1_27b_MCP_seed2302/work"
+    if not w.exists():
+        import pytest as _p
+        _p.skip("C1 seed2302 absent")
+    fs = _all_findings(w)
+    assert [f for f in fs if f["sequence"] == "interface flux constructed"]
+    assert not [f for f in fs if f["sequence"] == "interface flux all zero"]

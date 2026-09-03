@@ -797,6 +797,74 @@ def contract_findings(work: Path) -> list[dict]:
     return out
 
 
+
+_IFACE_COORD_NAMES = ("x", "y", "z")
+_IFACE_FLUX_PREFIXES = ("q", "t")      # qn, q, tx, ty, tz, traction_x, ...
+
+
+def _read_iface_by_header(path):
+    """(points, values, fluxes) split by the file's OWN header names.
+
+    The scalar heat layout x,y,u,qn is one case, not the definition: a
+    thermo-mechanical interface carries x,y,T,ux,uy,qn,tx,ty, and reading it
+    through the scalar layout takes ty for the flux. Coordinates are the
+    leading x/y/z columns; flux components are the TRAILING run of columns
+    whose names start with q or t (qn, tx, ty ...); everything between is the
+    field trace. Header-less or unsplittable files fall back to the scalar
+    reader so 4-column behaviour is unchanged. Returns None when unreadable.
+    Note "T" (temperature) starts with t too -- which is why only the
+    TRAILING run counts as flux: T sits before the displacement columns, so
+    the trailing scan stops before it.
+    """
+    try:
+        rows = [r for r in path.read_text(errors="replace").splitlines()
+                if r.strip()]
+        if len(rows) < 2:
+            return None
+        hdr = [c.strip().lower() for c in rows[0].split(",")]
+        if any(ch.isdigit() for ch in rows[0].replace(",", " ").split()[0]):
+            return None                        # no header line: caller falls back
+        ncoord = 0
+        for name in hdr:
+            if name in _IFACE_COORD_NAMES:
+                ncoord += 1
+            else:
+                break
+        nflux = 0
+        for name in reversed(hdr[ncoord:]):
+            if name and name[0] in _IFACE_FLUX_PREFIXES and name not in ("t",):
+                nflux += 1
+            else:
+                break
+        if ncoord < 1 or nflux < 1 or ncoord + nflux >= len(hdr) + 1:
+            return None
+        nval = len(hdr) - ncoord - nflux
+        pts, vals, flux = [], [], []
+        for r in rows[1:]:
+            parts = [c.strip() for c in r.split(",")]
+            if len(parts) != len(hdr):
+                return None
+            nums = [float(c) for c in parts]
+            pts.append(tuple(nums[:ncoord]))
+            vals.append(nums[ncoord:ncoord + nval] or [0.0])
+            flux.append(nums[ncoord + nval:])
+        return pts, vals, flux
+    except Exception:                          # noqa: BLE001
+        return None
+
+
+def _read_iface(path, _IF, want_flux=True):
+    """Header-aware read with the scalar reader as the fallback."""
+    got = _read_iface_by_header(path)
+    if got is not None:
+        return got
+    try:
+        g, _why = _IF.read_interface_csv(path, 2, 1, 1 if want_flux else 0)
+    except Exception:                          # noqa: BLE001
+        return None
+    return g
+
+
 def interface_sign_findings(work: Path) -> list[dict]:
     """The interface flux sign, from the agent's OWN files. Coupled cells only.
 
@@ -849,13 +917,16 @@ def interface_sign_findings(work: Path) -> list[dict]:
 
     inverted, assessed, jumps = [], 0, {}
     for (lvl, side), path in sorted(ifs.items()):
-        try:
-            gi, _why = _IF.read_interface_csv(path, 2, 1, 1)
-        except Exception:
-            gi = None
+        gi = _read_iface(path, _IF)
         if gi is None:
             continue
-        ipts, _iv, iq = gi
+        ipts, _giv, iq = gi
+        # the k = q / (-du/dn) heuristic is defined for ONE scalar field and
+        # ONE flux component; on a multi-component trace it pairs the wrong
+        # columns, so it is skipped there (the ratio/mirror/zero branches
+        # below handle every layout).
+        if len(_giv[0]) != 1 or len(iq[0]) != 1:
+            continue
         sp = sols.get((lvl, side))
         if sp is None:
             continue
@@ -880,8 +951,8 @@ def interface_sign_findings(work: Path) -> list[dict]:
         if not (a and b):
             continue
         try:
-            ga, _ = _IF.read_interface_csv(a, 2, 1, 1)
-            gb, _ = _IF.read_interface_csv(b, 2, 1, 1)
+            ga = _read_iface(a, _IF)
+            gb = _read_iface(b, _IF)
             if ga and gb:
                 jumps[lvl] = _IF.two_sided_jumps(ga, gb).get("jump_q_rel")
         except Exception:
@@ -901,7 +972,7 @@ def interface_sign_findings(work: Path) -> list[dict]:
     peaks = {}
     for (lvl, side), path in sorted(ifs.items()):
         try:
-            g, _w = _IF.read_interface_csv(path, 2, 1, 1)
+            g = _read_iface(path, _IF)
         except Exception:
             g = None
         if g is None:
@@ -936,8 +1007,8 @@ def interface_sign_findings(work: Path) -> list[dict]:
         if not (a and b):
             continue
         try:
-            ga, _ = _IF.read_interface_csv(a, 2, 1, 1)
-            gb, _ = _IF.read_interface_csv(b, 2, 1, 1)
+            ga = _read_iface(a, _IF)
+            gb = _read_iface(b, _IF)
             if not (ga and gb):
                 continue
             qa = [c for row in ga[2] for c in row]
@@ -1039,8 +1110,8 @@ def interface_sign_findings(work: Path) -> list[dict]:
         if not (a and b):
             continue
         try:
-            ga, _ = _IF.read_interface_csv(a, 2, 1, 1)
-            gb, _ = _IF.read_interface_csv(b, 2, 1, 1)
+            ga = _read_iface(a, _IF)
+            gb = _read_iface(b, _IF)
             if not (ga and gb):
                 continue
             qa = [c for row in ga[2] for c in row]
@@ -1113,7 +1184,7 @@ def interface_sign_findings(work: Path) -> list[dict]:
     rowcounts: dict = {}
     for (lvl, side), path in sorted(ifs.items()):
         try:
-            g, _w = _IF.read_interface_csv(path, 2, 1, 1)
+            g = _read_iface(path, _IF)
         except Exception:
             g = None
         if g is not None:
@@ -1163,8 +1234,8 @@ def interface_sign_findings(work: Path) -> list[dict]:
         if not (a and b) or claimed <= 0:
             continue
         try:
-            ga, _ = _IF.read_interface_csv(a, 2, 1, 0)
-            gb, _ = _IF.read_interface_csv(b, 2, 1, 0)
+            ga = _read_iface(a, _IF, want_flux=False)
+            gb = _read_iface(b, _IF, want_flux=False)
             if not (ga and gb):
                 continue
             ua = [v for row in ga[1] for v in row]
