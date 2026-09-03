@@ -2221,6 +2221,11 @@ _DECIDING_FACTS = {
         "7. `No protocol specified` and `Invalid MIT-MAGIC-COOKIE-1 key` on "
         "stderr are X11 noise from a headless session. They are not the "
         "failure and they appear on successful runs too."),
+    # Every line measured by execution on this install (dolfinx 0.10.0,
+    # ufl 2025.2.1) on 2026-09-03. repr-generated literal: the measured
+    # text contains brace/quote sequences that hand-escaping kept
+    # breaking.
+    "fenics": "1. `ufl.FiniteElement` NO LONGER EXISTS (dolfinx 0.10 / ufl 2025.2: AttributeError; the lowercase hint `ufl.finiteelement` is NOT what you want either). Build spaces the modern way -- fem.functionspace(mesh, ('Lagrange', 1)) with lowercase f, or basix.ufl.element('Lagrange', 'triangle', 1). Both measured working on this install.\n2. `LinearProblem` REQUIRES the keyword `petsc_options_prefix` on this install (TypeError without it). Measured working:\n       p = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[bc],\n           petsc_options={'ksp_type': 'preonly', 'pc_type': 'lu'},\n           petsc_options_prefix='run')\n       uh = p.solve()\n   Its solver is the PUBLIC `p.solver`; touching `p._solver` raises AttributeError (one run died on exactly that).\n3. dolfinx is SILENT by default: before creating the mesh, call dolfinx.log.set_log_level(dolfinx.log.LogLevel.INFO) -- the DOLFINX_LOGLEVEL environment variable is NOT honoured, and a run whose console output stays empty cannot show which code ran.\n4. Evaluate a Function at arbitrary points with the bb-tree route: bb = dolfinx.geometry.bb_tree(mesh, mesh.topology.dim); cand = dolfinx.geometry.compute_collisions_points(bb, pts); cells = dolfinx.geometry.compute_colliding_cells(mesh, cand, pts); then uh.eval(pts, first_cell_per_point). Nearest-DOF lookup is the export defect that turns a converged solve into a wrong answer.",
     "kratos": (
         "1. `LaplacianElement2D3N` exists; `LaplacianElement2D4N` does NOT "
         "('is not registered'). 2D is P1 TRIANGLES.\n"
@@ -2263,6 +2268,9 @@ _DECIDING_FACTS = {
         "captures ZERO bytes. Run the solve in a SUBPROCESS if the log has to "
         "show which code ran."),
 }
+_DECIDING_FACTS["fenicsx"] = _DECIDING_FACTS["fenics"]
+_DECIDING_FACTS["dolfinx"] = _DECIDING_FACTS["fenics"]
+
 _DECIDING_UNIVERSAL = (
     "* READ YOUR FIELD AT THE PROBE POINTS BY INTERPOLATION, NEVER BY NEAREST "
     "NODE. Proven against the sealed answer: one solve exported two ways gave "
