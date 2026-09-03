@@ -16,10 +16,30 @@ def _viscoelasticity_3d_stress_relax(params: dict) -> str:
     """Uncoupled viscoelastic stress-relaxation test: hold a step
     displacement on the top face and observe the stress decay.
 
-    Two-term Prony series on a neo-Hookean ground state. Run time long
+    Two-term Prony series on an isotropic elastic ground state. Run time long
     enough to capture both relaxation modes."""
-    c1 = params.get("c1", 1.0)
-    k = params.get("bulk_modulus", 1000.0)
+    # THE NESTED ELASTIC IS THE SIMPLEST VALID BASE MATERIAL, ON PURPOSE.
+    # This demo's job is the viscoelastic WRAPPER structure (type= + g_i/t_i +
+    # nested <elastic>); any elastic law nests the same way. MEASURED over two
+    # three-seed rounds of a stress-relaxation task: when this slot held a
+    # Mooney-Rivlin demo material, the two worst runs copied it into 4 and 3
+    # of their decks and died in large-deformation debugging ("negative
+    # jacobians"), while every run that succeeded -- in both arms -- nested
+    # plain isotropic elasticity (Mooney-Rivlin count 0 across all nine). A
+    # demo ingredient gets copied as if it were a recommendation, so the demo
+    # carries the least-surprising one.
+    #
+    # THE WRAPPER FAMILY MUST MATCH THE NESTED ELASTIC'S FAMILY. Measured on
+    # FEBio 4.12: type="uncoupled viscoelastic" REFUSES a (coupled) isotropic
+    # elastic child -- 'Component "Material1" needs to have property "elastic"
+    # defined' -- the property exists but its family does not fit the slot.
+    # (An XML comment inside <material> was first blamed for that error and is
+    # exonerated: the failure is identical without it.) The COUPLED wrapper
+    # type="viscoelastic" accepts the isotropic child and runs to NORMAL
+    # TERMINATION; a submission on this install solved a full three-level
+    # relaxation study with exactly that pairing.
+    E = params.get("youngs_modulus", 1000.0)
+    v = params.get("poisson_ratio", 0.3)
     g1 = params.get("g1", 0.4)
     t1 = params.get("t1", 0.5)
     g2 = params.get("g2", 0.3)
@@ -37,17 +57,16 @@ def _viscoelasticity_3d_stress_relax(params: dict) -> str:
     </solver>
   </Control>
   <Material>
-    <material id="1" name="Material1" type="uncoupled viscoelastic">
+    <material id="1" name="Material1" type="viscoelastic">
       <density>1.0</density>
       <g1>{g1}</g1>
       <t1>{t1}</t1>
       <g2>{g2}</g2>
       <t2>{t2}</t2>
-      <elastic type="Mooney-Rivlin">
+      <elastic type="isotropic elastic">
         <density>1.0</density>
-        <c1>{c1}</c1>
-        <c2>0.0</c2>
-        <k>{k}</k>
+        <E>{E}</E>
+        <v>{v}</v>
       </elastic>
     </material>
   </Material>
