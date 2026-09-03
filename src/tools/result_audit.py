@@ -919,6 +919,52 @@ def interface_sign_findings(work: Path) -> list[dict]:
     # were plausible, and nothing here spoke. Physically a partitioned
     # interface with zero flux everywhere transmitted nothing: the two
     # subdomains were solved as if insulated from each other.
+    # AND BIT-EXACT OPPOSITION IS ITS MIRROR. Two runs in one round exported
+    # side B's flux as side A's negated to the last bit -- max|qA+qB| exactly
+    # 0.0 at every level over |q| up to 76 -- which slips the same three
+    # branches from the other direction: the sum is zero, so the convention
+    # ratio is silent; both peaks are nonzero, so the all-zero branch is
+    # silent; the implied coefficient is plausible, so the sign branch is
+    # silent. Two independently solved subdomains never agree to the last
+    # bit: a coupling iterated to a 1e-6 relative tolerance leaves a jump of
+    # about that size. Reading "the fluxes are equal and opposite" as an
+    # instruction to CONSTRUCT one side from the other leaves the claim that
+    # two codes met at the interface with no support at all.
+    mirror_lvls = []
+    for lvl in sorted({l for l, _ in ifs}):
+        a, b = ifs.get((lvl, "A")), ifs.get((lvl, "B"))
+        if not (a and b):
+            continue
+        try:
+            ga, _ = _IF.read_interface_csv(a, 2, 1, 1)
+            gb, _ = _IF.read_interface_csv(b, 2, 1, 1)
+            if not (ga and gb):
+                continue
+            qa = [c for row in ga[2] for c in row]
+            qb = [c for row in gb[2] for c in row]
+            n = min(len(qa), len(qb))
+            if n and max(abs(qa[i]) for i in range(n)) > 0 and \
+                    all(qa[i] + qb[i] == 0.0 for i in range(n)):
+                mirror_lvls.append(lvl)
+        except Exception:
+            continue
+    if mirror_lvls:
+        out.append({"sequence": "interface flux constructed",
+                    "values": mirror_lvls, "finding": (
+            "SIDE B'S FLUX IS SIDE A'S NEGATED TO THE LAST BIT at level"
+            + ("s " if len(mirror_lvls) > 1 else " ")
+            + ", ".join(str(l) for l in mirror_lvls)
+            + " (qA + qB is exactly 0.0 at every point). Two independently "
+            "solved subdomains never agree to the last bit -- an iteration "
+            "converged to a 1e-6 relative interface tolerance leaves a jump "
+            "of about that size, not zero. 'Equal and opposite' is a "
+            "statement about the CONVERGED PHYSICS, not an instruction to "
+            "copy one side's column with a sign flip: computed this way, the "
+            "file carries no evidence that the two solutions ever met at the "
+            "interface. Compute each side's q_n = -(K grad u) . n_out from "
+            "that side's OWN solution and its OWN material, and export what "
+            "comes out; a small nonzero mismatch between the sides is the "
+            "signature of a real coupling, not a defect to erase.")})
     zero_lvls = [lvl for lvl in sorted({l for l, _ in peaks})
                  if peaks.get((lvl, "A")) == 0.0 and peaks.get((lvl, "B")) == 0.0]
     if zero_lvls:

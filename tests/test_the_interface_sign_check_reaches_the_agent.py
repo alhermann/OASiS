@@ -379,3 +379,58 @@ def test_it_fires_on_the_real_seed1903_and_reaches_the_agent_route():
     got = [f for f in _all_findings(w)
            if f["sequence"] == "interface flux all zero"]
     assert got and got[0]["values"] == [1, 2, 3]
+
+
+def test_a_flux_constructed_by_negation_is_named(tmp_path):
+    """The mirror of both-sides-zero: qB written as -qA to the last bit.
+
+    MEASURED, round 20: two runs exported max|qA+qB| = 0.0 exactly at every
+    level over |q| up to 76 -- 'equal and opposite' read as an instruction to
+    construct one column from the other. Slips the family from the other
+    direction: sum exactly zero (convention ratio silent), peaks nonzero
+    (all-zero branch silent), plausible coefficient (sign branch silent).
+    """
+    ys = [0.25 + (i + 0.5) * 0.5 / 44 for i in range(44)]
+    for k in (1, 2, 3):
+        for side, sgn in (("A", 1.0), ("B", -1.0)):
+            rows = ["x, y, u, qn"] + [
+                f"0.625, {y!r}, {5.2e-03 - 1e-05*i!r}, {sgn * (0.5 + 0.01*i)!r}"
+                for i, y in enumerate(ys)]
+            (tmp_path / f"interface_level{k}_{side}.csv").write_text(
+                "\n".join(rows))
+    got = [f for f in _all_findings(tmp_path)
+           if f["sequence"] == "interface flux constructed"]
+    assert got and got[0]["values"] == [1, 2, 3]
+    t = got[0]["finding"]
+    assert "NEGATED TO THE LAST BIT" in t
+    assert "not an instruction to" in t.replace("\n", " ")
+    assert "signature of a real coupling" in t
+
+
+def test_a_small_real_mismatch_is_not_called_constructed(tmp_path):
+    ys = [0.25 + (i + 0.5) * 0.5 / 44 for i in range(44)]
+    for k in (1, 2, 3):
+        for side, sgn, eps in (("A", 1.0, 0.0), ("B", -1.0, 1e-06)):
+            rows = ["x, y, u, qn"] + [
+                f"0.625, {y!r}, {5.2e-03 - 1e-05*i!r}, "
+                f"{sgn * (0.5 + 0.01*i) + eps!r}"
+                for i, y in enumerate(ys)]
+            (tmp_path / f"interface_level{k}_{side}.csv").write_text(
+                "\n".join(rows))
+    assert [f for f in _all_findings(tmp_path)
+            if f["sequence"] == "interface flux constructed"] == []
+
+
+def test_the_real_round20_runs_fire_and_the_correct_one_does_not():
+    for run in ("C2_27b_MCP_seed2001", "C2_27b_MCP_seed2002"):
+        w = ROOT / "campaign3_blind/runs" / run / "work"
+        if not w.exists():
+            import pytest as _p
+            _p.skip(f"{run} absent")
+        got = [f for f in _all_findings(w)
+               if f["sequence"] == "interface flux constructed"]
+        assert got and got[0]["values"] == [1, 2, 3], run
+    ok = ROOT / "campaign3_blind/runs/C2_27b_MCP_seed1702/work"
+    if ok.exists():
+        assert [f for f in _all_findings(ok)
+                if f["sequence"] == "interface flux constructed"] == []

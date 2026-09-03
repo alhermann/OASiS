@@ -716,7 +716,8 @@ def _early_artefact_check(workdir: Path, written: Path) -> str:
             _HARD = ("WRONG SIGN", "DOES NOT SHRINK", "SAME SIGN",
                      "ROWS GROW WITH THE LEVEL",
                      "IS NOT THE DISAGREEMENT IN YOUR FILES",
-                     "IDENTICALLY ZERO ON BOTH SIDES")
+                     "IDENTICALLY ZERO ON BOTH SIDES",
+                     "NEGATED TO THE LAST BIT")
             hard = [f for f in found
                     if any(k in f.get("finding", "") for k in _HARD)]
             if hard:
