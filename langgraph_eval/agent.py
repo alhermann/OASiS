@@ -519,7 +519,7 @@ def _bash_tool_for(workdir: Path, *, audit_on_submit: bool = False):
     # records for RESULT.txt -- 57% of submitters wrote it by shell only -- and
     # the fix there was never extended to the artefacts.
     _ART = ("residual_level*.csv", "interface_level*_[AB].csv",
-            "solution_level*.csv")
+            "solution_level*.csv", "*_level*.csv", "*_level*.log")
     # A PARTICIPANT SCRIPT WRITTEN BY HEREDOC IS STILL A PARTICIPANT SCRIPT.
     # 18 of 18 runs on the coupled cell set FACE_HEAT_FLUX with no condition;
     # catching that only on write_file would miss every agent that uses a
@@ -591,7 +591,8 @@ def _bash_tool_for(workdir: Path, *, audit_on_submit: bool = False):
                 if not same:
                     continue
                 newest = max(same, key=lambda f: now[f])
-                got = _early_artefact_check(workdir, newest)
+                got = (_level_index_check(workdir, newest)
+                       + _early_artefact_check(workdir, newest))
                 if got:
                     blocks.append(got)
             return "".join(blocks)
@@ -714,6 +715,7 @@ def _read_write_tools_for(workdir: Path, *, audit_on_submit: bool = False):
             # submission. See _early_artefact_check for the mtime measurement
             # that forced this.
             if audit_on_submit and p.name != "RESULT.txt":
+                reply += _level_index_check(workdir, p)
                 reply += _script_noop_check(p, content)
                 reply += _extra_script_checks(p, content)
                 reply += _early_artefact_check(workdir, p)
@@ -1228,6 +1230,57 @@ def _FLUX_NOOP_MSG(written: Path) -> str:
             "    then set FACE_HEAT_FLUX on those nodes. FluxCondition2D2N "
             "works too. 18 of the last 18 runs on this cell omitted this and "
             "every one of them submitted the no-flux answer.")
+
+
+def _level_index_check(workdir: Path, written: Path) -> str:
+    """`<k>` in a deliverable name is the LEVEL INDEX, not the mesh count.
+
+    MEASURED. C2_27b_MCP_seed1102 solved three levels and wrote them as
+    `level1/solution_level8_A.csv`, `.../solution_level16_A.csv` and so on --
+    naming each file by the mesh resolution the task lists (h = 1/8, 1/16,
+    1/32) instead of by k = 1, 2, 3. The grader reads `level8` as level eight,
+    which is not in the prescribed sequence, so a complete three-level
+    submission was graded as having no usable levels at all. The file is even
+    self-contradictory: `solution_level8_A.csv` sits inside a directory the
+    same run called `level1`.
+
+    Two signals, both free and both from the name alone:
+      * an index that is a power of two at or above 8 -- those are mesh counts,
+        and no blind cell in this campaign prescribes eight refinement levels;
+      * a file whose own `level<N>` disagrees with the `level<M>` directory it
+        was written into.
+    """
+    import re as _re
+
+    m = _re.match(r"(solution|interface|residual|run)_level(\d+)"
+                  r"(_[AB])?\.(csv|log)$", written.name)
+    if not m:
+        return ""
+    n = int(m.group(2))
+    parent = _re.match(r"level(\d+)$", written.parent.name or "")
+    contradicts = parent and int(parent.group(1)) != n
+    if n < 8 and not contradicts:
+        return ""
+    why = []
+    if n >= 8 and (n & (n - 1)) == 0:
+        why.append(f"{n} is a mesh count, not a level index")
+    if contradicts:
+        why.append(f"the name says level {n} but you wrote it into a "
+                   f"directory called {written.parent.name}")
+    if not why:
+        return ""
+    return ("\n\n[early check of " + written.name + ":]\n"
+            "  * WRONG LEVEL INDEX -- " + "; and ".join(why) + ". In "
+            "`solution_level<k>_<side>.csv` and its siblings, `<k>` is the "
+            "REFINEMENT INDEX: 1, 2, 3 for the first, second and third mesh "
+            "in the prescribed sequence. It is NOT the number of cells and "
+            "NOT 1/h. A submission named by the mesh count is read as levels "
+            "8, 16 and 32, none of which the task asked for, so a complete "
+            "three-level result grades as having no usable levels -- measured "
+            "on a real run that had solved all three. Rename to "
+            "`solution_level1_A.csv`, `solution_level2_A.csv`, "
+            "`solution_level3_A.csv`, and likewise for interface_, residual_ "
+            "and run_.")
 
 
 def _early_artefact_check(workdir: Path, written: Path) -> str:
