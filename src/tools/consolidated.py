@@ -1009,10 +1009,26 @@ def _stamp_verification(result: dict, *, evidence_ok: bool, reason: str = "",
         # of their budget unspent — while the served knowledge said the
         # opposite ("a converged run with a failed conservation check is still
         # a result"). The agent obeys the imperative it is holding.
-        _conserv = any(w in (reason or "").lower()
-                       for w in ("balance", "conserv", "flux"))
-        _converged = "did not converge" not in (reason or "").lower()
-        if _conserv and _converged:
+        # ROUTE ON THE PROPERTY, NOT ON THREE WORDS. The first router
+        # recognised a converged-with-caveat run only when the reason contained
+        # balance/conserv/flux. C2_27b_MCP_seed1501's caveat reads "the
+        # coupling CONVERGED, and then failed one of OASiS's silent-wrong
+        # checks ... report the numbers and the caveat" -- no listed word -- so
+        # it fell to the else-branch, and the agent received both "report the
+        # numbers and the caveat" AND "must NOT be reported as a result;
+        # revise the setup and re-run" IN THE SAME PARAGRAPH. It obeyed the
+        # harsher one, exported a residual its own files contradict, and
+        # graded COMPLETED_UNPHYSICAL. A converged run with a failed
+        # downstream check is a result with a finding, whatever the finding is
+        # called; the harsh imperative is for claims with no converged run
+        # behind them.
+        _low = (reason or "").lower()
+        _conserv = any(w in _low for w in ("balance", "conserv", "flux",
+                                           "caveat", "silent-wrong"))
+        _converged = ("did not converge" not in _low
+                      and "not converged" not in _low)
+        _says_converged = "converged" in _low and _converged
+        if (_conserv or _says_converged) and _converged:
             result["verification"] = (
                 "NOT VERIFIED — " + (reason or "a conservation check failed")
                 + ". This is NOT a reason to discard the run: the field your "

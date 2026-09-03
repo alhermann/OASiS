@@ -114,3 +114,56 @@ class TestOrdering(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestAConvergedRunIsNeverToldBothThings(unittest.TestCase):
+    """One reply carried 'report the numbers and the caveat' AND 'must NOT be
+    reported as a result' in the same paragraph.
+
+    MEASURED, C2_27b_MCP_seed1501: its couple call converged and failed a
+    downstream silent-wrong check; the reason string routed on three words
+    (balance/conserv/flux), contained none of them, and fell to the harsh
+    branch -- so the attest appended "must NOT be reported as a result; revise
+    the setup and re-run" directly after couple's own "This is a converged
+    result with a caveat, NOT a failed run: report the numbers and the
+    caveat." The agent obeyed the harsher imperative, exported a residual its
+    own files contradict, and graded COMPLETED_UNPHYSICAL.
+    """
+
+    REAL = ("the coupling CONVERGED, and then failed one of OASiS's "
+            "silent-wrong checks (see `validation`). This is a converged "
+            "result with a caveat, NOT a failed run: report the numbers and "
+            "the caveat.")
+
+    def _stamp(self, reason):
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+        from tools.consolidated import _stamp_verification
+        r = {}
+        _stamp_verification(r, evidence_ok=False, reason=reason)
+        return r["verification"]
+
+    def test_the_real_reason_gets_deliverables_first_and_no_contradiction(self):
+        v = self._stamp(self.REAL)
+        self.assertIn("WRITE YOUR DELIVERABLES FIRST", v)
+        self.assertNotIn("must NOT be reported", v)
+
+    def test_a_genuinely_unconverged_run_keeps_the_hard_stop(self):
+        v = self._stamp("the solver did not converge "
+                        "(residual 3e-2 > tol 1e-6)")
+        self.assertIn("must NOT be reported", v)
+        self.assertNotIn("WRITE YOUR DELIVERABLES FIRST", v)
+
+    def test_an_unbound_claim_keeps_the_hard_stop(self):
+        v = self._stamp("the result is not bound to a check-passing run")
+        self.assertIn("must NOT be reported", v)
+
+    def test_no_reply_ever_carries_both_imperatives(self):
+        for reason in (self.REAL, "flux balance off by 100.8%",
+                       "did not converge", "not bound to a run",
+                       "silent-wrong check failed on the coarsest level"):
+            v = self._stamp(reason)
+            self.assertFalse("report the numbers and the caveat" in v
+                             and "must NOT be reported" in v,
+                             f"contradictory reply for: {reason!r}")
