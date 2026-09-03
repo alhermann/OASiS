@@ -1131,11 +1131,89 @@ def build_bare_agent(*, size: str, seed: int, workdir: Path, depth: int = 0):
     return create_react_agent(llm, tools=tools, prompt=BARE_SYSTEM)
 
 
+# FILES WRITTEN DURING AN MCP TOOL CALL GET THE SAME CHECKS AS FILES WRITTEN
+# BY THE SHELL. MEASURED, C2_27b_MCP_seed1701: it drove its coupling through
+# couple() -- exactly what the must-read asks -- and its participant scripts
+# wrote run_level1_B.log (179 bytes of the agent's own prose) DURING the MCP
+# call. The discarded-proof check, wired to run_bash and write_file, never saw
+# it: the artefacts appeared between hook points. Twenty-first instance of the
+# theme, on the newest mechanism. The hook below is plumbing only -- every
+# check body stays in OASiS (tools/workspace_advisor).
+_MCP_HOOK_ART = ("residual_level*.csv", "interface_level*_[AB].csv",
+                 "solution_level*.csv", "*_level*.csv", "*_level*.log")
+
+
+def _mcp_artefact_mtimes(workdir: Path) -> dict:
+    out = {}
+    for pat in _MCP_HOOK_ART:
+        for f in workdir.rglob(pat):
+            try:
+                out[f] = f.stat().st_mtime
+            except OSError:
+                pass
+    return out
+
+
+def _post_mcp_artefact_check(workdir: Path, before: dict) -> str:
+    """One check per file kind over what the MCP call caused to appear."""
+    try:
+        import fnmatch
+        now = _mcp_artefact_mtimes(workdir)
+        touched = [f for f, t in now.items()
+                   if before.get(f) is None or t > before[f]]
+        if not touched:
+            return ""
+        blocks, chosen = [], set()
+        for pat in _MCP_HOOK_ART:
+            same = [f for f in touched if fnmatch.fnmatch(f.name, pat)]
+            if not same:
+                continue
+            newest = max(same, key=lambda f: (now[f], f.name))
+            if newest in chosen:
+                continue
+            chosen.add(newest)
+            got = (_level_index_check(workdir, newest)
+                   + _identical_levels_check(workdir, newest)
+                   + _discarded_proof_check(
+                       newest, newest.read_text(errors="replace"))
+                   + _early_artefact_check(workdir, newest))
+            if got and got not in blocks:
+                blocks.append(got)
+        return "".join(blocks)
+    except Exception:                                  # noqa: BLE001
+        return ""
+
+
+def _wrap_mcp_tool_with_artefact_hook(tool: BaseTool, workdir: Path):
+    """Append OASiS's write-time findings to the reply of any MCP call that
+    left new deliverable files behind. String replies only; structured
+    replies pass through untouched."""
+    inner = tool.coroutine
+    if inner is None:
+        return tool
+
+    async def hooked(*a, **kw):
+        before = _mcp_artefact_mtimes(workdir)
+        res = await inner(*a, **kw)
+        got = _post_mcp_artefact_check(workdir, before)
+        if got and isinstance(res, str):
+            return res + got
+        return res
+
+    try:
+        tool.coroutine = hooked
+    except Exception:                                  # noqa: BLE001
+        return tool                # unwrappable tool shape: leave it alone
+    return tool
+
+
 @asynccontextmanager
 async def build_mcp_agent(*, size: str, seed: int, workdir: Path,
                           depth: int = 0):
     """Yield an MCP agent whose tools share one live OASiS server."""
     async with oasis_mcp_tools_session(workdir) as mcp_tools:
+        mcp_tools = [_wrap_mcp_tool_with_artefact_hook(t, workdir)
+                     for t in mcp_tools]
         host = _host_tools(workdir, size=size, seed=seed,
                            parent_tools=mcp_tools, depth=depth,
                            audit_on_submit=True)

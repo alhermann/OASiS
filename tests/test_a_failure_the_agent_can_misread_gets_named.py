@@ -430,3 +430,63 @@ def test_neither_new_check_reaches_the_bare_arm(tmp_path):
 # _time_left_note fires its "write the deliverable now" at 75% spent, which is
 # after the point where these runs had already decided -- two of them filed a
 # give-up blaming the clock at 47% and 49%.
+
+
+# ═══════ files written DURING an MCP tool call reach the same checks ═════════
+#
+# C2_27b_MCP_seed1701 drove its coupling through couple() -- exactly what the
+# must-read asks -- and its participant wrote run_level1_B.log, 179 bytes of
+# its own prose, DURING the MCP call. The discarded-proof check was wired to
+# run_bash and write_file, so the artefact appeared between hook points and
+# nothing fired. The MCP tools are now wrapped with the same before/after
+# artefact hook; the check bodies stay in OASiS.
+
+def test_a_prose_log_written_during_an_mcp_call_is_named(tmp_path):
+    import asyncio
+    from langgraph_eval.agent import _wrap_mcp_tool_with_artefact_hook
+    from langchain_core.tools import StructuredTool
+
+    async def fake_couple(command: str = "") -> str:
+        (tmp_path / "run_level1_B.log").write_text(
+            "Kratos solve complete: max|u| = 5.48e-03\nNDOF = 72\n")
+        return "coupling converged in 8 iterations"
+
+    t = StructuredTool.from_function(coroutine=fake_couple, name="couple",
+                                     description="d")
+    t = _wrap_mcp_tool_with_artefact_hook(t, tmp_path)
+    out = asyncio.run(t.coroutine(command="x"))
+    assert "coupling converged in 8 iterations" in out
+    assert "CARRIES YOUR OWN WORDS, NOT THE SOLVER'S OUTPUT" in out
+
+
+def test_a_real_capture_written_during_an_mcp_call_stays_silent(tmp_path):
+    import asyncio
+    from langgraph_eval.agent import _wrap_mcp_tool_with_artefact_hook
+    from langchain_core.tools import StructuredTool
+
+    async def fake_couple(command: str = "") -> str:
+        (tmp_path / "run_level1_B.log").write_text(
+            "NDOF = 72\n KRATOS ___ banner\n"
+            "ResidualBasedLinearStrategy: Setup Dofs Time: 0.002 [s]\n")
+        return "ok"
+
+    t = StructuredTool.from_function(coroutine=fake_couple, name="couple",
+                                     description="d")
+    t = _wrap_mcp_tool_with_artefact_hook(t, tmp_path)
+    out = asyncio.run(t.coroutine(command="x"))
+    assert out == "ok"
+
+
+def test_a_structured_reply_passes_through_untouched(tmp_path):
+    import asyncio
+    from langgraph_eval.agent import _wrap_mcp_tool_with_artefact_hook
+    from langchain_core.tools import StructuredTool
+
+    async def fake_tool() -> dict:
+        (tmp_path / "run_level1_A.log").write_text("my own words\nNDOF = 9\n")
+        return {"k": 1}
+
+    t = StructuredTool.from_function(coroutine=fake_tool, name="x",
+                                     description="d")
+    t = _wrap_mcp_tool_with_artefact_hook(t, tmp_path)
+    assert asyncio.run(t.coroutine()) == {"k": 1}
