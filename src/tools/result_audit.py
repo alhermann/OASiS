@@ -909,6 +909,34 @@ def interface_sign_findings(work: Path) -> list[dict]:
         vals = [abs(c) for row in g[2] for c in row]
         if vals:
             peaks[(lvl, side)] = max(vals)
+    # BOTH SIDES ZERO IS THE ONE CASE THE FAMILY ABOVE CANNOT SEE.
+    #
+    # The one-side-smaller check needs big > 0, the same-convention ratio
+    # needs a nonzero sum, and the sign check needs a nonzero implied
+    # coefficient -- so an interface whose flux column is identically zero on
+    # BOTH sides slips every one of them. Measured: a real submission carried
+    # max|q| = 0.000e+00 on both sides at all three levels while its fields
+    # were plausible, and nothing here spoke. Physically a partitioned
+    # interface with zero flux everywhere transmitted nothing: the two
+    # subdomains were solved as if insulated from each other.
+    zero_lvls = [lvl for lvl in sorted({l for l, _ in peaks})
+                 if peaks.get((lvl, "A")) == 0.0 and peaks.get((lvl, "B")) == 0.0]
+    if zero_lvls:
+        out.append({"sequence": "interface flux all zero",
+                    "values": zero_lvls, "finding": (
+            "THE INTERFACE FLUX IS IDENTICALLY ZERO ON BOTH SIDES at level"
+            + ("s " if len(zero_lvls) > 1 else " ")
+            + ", ".join(str(l) for l in zero_lvls)
+            + ". A coupled interface carries the flux that crosses it; a "
+            "zero column on both sides means no transmission happened at "
+            "all -- the two subdomains were solved as if insulated -- or the "
+            "export never computed q_n = -(K grad u) . n_out from the "
+            "solution. The field values themselves need no re-solve: recover "
+            "the flux from your OWN existing solution (consistent nodal "
+            "flux, or the gradient of your interpolant evaluated at the "
+            "interface, times -K, dotted with the outward normal) and "
+            "re-export. If the recovery also comes out zero, the two solves "
+            "never exchanged data and the coupling itself did not run.")})
     for lvl in sorted({l for l, _ in peaks}):
         a, b = peaks.get((lvl, "A")), peaks.get((lvl, "B"))
         if a is None or b is None:

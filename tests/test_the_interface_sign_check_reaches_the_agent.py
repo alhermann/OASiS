@@ -330,3 +330,52 @@ def test_both_fire_on_the_real_runs_and_not_on_the_reference():
                "submission")
     if ref.exists():
         assert _all_findings(ref) == []
+
+
+def test_a_flux_of_zero_on_both_sides_is_named(tmp_path):
+    """The one case the sign/transmission family cannot see.
+
+    MEASURED, C2_27b_MCP_seed1903: max|q| = 0.000e+00 on both sides at all
+    three levels, plausible fields, CONFIDENTLY_WRONG at grading -- and no
+    finding fired, because one-side-smaller needs big > 0, the convention
+    ratio needs a nonzero sum, and the sign branch needs a nonzero implied
+    coefficient.
+    """
+    ys = [0.25 + (i + 0.5) * 0.5 / 44 for i in range(44)]
+    for k in (1, 2, 3):
+        for side in ("A", "B"):
+            rows = ["x, y, u, qn"] + [
+                f"0.625, {y!r}, {5.2e-03 - 1e-05*i!r}, 0.0"
+                for i, y in enumerate(ys)]
+            (tmp_path / f"interface_level{k}_{side}.csv").write_text(
+                "\n".join(rows))
+    got = [f for f in _all_findings(tmp_path)
+           if f["sequence"] == "interface flux all zero"]
+    assert got, "silent on a both-sides-zero interface flux"
+    assert got[0]["values"] == [1, 2, 3]
+    t = got[0]["finding"]
+    assert "solved as if insulated" in t
+    assert "need no re-solve" in t.replace("themselves ", "")
+
+
+def test_nonzero_flux_is_not_called_zero(tmp_path):
+    ys = [0.25 + (i + 0.5) * 0.5 / 44 for i in range(44)]
+    for k in (1, 2, 3):
+        for side, sgn in (("A", 1.0), ("B", -1.0)):
+            rows = ["x, y, u, qn"] + [
+                f"0.625, {y!r}, {5.2e-03 - 1e-05*i!r}, {sgn * 0.65!r}"
+                for i, y in enumerate(ys)]
+            (tmp_path / f"interface_level{k}_{side}.csv").write_text(
+                "\n".join(rows))
+    assert [f for f in _all_findings(tmp_path)
+            if f["sequence"] == "interface flux all zero"] == []
+
+
+def test_it_fires_on_the_real_seed1903_and_reaches_the_agent_route():
+    w = ROOT / "campaign3_blind/runs/C2_27b_MCP_seed1903/work"
+    if not w.exists():
+        import pytest as _p
+        _p.skip("seed1903 run data absent")
+    got = [f for f in _all_findings(w)
+           if f["sequence"] == "interface flux all zero"]
+    assert got and got[0]["values"] == [1, 2, 3]
