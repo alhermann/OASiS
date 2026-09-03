@@ -612,6 +612,8 @@ def _bash_tool_for(workdir: Path, *, audit_on_submit: bool = False):
                 newest = max(same, key=lambda f: now[f])
                 got = (_level_index_check(workdir, newest)
                        + _identical_levels_check(workdir, newest)
+                       + _discarded_proof_check(
+                           newest, newest.read_text(errors="replace"))
                        + _early_artefact_check(workdir, newest))
                 if got:
                     blocks.append(got)
@@ -743,6 +745,7 @@ def _read_write_tools_for(workdir: Path, *, audit_on_submit: bool = False):
             if audit_on_submit and p.name != "RESULT.txt":
                 reply += _level_index_check(workdir, p)
                 reply += _identical_levels_check(workdir, p)
+                reply += _discarded_proof_check(p, content)
                 reply += _script_noop_check(p, content)
                 reply += _registry_attribute_check(p, content)
                 reply += _extra_script_checks(p, content)
@@ -1304,6 +1307,86 @@ def _identical_levels_check(workdir: Path, written: Path) -> str:
                 "refined normally, so nothing else in the submission looked "
                 "wrong.")
     return ""
+
+
+# One marker per code, each taken from a log this machine actually produced --
+# not from documentation. 4C's banner and its closing line; Kratos's importer
+# line, its ASCII banner and its strategy telemetry; and the equivalents for
+# the other seven. Any ONE of these in a run log means the text came from the
+# code rather than from the agent.
+_SOLVER_MARKERS = (
+    "*                         4C                         *",
+    "processor 0 finished normally", "PROC 0 ERROR", "Multi-Physics",
+    "KRATOS ___", "Importing    Kratos", "ResidualBasedLinearStrategy",
+    "BlockBuildDofArrayUtility", "Setup Dofs Time",
+    "Newton-Raphson", "CONVERGENCE CHECK",
+    "DOLFINX", "dolfinx", "Solving linear variational problem",
+    "deallog", "DEAL_II", "Starting value", "Convergence step",
+    "NGSolve", "assemble VOL", "call pardiso", "iteration 1 err",
+    "dune-fem", "linear.verbose", "Newton iteration",
+    "scikit-fem", "skfem", "Basis(",
+    "FEBio", "febio", "N O R M A L   T E R M I N A T I O N",
+    "SPARTA", "Step CPU", "Loop time of",
+    "Solver Time", "Solution Time", "Total Time",
+)
+
+
+def _looks_like_captured_output(text: str) -> bool:
+    low = text.lower()
+    return any(m.lower() in low for m in _SOLVER_MARKERS)
+
+
+def _discarded_proof_check(written: Path, content: str) -> str:
+    """An execution log carrying the agent's prose instead of the capture.
+
+    MEASURED, C2_27b_MCP_seed1301 -- the furthest any OASiS run has reached on
+    this cell: both participants really ran, the partitioned iteration really
+    converged (1.3901141511 -> 4.3834e-07 in eight iterations at level 1), and
+    the graded order came out 1.9367. Its participant_A.py line 151 is
+
+        cmd = ['stdbuf', '-oL', '-eL', '/home/.../4C', deck_path, prefix]
+        result = subprocess.run(cmd, cwd=work_dir, capture_output=True, ...)
+
+    so it invoked the binary correctly AND captured what the binary said. Line
+    226 then writes its own three-line summary -- `NDOF = 54`, `4C Multiphysics
+    solver`, `Elements: TRANSP QUAD4` -- into run_log.txt, and that file is what
+    gets copied to run_level1_A.log. 56 bytes of prose; result.stdout was never
+    written anywhere. The proof of the hardest thing the run achieved sat in a
+    local variable and was dropped.
+
+    For contrast, on the same cell and the same two codes, a captured log is
+    2947 and 1476 bytes and carries 4C's banner and Kratos's `KRATOS ___`
+    importer line.
+
+    GENERAL: every cell that prescribes an execution log wants the code's own
+    output, and every code here can be made to produce it. The fix is one line
+    -- write what you captured -- and an agent that has already done the work
+    has already got the bytes in hand.
+    """
+    if not _re_mod.match(r"^run_level\d+(_[AB])?\.log$", written.name):
+        return ""
+    if _looks_like_captured_output(content):
+        return ""
+    return (
+        "\n\n[early check of " + written.name + ":]\n"
+        "  * THIS LOG CARRIES YOUR OWN WORDS, NOT THE SOLVER'S OUTPUT -- "
+        + str(len(content)) + " bytes with no line any of the nine codes emits."
+        " The task asks this file to hold the console output that subdomain's "
+        "solver itself produced, captured verbatim, because that is what "
+        "establishes WHICH code ran on that side; a side whose log carries no "
+        "output from its own named code cannot be credited to that code "
+        "however right its numbers are. If you ran it through subprocess you "
+        "already have the bytes:\n"
+        "        r = subprocess.run(cmd, capture_output=True, text=True)\n"
+        "        Path(log).write_text(f\"NDOF = {ndof}\\n\" + r.stdout "
+        "+ r.stderr)\n"
+        "    -- or drop capture_output and redirect instead, "
+        "`cmd > run_level<k>_<side>.log 2>&1`. Do not summarise it and do not "
+        "retype it. A run that got everything else right on this cell -- both "
+        "codes really running, the interface iteration converging to 4.4e-07, "
+        "a graded order of 1.94 -- wrote three lines of its own prose here and "
+        "could not be credited for any of it. For reference, a real capture of "
+        "these two codes is 2947 and 1476 bytes.")
 
 
 def _eaten_error_check(output: str) -> str:

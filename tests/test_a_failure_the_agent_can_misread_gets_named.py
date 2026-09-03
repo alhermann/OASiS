@@ -289,3 +289,89 @@ def test_the_real_seed1202_side_a_fires_and_side_b_does_not():
     for k in (1, 2, 3):
         assert _identical_levels_check(w, w / f"solution_level{k}_A.csv")
         assert _identical_levels_check(w, w / f"solution_level{k}_B.csv") == ""
+
+
+# ════════════════ the proof that was captured and then dropped ══════════════
+#
+# C2_27b_MCP_seed1301 is the furthest any OASiS run has reached on the coupled
+# cell: both participants really ran, the partitioned iteration converged
+# 1.3901141511 -> 4.3834e-07 in eight iterations at level 1, and the graded
+# order came out 1.9367. Its participant_A.py invoked the binary correctly --
+# `['stdbuf', '-oL', '-eL', '/home/.../4C', deck, prefix]` with
+# capture_output=True -- and then wrote its own three-line summary into the log
+# instead of result.stdout. 56 bytes of prose. On the same cell with the same
+# two codes, a real capture is 2947 and 1476 bytes.
+
+PROSE_LOG = ("NDOF = 54\n4C Multiphysics solver\nElements: TRANSP QUAD4\n")
+CAPTURED_4C = (
+    "NDOF = 54\n"
+    "******************************************************\n"
+    "*                         4C                         *\n"
+    "*                version 2026.2.0-dev                *\n"
+    "processor 0 finished normally\n")
+CAPTURED_KRATOS = (
+    "NDOF = 72\n KRATOS ___ ___  _  ___   __   ___ ___ ___ ___ \n"
+    "BlockBuildDofArrayUtility: Setting up the DOFs\n"
+    "ResidualBasedLinearStrategy: Setup Dofs Time: 0.00215229 [s]\n")
+
+
+def test_a_log_of_the_agents_own_prose_is_named(tmp_path):
+    write, _ = _tools(tmp_path, oasis_arm=True)
+    reply = write.invoke({"path": "run_level1_A.log", "content": PROSE_LOG})
+    assert "CARRIES YOUR OWN WORDS, NOT THE SOLVER'S OUTPUT" in reply
+    assert "capture_output=True" in reply
+    assert "2947 and 1476 bytes" in reply
+    # it must say why it matters, in the task's own terms
+    assert "cannot be credited to that code" in reply
+
+
+def test_a_real_capture_is_left_alone(tmp_path):
+    write, _ = _tools(tmp_path, oasis_arm=True)
+    for name, body in (("run_level1_A.log", CAPTURED_4C),
+                       ("run_level1_B.log", CAPTURED_KRATOS)):
+        reply = write.invoke({"path": name, "content": body})
+        assert "CARRIES YOUR OWN WORDS" not in reply, name
+
+
+def test_it_only_looks_at_the_prescribed_log_name(tmp_path):
+    from langgraph_eval.agent import _discarded_proof_check
+    for name in ("run_log.txt", "solution_level1_A.csv", "residual_level1.csv",
+                 "notes.log", "RESULT.txt"):
+        assert _discarded_proof_check(Path(name), PROSE_LOG) == "", name
+
+
+def test_the_real_seed1301_logs_all_fire_and_the_reference_does_not():
+    """Both directions, on files that exist: six prose logs against six real
+    captures of the same two codes on the same cell."""
+    from langgraph_eval.agent import _discarded_proof_check as C
+    w = ROOT / "campaign3_blind/runs/C2_27b_MCP_seed1301/work"
+    if not w.exists():
+        pytest.skip("seed1301 run data absent")
+    logs = sorted(w.glob("run_level*.log"))
+    assert len(logs) == 6
+    assert all(C(f, f.read_text(errors="replace")) for f in logs)
+
+
+def test_the_bare_arm_never_hears_about_it(tmp_path):
+    write, _ = _tools(tmp_path, oasis_arm=False)
+    reply = write.invoke({"path": "run_level1_A.log", "content": PROSE_LOG})
+    assert "CARRIES YOUR OWN WORDS" not in reply
+
+
+def test_every_backend_has_at_least_one_marker():
+    """A code with no marker can never be credited, so the list must cover
+    all nine rather than the two this cell happens to use."""
+    from langgraph_eval.agent import _looks_like_captured_output as L
+    samples = {
+        "4C": "processor 0 finished normally",
+        "kratos": "ResidualBasedLinearStrategy: Setup Dofs Time: 0.002 [s]",
+        "fenicsx": "Solving linear variational problem",
+        "dealii": "deallog: Starting value 1.0",
+        "ngsolve": "assemble VOL element 3/24",
+        "dune": "Newton iteration 2: residual 1e-8",
+        "skfem": "Basis(ElementTriP1) with 81 DOFs",
+        "febio": "N O R M A L   T E R M I N A T I O N",
+        "sparta": "Loop time of 1.234 on 1 procs",
+    }
+    missing = [k for k, v in samples.items() if not L(v)]
+    assert missing == [], f"no marker covers: {missing}"

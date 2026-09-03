@@ -6889,6 +6889,30 @@ UNRESPONSIVE when its exports are byte-identical across iterations in which
 its imports changed, and a residual that falls to ~1e-18 in three or four
 steps is that, not convergence.
 
+AND WRITE WHAT THE SOLVER SAID, NOT WHAT YOU KNOW IT DID.
+
+Where a task asks for an execution log, it asks for the code's OWN console
+output, captured verbatim, because that is the only thing that establishes
+which code ran on which side. If you invoke the solver through subprocess you
+already hold those bytes; the whole fix is not to drop them:
+
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    Path(log).write_text(f"NDOF = {ndof}\n" + r.stdout + r.stderr)
+
+or skip the capture and redirect, `cmd > run_level<k>_<side>.log 2>&1`.
+Measured, on the same cell and the same two codes: a real capture is 2947 and
+1476 bytes and carries the solver's banner; a hand-written summary is 56 and 68
+bytes. One run invoked the binary correctly under `stdbuf -oL -eL`, captured
+its output into a variable, drove the interface iteration to 4.4e-07 and
+reached a graded order of 1.94 -- then wrote three lines of its own prose into
+the log and could not be credited with any of it. Some codes need one line to
+say anything at all: FEniCSx `dolfinx.log.set_log_level(LogLevel.INFO)`,
+deal.II `deallog.depth_console(2)` AND a SolverControl with log_history/
+log_result, NGSolve `ngsglobals.msg_level = 3`, DUNE-fem
+`parameters={"linear.verbose": True}`, scikit-fem `logging.basicConfig(
+level=logging.INFO)` whose output goes to STDERR. Kratos, 4C, FEBio and SPARTA
+print by default.
+
 THE NEUMANN SIDE'S IMPORTED FLUX IS SILENTLY IGNORED WITHOUT A CONDITION.
 
 This is the single defect that has sunk the most nearly-correct coupled

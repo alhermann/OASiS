@@ -922,6 +922,88 @@ def interface_sign_findings(work: Path) -> list[dict]:
                 f"run). Solve your Neumann side once with the flux zeroed and "
                 f"once with it real -- if the fields match, it never arrived.")})
             break
+    # BOTH SIDES ON THE SAME CONVENTION, TESTED WITHOUT A DERIVATIVE.
+    #
+    # The `inverted` branch below needs recover_normal_derivative, and on the
+    # NEUMANN side that recovery is ill-conditioned: measured on the furthest
+    # OASiS run of the coupled cell, side B's implied coefficient came out
+    # None, +63.6 and -128.0 across the three levels, so only the last one
+    # tripped `k < 0` and the finding named level 3 alone. Its field near the
+    # seam is ~3e-3 with k = 200, which is why.
+    #
+    # The same defect has a signal that needs no derivative, no material
+    # coefficient and no mesh -- only the two interface files. With opposite
+    # normals |qA + qB| is discretisation error and |qA - qB| is ~2|q|; on the
+    # same convention the two swap. Measured, sum/diff per level:
+    #
+    #     that run, both sides negative       89.2   272.4   1036.3
+    #     a reference submission that grades
+    #       CORRECT at order 1.9796            0.03    0.00     0.00
+    #
+    # Three orders of separation, and on the wrong convention the ratio GROWS
+    # under refinement because its denominator is the shrinking discretisation
+    # error while its numerator stays O(1). A threshold of 4 sits far from both.
+    #
+    # The run this comes from had already worked the rest out: its own report
+    # says "Both sides report negative fluxes of similar magnitude (~0.8),
+    # giving qn_A + qn_B = -1.6", and it called that "a persistent flux sign
+    # convention issue [that] prevents completion" -- it read the defect as
+    # physics to repair rather than a sign on a value being written out. So the
+    # finding carries the line, not just the diagnosis.
+    same_conv = []
+    for lvl in sorted({l for l, _ in ifs}):
+        a, b = ifs.get((lvl, "A")), ifs.get((lvl, "B"))
+        if not (a and b):
+            continue
+        try:
+            ga, _ = _IF.read_interface_csv(a, 2, 1, 1)
+            gb, _ = _IF.read_interface_csv(b, 2, 1, 1)
+            if not (ga and gb):
+                continue
+            qa = [c for row in ga[2] for c in row]
+            qb = [c for row in gb[2] for c in row]
+            n = min(len(qa), len(qb))
+            if n == 0:
+                continue
+            s = max(abs(qa[i] + qb[i]) for i in range(n))
+            d = max(abs(qa[i] - qb[i]) for i in range(n))
+            # d == 0 IS THE DEFECT AT ITS MOST BLATANT, NOT A REASON TO SKIP.
+            #
+            # The first version of this branch required d > 0 so the ratio
+            # would be finite, which made it silent on the one case that needs
+            # no interpretation at all: a flux column written IDENTICALLY into
+            # both sides' files. Caught by its own test, on a synthetic pair
+            # built to be exactly that. Reported with an infinite ratio.
+            if s > 0 and (d == 0 or s > 4.0 * d):
+                same_conv.append((lvl, (s / d) if d > 0 else float("inf")))
+        except Exception:
+            continue
+    if same_conv:
+        where = ", ".join(
+            f"level {l} (|sum|/|difference| = "
+            + ("identical, the difference is exactly zero)" if r == float("inf")
+               else f"{r:.0f})")
+            for l, r in same_conv)
+        out.append({"sequence": "interface flux convention",
+                    "values": [r for _l, r in same_conv], "finding": (
+            "BOTH SIDES REPORTED THEIR FLUX WITH THE SAME SIGN at " + where
+            + ". The two subdomains use OPPOSITE outward normals at the same "
+            "physical point, so qA + qB must be zero to discretisation error "
+            "and |qA - qB| must be about twice |q|. Here it is the other way "
+            "round: the sum is the big number and the difference is tiny, "
+            "which means both files carry the same physical quantity rather "
+            "than each side's own outward flux. THIS IS ONE SIGN ON THE VALUE "
+            "YOU WRITE OUT, not a defect in your solve -- your two fields "
+            "already agree across the seam if the temperatures match. Negate "
+            "the flux column of ONE side, the side whose normal you did not "
+            "actually use:\n"
+            "        qn_out = -qn_computed_with_the_other_sides_normal\n"
+            "and leave the temperature column alone. On the Neumann side the "
+            "flux you IMPORT and the flux you REPORT are opposite anyway, "
+            "because Kratos's FACE_HEAT_FLUX is the INWARD flux, so if you "
+            "wrote out what you applied you wrote the wrong sign. Check it by "
+            "recomputing max|qA + qB| after the change: it must be small and "
+            "must SHRINK from level to level, not grow.")})
     if inverted:
         where = ", ".join(f"level {l} side {s} (implied k = {k:.4g})"
                           for l, s, k in inverted)

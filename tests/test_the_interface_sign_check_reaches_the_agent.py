@@ -154,3 +154,86 @@ def test_the_finding_arrives_on_the_SUBMISSION_WRITE_not_only_on_request():
             f"and the write did not say so:\n{out[:800]}")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+# ═══════════ both sides on the same convention, without a derivative ════════
+#
+# C2_27b_MCP_seed1301 is the furthest any OASiS run reached on the coupled
+# cell: both codes really ran, the interface iteration converged to 4.4e-07,
+# the temperature matched across the seam to 1.3e-13, and the graded order was
+# 1.9367. It reported BOTH sides' flux with the same sign, so it graded
+# COMPLETED_UNPHYSICAL / INTERFACE_NOT_SATISFIED. It had worked this out
+# itself -- its report says "Both sides report negative fluxes of similar
+# magnitude (~0.8), giving qn_A + qn_B = -1.6" -- and read it as physics to
+# repair rather than a sign on a value being written out.
+#
+# The pre-existing branch needed recover_normal_derivative, which on the
+# Neumann side gave implied k = None, +63.6, -128.0 across the three levels,
+# so only level 3 tripped `k < 0`. The ratio test below needs no derivative,
+# no material coefficient and no mesh, and separates by three orders:
+#
+#     that run                89.2   272.4   1036.3     (and GROWS: the
+#     a CORRECT reference      0.03    0.00     0.00      denominator shrinks)
+
+def _sign_findings(work):
+    import sys
+    sys.path.insert(0, str(ROOT / "src"))
+    from tools.result_audit import interface_sign_findings
+    return [f for f in interface_sign_findings(work)
+            if f.get("sequence") == "interface flux convention"]
+
+
+def _write_pair(w, lvl, qa_sign, qb_sign):
+    """Two interface files whose fluxes differ only in the sign of side B."""
+    ys = [0.25 + (i + 0.5) * 0.5 / 44 for i in range(44)]
+    for side, sgn in (("A", qa_sign), ("B", qb_sign)):
+        rows = ["x, y, u, qn"]
+        for i, y in enumerate(ys):
+            u = -2.9e-03 - i * 1e-06
+            q = sgn * (0.65 + i * 1e-04) + (1e-05 if side == 'B' else 0.0)
+            rows.append(f"0.625, {y!r}, {u!r}, {q!r}")
+        (w / f"interface_level{lvl}_{side}.csv").write_text("\n".join(rows))
+
+
+def test_the_same_convention_is_named_with_the_ratio(tmp_path):
+    for lvl in (1, 2, 3):
+        _write_pair(tmp_path, lvl, -1.0, -1.0)      # both negative
+    got = _sign_findings(tmp_path)
+    assert got, "silent on two sides reporting the same sign"
+    text = got[0]["finding"]
+    assert "BOTH SIDES REPORTED THEIR FLUX WITH THE SAME SIGN" in text
+    assert "|sum|/|difference|" in text
+    # it must say the fix is a sign on the output, not a repair of the solve
+    assert "not a defect in your solve" in text
+    assert "leave the temperature column alone" in text
+    # and how to confirm the fix
+    assert "must SHRINK from level to level" in text
+
+
+def test_opposite_signs_are_left_alone(tmp_path):
+    for lvl in (1, 2, 3):
+        _write_pair(tmp_path, lvl, +1.0, -1.0)      # the prescribed convention
+    assert _sign_findings(tmp_path) == []
+
+
+def test_it_fires_on_the_real_run_at_every_level_not_just_one():
+    w = ROOT / "campaign3_blind/runs/C2_27b_MCP_seed1301/work"
+    if not (w / "interface_level1_A.csv").exists():
+        import pytest as _p
+        _p.skip("seed1301 run data absent")
+    got = _sign_findings(w)
+    assert got, "silent on the run this check was built for"
+    assert len(got[0]["values"]) == 3, (
+        "the derivative-based branch named level 3 alone; the ratio test must "
+        f"name all three, got {got[0]['values']}")
+    assert min(got[0]["values"]) > 4.0
+
+
+def test_it_is_silent_on_a_submission_that_grades_correct():
+    ref = Path("/tmp/claude-1001/-home-alexander-4C/"
+               "b1c8e459-ec06-467a-bad7-474c8459f0f3/scratchpad/c2_real/"
+               "submission")
+    if not ref.exists():
+        import pytest as _p
+        _p.skip("reference submission not on this machine")
+    assert _sign_findings(ref) == []
