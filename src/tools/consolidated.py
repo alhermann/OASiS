@@ -6746,10 +6746,7 @@ _COUPLING_HEAD_LIMIT = 24000
 # so the default max_iter = 50 is ALREADY SHORT at rho = 2, and the default
 # accelerator diverges on exactly the severe-contrast cells this campaign uses.
 _COUPLING_MUST_READ = """
-THE GRADED ARTEFACT IS THE ITERATION HISTORY, AND `couple` IS WHAT PRODUCES IT.
-
-The coupled task asks you to write `residual_level<k>.csv` — one row per
-partitioned-iteration step, per mesh level. That file IS the evidence that two
+THE SUBMISSION IS GRADED ON THE FIELDS; THE HISTORY IS THE EVIDENCE. What scores is the solution and interface CSVs at the prescribed probe points, for every level and both sides -- a run that converges its coupling and writes no field files scores NOTHING (measured: one run drove level 1 to 6.37e-07 and submitted only residual_level1.csv; graded FAILED, NO_SOLUTION_FILES). Alongside them the task asks for `residual_level<k>.csv` -- one row per partitioned-iteration step, per mesh level. That file IS the evidence that two
 codes iterated against each other; nothing else in the submission can show it.
 
     couple(participants='[{"name": "A", "command": "<run side A>",
