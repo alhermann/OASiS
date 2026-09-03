@@ -377,7 +377,6 @@ def test_every_backend_has_at_least_one_marker():
     assert missing == [], f"no marker covers: {missing}"
 
 
-# ═══════════ the two round-14 defects: my own primitive, and the clock ══════
 
 def test_an_env_assignment_after_a_wrapper_is_named(tmp_path):
     """`stdbuf -oL VAR=x prog` runs VAR=x as the program.
@@ -413,46 +412,21 @@ def test_a_wrappers_own_argument_is_not_mistaken_for_the_program():
     assert C("nice -n 19 OMP_NUM_THREADS=4 ./solver")
 
 
-def test_a_give_up_blaming_the_clock_is_contradicted_with_its_own_numbers():
-    """Round 14: two of three OASiS runs filed this at 47% and 49%."""
-    from langgraph_eval.agent import _giveup_blames_the_clock as G
-    txt = ("COULD_NOT_COMPLETE\n\nReason: Insufficient time to complete the "
-           "full coupled simulation implementation within the 45-minute "
-           "budget.\n")
-    got = G(txt, 0.47)
-    assert "THE CLOCK DISAGREES" in got
-    assert "47%" in got and "53%" in got
-    # it must give the cheapest gradeable ORDER of work, not just scold
-    assert "ONE level, end to end" in got
-    assert "graded as nothing at all" in got
-
-
-def test_it_does_not_argue_with_a_genuinely_late_give_up():
-    from langgraph_eval.agent import _giveup_blames_the_clock as G
-    txt = "COULD_NOT_COMPLETE\nran out of time\n"
-    assert G(txt, 0.92) == ""
-    assert G(txt, None) == ""
-
-
-def test_it_does_not_fire_on_a_give_up_with_a_technical_reason():
-    """Only the clock claim is contradicted; a real blocker is not argued with."""
-    from langgraph_eval.agent import _giveup_blames_the_clock as G
-    assert G("COULD_NOT_COMPLETE\nKratos rejects the condition\n", 0.40) == ""
-    assert G("LEVELS = 3\nORDER = 1.98\n", 0.30) == ""
-
-
-def test_the_real_seed1401_result_fires_at_its_measured_fraction():
-    from langgraph_eval.agent import _giveup_blames_the_clock as G
-    p = (ROOT / "campaign3_blind/runs/C2_27b_MCP_seed1401/work/RESULT.txt")
-    if not p.exists():
-        pytest.skip("seed1401 run data absent")
-    assert G(p.read_text(errors="replace"), 1279 / 2700)
-
-
 def test_neither_new_check_reaches_the_bare_arm(tmp_path):
     write, shell = _tools(tmp_path, oasis_arm=False)
     out = shell.invoke({"command": "stdbuf -oL -eL FOO=1 /bin/echo hi"})
     assert "AS THE PROGRAM" not in out
-    reply = write.invoke({"path": "RESULT.txt",
-                          "content": "COULD_NOT_COMPLETE\ninsufficient time\n"})
-    assert "THE CLOCK DISAGREES" not in reply
+
+
+# ═════ past halfway with nothing gradeable on disk, fired once ══════════════
+#
+# Measured over the nine OASiS runs of the coupled cell in rounds 12-14, by
+# file mtime as a fraction of each run's own wall clock: three never wrote a
+# solution file at all (seed1201, seed1203, seed1401), and the six that did
+# started at 27%, 32%, 49%, 72%, 75% and 78%. The two earliest both produced
+# the complete six-file set; the one that started at 72% produced two. SEVEN OF
+# NINE were past 45% with nothing gradeable on disk.
+#
+# _time_left_note fires its "write the deliverable now" at 75% spent, which is
+# after the point where these runs had already decided -- two of them filed a
+# give-up blaming the clock at 47% and 49%.
