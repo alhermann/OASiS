@@ -1610,3 +1610,37 @@ def test_the_single_code_run_that_was_rejected_now_grades(tmp_path):
     r = cell.grade()
     assert r["outcome"] == "CORRECT", r
     assert any("deeper in the tree" in n for n in r.get("notes", [])), r["notes"]
+
+
+class TestNonFiniteEqualityIsForcedNotCopied:
+    """Identical all-inf histories are what divergence looks like at every
+    level -- the bit-identical clause's physical premise holds for FINITE
+    values only.
+
+    MEASURED, C3_27b_MCP_seed2801: 99 rows of inf per level, faithfully
+    recording a mismatch that evaluated non-finite, graded FABRICATED_NO_RUN
+    by the identical-across-levels clause. Regraded under this fix:
+    MALFORMED_SUBMISSION / COUPLING_EVIDENCE_CONTRADICTED. The finite forger
+    C2_27b_MCP_seed2601 (1.16e-3 * 0.5^k, exact halvings) still grades
+    FABRICATED_NO_RUN.
+    """
+
+    def _evidence(self, tmp, vals):
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+        from blind_eval.evidence import coupling_evidence
+        for lvl in (1, 2, 3):
+            body = "iteration,interface_residual\n" + "".join(
+                f"{i+1},{v}\n" for i, v in enumerate(vals))
+            (tmp / f"residual_level{lvl}.csv").write_text(body)
+        return coupling_evidence(tmp, mesh_changed=True)
+
+    def test_all_inf_identical_is_not_forged(self, tmp_path):
+        r = self._evidence(tmp_path, ["inf"] * 8)
+        assert not r["forged"], r["forged_detail"]
+        assert r["verdict"] == "CONTRADICTED"
+
+    def test_finite_bit_identical_is_still_forged(self, tmp_path):
+        r = self._evidence(tmp_path, [1.0, 0.5, 0.25, 0.125, 0.0625])
+        assert r["forged"]

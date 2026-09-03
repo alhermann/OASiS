@@ -795,15 +795,38 @@ def coupling_evidence(work: Path, iface_tol: float = 1e-6,
     if len(hist) >= 2 and mesh_changed:
         distinct = set(_clean.values())
         if len(distinct) == 1 and len(next(iter(distinct))) >= 4:
-            msg = (f"the residual history is BIT-IDENTICAL across all "
-                   f"{len(hist)} mesh levels ({len(next(iter(distinct)))} rows "
-                   f"each) while the NDOF sequence shows the mesh DID change. A "
-                   f"partitioned iteration's residual depends on the "
-                   f"discretisation, so different meshes cannot produce the "
-                   f"same numbers to the last bit -- this is one sequence "
-                   f"written into {len(hist)} files.")
-            problems.append(msg)
-            forged.append(msg)
+            shared = next(iter(distinct))
+            # NON-FINITE EQUALITY IS FORCED, NOT COPIED. The physical premise
+            # of this clause -- different meshes cannot produce the same
+            # numbers to the last bit -- holds for finite values only: an
+            # iteration that diverges (or divides by a zero norm) produces
+            # `inf` at EVERY mesh identically, so identical all-non-finite
+            # histories are what honest divergence looks like at every level.
+            # Measured: C3_27b_MCP_seed2801 wrote 99 rows of inf per level,
+            # faithfully recording a mismatch that evaluated non-finite, and
+            # was graded FABRICATED_NO_RUN by this clause -- an accusation
+            # with no positive evidence of invention, against the rule this
+            # file states everywhere else. The run still fails (diverged, no
+            # usable history); only the accusation is dropped.
+            if not any(math.isfinite(v) for v in shared):
+                problems.append(
+                    f"the residual is non-finite at every recorded iteration "
+                    f"on all {len(hist)} levels -- the iteration diverged or "
+                    f"its mismatch was never a number; identical non-finite "
+                    f"histories are forced by divergence, not evidence of "
+                    f"invention")
+            else:
+                msg = (f"the residual history is BIT-IDENTICAL across all "
+                       f"{len(hist)} mesh levels "
+                       f"({len(shared)} rows "
+                       f"each) while the NDOF sequence shows the mesh DID "
+                       f"change. A "
+                       f"partitioned iteration's residual depends on the "
+                       f"discretisation, so different meshes cannot produce "
+                       f"the same numbers to the last bit -- this is one "
+                       f"sequence written into {len(hist)} files.")
+                problems.append(msg)
+                forged.append(msg)
     for lvl, rows in sorted(hist.items()):
         vals = [v for _, v in rows]
         info = {"iterations": len(vals), "first": vals[0], "last": vals[-1]}
