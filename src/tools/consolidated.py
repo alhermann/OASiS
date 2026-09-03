@@ -2226,6 +2226,9 @@ _DECIDING_FACTS = {
     # text contains brace/quote sequences that hand-escaping kept
     # breaking.
     "fenics": "1. `ufl.FiniteElement` NO LONGER EXISTS (dolfinx 0.10 / ufl 2025.2: AttributeError; the lowercase hint `ufl.finiteelement` is NOT what you want either). Build spaces the modern way -- fem.functionspace(mesh, ('Lagrange', 1)) with lowercase f, or basix.ufl.element('Lagrange', 'triangle', 1). Both measured working on this install.\n2. `LinearProblem` REQUIRES the keyword `petsc_options_prefix` on this install (TypeError without it). Measured working:\n       p = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[bc],\n           petsc_options={'ksp_type': 'preonly', 'pc_type': 'lu'},\n           petsc_options_prefix='run')\n       uh = p.solve()\n   Its solver is the PUBLIC `p.solver`; touching `p._solver` raises AttributeError (one run died on exactly that).\n3. dolfinx is SILENT by default: before creating the mesh, call dolfinx.log.set_log_level(dolfinx.log.LogLevel.INFO) -- the DOLFINX_LOGLEVEL environment variable is NOT honoured, and a run whose console output stays empty cannot show which code ran.\n4. Evaluate a Function at arbitrary points with the bb-tree route: bb = dolfinx.geometry.bb_tree(mesh, mesh.topology.dim); cand = dolfinx.geometry.compute_collisions_points(bb, pts); cells = dolfinx.geometry.compute_colliding_cells(mesh, cand, pts); then uh.eval(pts, first_cell_per_point). Nearest-DOF lookup is the export defect that turns a converged solve into a wrong answer.",
+    # Every line measured by execution on this install (dune-fem on
+    # dune-py313) on 2026-09-03. repr-generated literal.
+    "dune": "1. `ufl.Eq` NO LONGER EXISTS in this ufl (ImportError; five hits in one round). The lowercase `ufl.eq` does, used inside a conditional: ufl.conditional(ufl.eq(a, b), val_true, val_false). Measured working.\n2. `DirichletBC` takes (functionSpace, value, subDomain=None) -- there is NO `marker` keyword (TypeError). Measured signature on this install.\n3. `scheme.solve(target=uh)` returns a DICT with keys converged, iterations, linear_iterations, timing -- read info['converged'], never info.converged (AttributeError on dict; one round hit it three times). Measured: a 4x4 Laplace solve returns converged=True with max|u| = 7.768e-02.\n4. Solver verbosity for a captured log: parameters={'linear.verbose': True} on galerkin(...) -- the old 'newton.linear.verbose' spelling is deprecated and warns.\n5. Create functions with a name -- space.interpolate(0.0, name='uh') -- because a plain UFL expression has no .name and downstream I/O that asks for one dies on AttributeError.",
     "kratos": (
         "1. `LaplacianElement2D3N` exists; `LaplacianElement2D4N` does NOT "
         "('is not registered'). 2D is P1 TRIANGLES.\n"
@@ -2268,6 +2271,9 @@ _DECIDING_FACTS = {
         "captures ZERO bytes. Run the solve in a SUBPROCESS if the log has to "
         "show which code ran."),
 }
+_DECIDING_FACTS["dune-fem"] = _DECIDING_FACTS["dune"]
+_DECIDING_FACTS["dunefem"] = _DECIDING_FACTS["dune"]
+
 _DECIDING_FACTS["fenicsx"] = _DECIDING_FACTS["fenics"]
 _DECIDING_FACTS["dolfinx"] = _DECIDING_FACTS["fenics"]
 
