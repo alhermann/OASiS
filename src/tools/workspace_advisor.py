@@ -71,7 +71,37 @@ def _work_on_disk_contradicting_a_give_up(work: Path) -> str:
         return False
 
     exports = [q for q in sorted(work.rglob("exports.json")) if _real(q)]
-    if not (sol or iface or resid or exports):
+    # RAW SOLVER OUTPUT IS WORK TOO. Measured: two runs drove FEBio to NORMAL
+    # TERMINATION 8 and 10 times, logged full nodal output through
+    # <node_data> into per-step CSV blocks, wrote NO deliverable at all, and
+    # filed COULD_NOT_COMPLETE at 32% of their wall budget -- this check
+    # stayed silent because its evidence list held only the task's own file
+    # names. A solve that terminated normally plus its native output on disk
+    # means the ONLY missing step is reading the numbers back at the probe
+    # points; that is the largest measured failure class there is, and a
+    # give-up over it deserves the same structural contradiction.
+    ok_logs, native = [], []
+    for q in sorted(work.rglob("*.log")):
+        try:
+            if _looks_like_captured_output(q.read_text(errors="replace")):
+                ok_logs.append(q)
+        except OSError:
+            pass
+    for pat in ("*.csv", "*.xplt", "*.vtu", "*.exo", "*.pvd"):
+        for q in sorted(work.rglob(pat)):
+            if q.name.startswith(("solution_level", "interface_level",
+                                  "residual_level")):
+                continue
+            try:
+                if q.suffix == ".csv":
+                    head = q.read_text(errors="replace")[:200]
+                    if "*Step" in head or "*Data" in head:
+                        native.append(q)
+                elif q.stat().st_size > 0:
+                    native.append(q)
+            except OSError:
+                pass
+    if not (sol or iface or resid or exports or (ok_logs and native)):
         return ""                      # nothing on disk: the give-up is honest
 
     conv = []
@@ -98,6 +128,13 @@ def _work_on_disk_contradicting_a_give_up(work: Path) -> str:
         bits.append(f"{len(exports)} participant exports.json — a solve ran "
                     f"and an interface exchange completed, but none of the "
                     f"task's own output files were written")
+    if ok_logs and native and not (sol or iface):
+        bits.append(
+            f"{len(ok_logs)} solver log(s) with the solver's own successful "
+            f"termination and {len(native)} native output file(s) "
+            f"(e.g. {native[0].name}) — the solves RAN and their results are "
+            f"on disk; the only step missing is reading those values back at "
+            f"the task's probe points and writing the deliverable files")
     for name, n, last in conv:
         bits.append(f"{name} with {n} iterations ending at {last:.3g}")
     return (
