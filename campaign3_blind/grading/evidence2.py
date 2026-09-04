@@ -245,6 +245,26 @@ def assess_execution(work: Path, codes: list, coupled: bool, task_txt: str,
 
     unproven = [e.code for e in rep.per_code if e.verdict != "PROVEN"]
     if unproven:
+        # THE COUPLED PRECEDENT, APPLIED HERE: UNPROVEN IS NOT INVENTED.
+        # Where the task DEMANDS the named code's own captured output, a
+        # submission whose numbers may be real but whose provenance is not
+        # the named code's is a contract failure, not a forgery -- measured:
+        # FB2_27b_MCP_seed3902 solved the FEBio task with NGSolve, honestly
+        # and wrongly, and "no run happened" is simply false of it. The
+        # FABRICATED label stays for gradings under the older task text,
+        # where this branch fires only when NO code-specific signature exists
+        # anywhere (the numpy/scipy stand-in class) -- unchanged, so as-run
+        # regrades of the historical corpus are bit-identical.
+        if task_demands_own_solver_output(task_txt):
+            out["fatal"] = "MALFORMED_SUBMISSION"
+            out["reasons"] = [f"NO_EXECUTION_EVIDENCE({c})" for c in unproven]
+            out["notes"].append(
+                "graded MALFORMED_SUBMISSION rather than FABRICATED_NO_RUN: "
+                "the task required the named code's own captured output and "
+                "none of its signatures appear, so the numbers cannot be "
+                "credited to that code. Wrong or missing provenance is not "
+                "proof of invention.")
+            return out
         out["fatal"] = "FABRICATED_NO_RUN"
         out["reasons"] = [f"NO_EXECUTION_EVIDENCE({c})" for c in unproven]
         return out
