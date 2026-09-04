@@ -634,28 +634,43 @@ def contract_findings(work: Path) -> list[dict]:
         side = iface[lvl]
         if set(side) != {"A", "B"}:
             continue
-        rows = {}
+        # SPLIT BY THE FILE'S OWN HEADER, NOT BY THE SCALAR LAYOUT. This
+        # check used to read column 2 as the field and column 3 as the flux
+        # unconditionally. On a thermo-mechanical interface
+        # (x,y,T,ux,uy,qn,tx,ty) that takes ux -- a displacement, CONTINUOUS
+        # across the interface by construction -- for the flux, so a CORRECT
+        # coupling was reported as "the two outward fluxes fail to cancel by
+        # 200%" (measured: |ux_A + ux_B|/max|ux| = 200.000% precisely
+        # BECAUSE ux_A = ux_B, while the true trailing fluxes balanced to
+        # 2.1e-3..5.1e-3, under this check's own 5% bar). The header-aware
+        # splitter below already existed for the sign checks; this check
+        # never used it.
+        parsed = {}
         for s, p in side.items():
-            got = []
-            try:
-                with open(p, newline="", errors="ignore") as fh:
-                    for r in _csv.reader(fh):
-                        if len(r) < 4:
-                            continue
-                        try:
-                            got.append(tuple(float(c) for c in r[:4]))
-                        except ValueError:
-                            continue
-            except OSError:
-                got = []
-            rows[s] = got
-        A, B = rows.get("A", []), rows.get("B", [])
-        if len(A) < 2 or len(A) != len(B):
+            byh = _read_iface_by_header(p)
+            if byh is not None:
+                parsed[s] = byh[1], byh[2]        # (values, fluxes)
+        A0, B0 = parsed.get("A"), parsed.get("B")
+        if not A0 or not B0:
             continue
-        us = max(max(abs(r[2]) for r in A), max(abs(r[2]) for r in B))
-        qs = max(max(abs(r[3]) for r in A), max(abs(r[3]) for r in B))
-        du = max(abs(a[2] - b[2]) for a, b in zip(A, B)) / (us or 1.0)
-        dq = max(abs(a[3] + b[3]) for a, b in zip(A, B)) / (qs or 1.0)
+        (uA, qA), (uB, qB) = A0, B0
+        if (len(uA) < 2 or len(uA) != len(uB) or len(qA) != len(qB)
+                or not qA or not any(any(abs(x) > 0 for x in row)
+                                     for row in (qA + qB))):
+            continue
+        ncomp_u = min(len(uA[0]), len(uB[0])) if uA and uA[0] else 0
+        ncomp_q = min(len(qA[0]), len(qB[0])) if qA and qA[0] else 0
+        if not ncomp_u or not ncomp_q:
+            continue
+        du = dq = 0.0
+        for c in range(ncomp_u):
+            us = max(max(abs(r[c]) for r in uA), max(abs(r[c]) for r in uB))
+            du = max(du, max(abs(a[c] - b[c]) for a, b in zip(uA, uB))
+                     / (us or 1.0))
+        for c in range(ncomp_q):
+            qs = max(max(abs(r[c]) for r in qA), max(abs(r[c]) for r in qB))
+            dq = max(dq, max(abs(a[c] + b[c]) for a, b in zip(qA, qB))
+                     / (qs or 1.0))
         reported = None
         rt = work / "RESULT.txt"
         if rt.is_file():
@@ -916,6 +931,7 @@ def interface_sign_findings(work: Path) -> list[dict]:
         return []                       # not a coupled submission: say nothing
 
     inverted, assessed, jumps = [], 0, {}
+    vector_layout = 0
     for (lvl, side), path in sorted(ifs.items()):
         gi = _read_iface(path, _IF)
         if gi is None:
@@ -926,6 +942,7 @@ def interface_sign_findings(work: Path) -> list[dict]:
         # columns, so it is skipped there (the ratio/mirror/zero branches
         # below handle every layout).
         if len(_giv[0]) != 1 or len(iq[0]) != 1:
+            vector_layout += 1
             continue
         sp = sols.get((lvl, side))
         if sp is None:
@@ -1279,12 +1296,31 @@ def interface_sign_findings(work: Path) -> list[dict]:
             "point of the WRONG transmission condition, which a clean "
             "convergence order cannot reveal. Check the SIGN first.")})
     if not out and assessed == 0:
-        out.append({"sequence": "interface flux sign", "values": [], "finding": (
-            "THE INTERFACE FLUX SIGN COULD NOT BE CHECKED: your interface "
-            "files were read but the flux could not be compared with your own "
-            "field. Write solution_level<k>_<side>.csv for every level and "
-            "side on the prescribed probe grid, and this check becomes "
-            "available. This is NOT a clean bill.")})
+        if vector_layout:
+            # Say WHY, accurately. Measured: a correct thermo-mechanical
+            # submission with every prescribed file on disk was told to
+            # "write solution_level<k>_<side>.csv" by this branch -- the
+            # files existed; the sign heuristic had skipped every interface
+            # because the trace is multi-component, and the message blamed
+            # the wrong thing.
+            out.append({"sequence": "interface flux sign", "values": [],
+                        "informational": True,
+                        "finding": (
+                "THE SCALAR FLUX-SIGN HEURISTIC DOES NOT APPLY to this "
+                "interface: its trace carries more than one field component, "
+                "so k = q/(-du/dn) would pair the wrong columns and was not "
+                "attempted. This is a statement of scope, not a defect in "
+                "the submission: interface balance is still checked "
+                "component-by-component against the two sides' files, and "
+                "any finding from that check appears separately.")})
+        else:
+            out.append({"sequence": "interface flux sign", "values": [],
+                        "finding": (
+                "THE INTERFACE FLUX SIGN COULD NOT BE CHECKED: your interface "
+                "files were read but the flux could not be compared with your "
+                "own field. Write solution_level<k>_<side>.csv for every "
+                "level and side on the prescribed probe grid, and this check "
+                "becomes available. This is NOT a clean bill.")})
     return out
 
 
@@ -1527,7 +1563,8 @@ def audit(work_dir: str, claimed_order: float | None = None) -> dict:
     return {
         "sequences_found": len(seqs),
         "findings": findings,
-        "clean": not findings,
+        "clean": not [f for f in findings
+                      if not f.get("informational")],
         "note": ("This audit uses ONLY your own files — no reference "
                  "solution. 'clean' means self-consistent, not correct."),
     }

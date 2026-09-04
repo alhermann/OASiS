@@ -2222,7 +2222,7 @@ _DECIDING_FACTS = {
         "5. A spatially varying interface trace needs one DESIGN POINT DIRICH "
         "condition PER NODE -- no fitted FUNCT required.\n"
         "6. INVOKE IT AS `stdbuf -oL -eL /path/to/4C deck.4C.yaml out`, OR AS "
-        "Your shell ALREADY exports LD_LIBRARY_PATH=/opt/4C-dependencies/lib, so add no prefix -- and if you ever do add one, an assignment must come BEFORE the wrapper: `stdbuf -oL VAR=x prog` makes stdbuf try to execute a file called `VAR=x` and your command never runs. Measured: wrapper-then-assignment recovered 0 diagnostic lines, assignment-first 2, `stdbuf ... env VAR=x prog` 2. "
+        "The binary finds its libraries by itself (rpath-linked; measured to run with LD_LIBRARY_PATH unset), so add no prefix -- and if you ever do add one, an assignment must come BEFORE the wrapper: `stdbuf -oL VAR=x prog` makes stdbuf try to execute a file called `VAR=x` and your command never runs. Measured: wrapper-then-assignment recovered 0 diagnostic lines, assignment-first 2, `stdbuf ... env VAR=x prog` 2. "
         "OR AS "
         "`mpirun -np 1 ...`. 4C's stdout is BLOCK-BUFFERED, and when a deck is "
         "rejected MPI_Abort tears the process down before that buffer is "
@@ -2255,7 +2255,11 @@ _DECIDING_FACTS = {
         "11. P1 triangles in scalar transport are spelled `<id> TRANSP TRI3 "
         "<n1> <n2> <n3> MAT <m> TYPE Std` in TRANSPORT ELEMENTS -- the "
         "corpus templates show only TRANSP QUAD4, and SOLID TRI3 is a "
-        "structural element that is rejected against MAT_scatra."),
+        "structural element that is rejected against MAT_scatra."
+        # Facts 12-13 measured by execution 2026-09-04 on the
+        # thermo-mechanical coupled walk (4C 2026.2.0-dev, 89519cfe76).
+        "\n12. STEADY THERMO-MECHANICS IN ONE 4C RUN: PROBLEMTYPE Thermo_Structure_Interaction with COUPALGO tsi_oneway, Statics in both STRUCTURAL DYNAMIC and THERMAL DYNAMIC, material MAT_Struct_ThermoStVenantK (stress C:(eps - alpha*(T-T0)*I), i.e. sigma_el - beta*T*I with beta=(3*lambda+2*mu)*alpha and T0 from INITTEMP) plus a CLONING MATERIAL MAP entry pairing it with a MAT_Fourier thermal material. A 2D plane-strain problem runs as a ONE-ELEMENT-THICK SOLIDSCATRA HEX8 slab with u_z=0 pinned on BOTH z-layers (per-node POINT DIRICH) -- that is exact plane strain, not an approximation. Thermal body sources go in as DESIGN VOL THERMO NEUMANN conditions. 4C's VTU carries NO mechanical reaction forces: recover interface tractions by re-assembling the stiffness residual at 4C's own solution (interior residual of the re-assembly measured at or below 1.2e-14 across three refinement levels)."
+        '\n13. WHERE 4C EVALUATES A FUNCT LOAD DIFFERS BY PROBLEM TYPE, and the difference is O(h^2) in the solution: scatra SURF NEUMANN with a FUNCT source assembles the INTERPOLATED load M*f(nodes) (matches that discrete system to 1.7e-15); TSI VOL THERMO NEUMANN evaluates f at the 2x2 GAUSS POINTS (matches to ~1e-15). The two discrete solutions differ by 1.4e-2 at h=1/8, shrinking O(h^2). Consequence: a CALCFLUX boundary flux is the exact reaction of ITS OWN discrete system; compare it only against a re-assembly using the SAME load rule, or the mismatch (5.3e-2 at h=1/8 here) reads as a recovery bug that is not there.'),
     # Every line measured by execution on this install (dolfinx 0.10.0,
     # ufl 2025.2.1) on 2026-09-03. repr-generated literal: the measured
     # text contains brace/quote sequences that hand-escaping kept
@@ -6973,8 +6977,11 @@ TEN TIMES too small, graded order -0.02. Run verify_pde_consistency(...) on
 each side, with that side's own source and coefficient, before spending budget
 on the iteration.
 
-EXPECT IT TO ANSWER FOR ONE SIDE AND REFUSE FOR THE OTHER, AND DO NOT READ THE
-REFUSAL AS A FAILURE. Its identity needs the field to vanish on the whole
+EXPECT REFUSALS, AND DO NOT READ A REFUSAL AS A FAILURE -- often it answers
+for one side and refuses the other, and on a multi-field or thermo-mechanical
+arrangement it can refuse BOTH sides (measured: boundary-layer ratios 93% and
+100%, both sides refused, while the coupling itself was correct at order ~2).
+A refusal is a statement of scope, never evidence against the run. Its identity needs the field to vanish on the whole
 boundary of the side it is given. The interface carries your partner's data, so
 on the side where that data is comparable to the side's own field the identity
 does not hold and the tool replies NOT_APPLICABLE. Measured on a two-material
