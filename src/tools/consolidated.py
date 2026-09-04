@@ -1061,6 +1061,14 @@ def _stamp_verification(result: dict, *, evidence_ok: bool, reason: str = "",
             + critic_note + ") and the run passed OASiS's verification-gate "
             "numerical checks. This is verification, not validation: confirm "
             "physical validity against reality yourself. "
+            "A VERIFIED arrangement is SETTLED: write its deliverable files "
+            "now, from these numbers, then move to the next arrangement "
+            "(finer level, next case). Re-running a verified arrangement "
+            "re-proves what is already proven — measured: one session drove "
+            "six VERIFIED couplings of the same mesh level, banked none of "
+            "them, and ran out of budget with the remaining levels untouched; "
+            "an incomplete level sequence scores the same zero as no "
+            "submission however many times its first level was verified. "
             + _residual_coverage_note(result)
             + " " + _critic_coverage_note())
     result["critic_review"] = critic_note

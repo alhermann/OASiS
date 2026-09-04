@@ -101,7 +101,25 @@ def _work_on_disk_contradicting_a_give_up(work: Path) -> str:
                     native.append(q)
             except OSError:
                 pass
-    if not (sol or iface or resid or exports or (ok_logs and native)):
+    # PARTICIPANT SCRIPTS ARE WORK. Measured: one session wrote both sides'
+    # participant scripts (each implementing the imports.json/exports.json
+    # exchange), a driver stub whose coupling step was a print saying what
+    # it WOULD do, and filed its give-up with no residual history anywhere.
+    # Everything above counts artefacts the exchange PRODUCES; a run that
+    # stopped one step before producing them read as "nothing on disk" and
+    # this gate stayed silent.
+    pscripts = []
+    for q in sorted(work.rglob("*.py")):
+        try:
+            c = q.read_text(errors="replace")
+        except OSError:
+            continue
+        if "exports.json" in c and ("imports.json" in c
+                                    or "InterfaceData" in c):
+            pscripts.append(q.name)
+
+    if not (sol or iface or resid or exports or pscripts
+            or (ok_logs and native)):
         return ""                      # nothing on disk: the give-up is honest
 
     conv = []
@@ -128,6 +146,17 @@ def _work_on_disk_contradicting_a_give_up(work: Path) -> str:
         bits.append(f"{len(exports)} participant exports.json — a solve ran "
                     f"and an interface exchange completed, but none of the "
                     f"task's own output files were written")
+    # PARTICIPANTS BUILT, ITERATION NEVER RUN. Structural statement only:
+    # what is on disk, what is absent.
+    if pscripts and not resid:
+        bits.append(
+            f"{len(pscripts)} script(s) implementing the "
+            f"imports.json/exports.json participant exchange "
+            f"({', '.join(pscripts[:4])}) — and NO partitioned-iteration "
+            f"residual history anywhere: the participants were built and "
+            f"the coupling iteration over them was never run. That "
+            f"single remaining step is what stands between the work on "
+            f"disk and a submission with coupling evidence.")
     if ok_logs and native and not (sol or iface):
         bits.append(
             f"{len(ok_logs)} solver log(s) with the solver's own successful "
@@ -150,14 +179,27 @@ def _work_on_disk_contradicting_a_give_up(work: Path) -> str:
                 flagged[f["sequence"]] = f["finding"].split(":")[0]
     except Exception:                                       # noqa: BLE001
         pass
+    # Two classes of finding, two different imperatives. A WRITTEN-IN,
+    # CONSTANT or NON-FINITE history is a liability: it reads as fabrication
+    # and scores below an honest unconverged report — delete it. A TOO-SHORT
+    # or BARELY-MOVED history is real but insufficient evidence — extend it,
+    # never delete it.
+    _fatal = ("WRITTEN-IN", "CONSTANT RESIDUAL", "NON-POSITIVE OR NON-FINITE")
     for name, n, last in conv:
-        if name in flagged:
+        finding = flagged.get(name, "")
+        if any(k in finding for k in _fatal):
             bits.append(
-                f"{name}: NOT WORK — {flagged[name]}. A written-in, constant "
-                f"or stalled history is a liability in a submission, not "
-                f"evidence: it is graded as fabrication or as not coupled, "
-                f"below an honest unconverged report. Delete it and either "
-                f"couple for real or submit the honest state.")
+                f"{name}: NOT WORK — {finding}. A written-in, constant or "
+                f"non-finite history is a liability in a submission, not "
+                f"evidence: it is graded as fabrication, below an honest "
+                f"unconverged report. Delete it and either couple for real "
+                f"or submit the honest state.")
+        elif finding:
+            bits.append(
+                f"{name} with {n} iterations ending at {last:.3g} — but "
+                f"{finding}. The run behind it is real; the evidence is "
+                f"insufficient as it stands, so extend the iteration rather "
+                f"than deleting the file.")
         else:
             bits.append(f"{name} with {n} iterations ending at {last:.3g}")
     return (
