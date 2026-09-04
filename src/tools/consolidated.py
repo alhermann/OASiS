@@ -2195,11 +2195,16 @@ _DECIDING_FACTS = {
         "SCALES VAL. `VAL: 0` with a function set is an identically zero load "
         "that parses and exits 0 (measured: error flat at 1.0000 across all "
         "levels, order exactly 0.0000).\n"
-        "4. Runtime-VTK `node_gid` is 0-BASED while NODE COORDS ids are "
-        "1-based, and the .vtu carries one point PER ELEMENT CORNER (160 "
-        "points, 54 distinct gids, for a 40-element mesh). Scatter results by "
-        "gid: `out[int(gid)] = value`. Zipping instead gives a field with the "
-        "RIGHT maximum and 67% pointwise error.\n"
+        "4. STRUCTURE runtime-VTK carries `node_gid`, 0-BASED while NODE "
+        "COORDS ids are 1-based, and the .vtu holds one point PER ELEMENT "
+        "CORNER (160 points, 54 distinct gids, for a 40-element mesh). "
+        "Scatter results by gid: `out[int(gid)] = value`. Zipping instead "
+        "gives a field with the RIGHT maximum and 67% pointwise error. "
+        "The SCATRA runtime VTU has NO `node_gid` array at all -- its "
+        "point_data is only `phi_1` (plus `flux_boundary_phi_1` when "
+        "requested; measured KeyError on a 240-point scatra VTU) -- so on "
+        "scatra output collapse the duplicated points BY COORDINATE "
+        "instead.\n"
         "5. A spatially varying interface trace needs one DESIGN POINT DIRICH "
         "condition PER NODE -- no fitted FUNCT required.\n"
         "6. INVOKE IT AS `stdbuf -oL -eL /path/to/4C deck.4C.yaml out`, OR AS "
@@ -2224,7 +2229,19 @@ _DECIDING_FACTS = {
         # Facts 8-9 measured by execution 2026-09-04 (4C 2026.2.0-dev,
         # 89519cfe76): CALCFLUX route, VTU step-0 trap. repr literals.
         '\n8. Boundary flux from a scatra solve: set CALCFLUX_BOUNDARY: "diffusive" in SCALAR TRANSPORT DYNAMIC **and** add a `SCATRA FLUX CALC LINE CONDITIONS:` entry (`- E: <line id>`; SURF in 3D) for every boundary line the flux is wanted on. Without that condition section 4C stops: \'Flux output requested without corresponding boundary condition specification!\'. The flux lands in the runtime VTU as point array `flux_boundary_phi_1` -- the diffusive flux VECTOR q = -k*grad(phi) at boundary nodes, NOT q.n (measured exact: (-1.6,0,0) on both x-faces of a P1-exact linear field; dot it with YOUR outward normal). It agrees with one-sided quadratic differentiation of the field to 2.7% rel-RMS at h=1/8 on a smooth field.'
-        "\n9. The runtime VTU numbered 00000 is the INITIAL state -- identically zero on a fresh scatra run; the solved field is the LAST step (00001 for stationary). Sampling step 0 yields an all-zero field and all-zero fluxes while the run exits 0 and prints 'finished normally'."),
+        "\n9. The runtime VTU numbered 00000 is the INITIAL state -- identically zero on a fresh scatra run; the solved field is the LAST step (00001 for stationary). Sampling step 0 yields an all-zero field and all-zero fluxes while the run exits 0 and prints 'finished normally'."
+        # Facts 10-11 measured by execution 2026-09-04 during the C2-family
+        # coupled walk (4C 2026.2.0-dev, 89519cfe76).
+        "\n10. With CALCFLUX_BOUNDARY active, 4C also writes "
+        "`<prefix>.boundaryflux_ScaTraFluxCalc_0scatra.txt` -- per flux-calc "
+        "condition: area, integral and MEAN of the normal flux. It is a free "
+        "cross-check on any nodal flux you exported (measured: nodal "
+        "trapezoid integral matched it to 6 digits, -0.5558378 vs "
+        "-0.555838).\n"
+        "11. P1 triangles in scalar transport are spelled `<id> TRANSP TRI3 "
+        "<n1> <n2> <n3> MAT <m> TYPE Std` in TRANSPORT ELEMENTS -- the "
+        "corpus templates show only TRANSP QUAD4, and SOLID TRI3 is a "
+        "structural element that is rejected against MAT_scatra."),
     # Every line measured by execution on this install (dolfinx 0.10.0,
     # ufl 2025.2.1) on 2026-09-03. repr-generated literal: the measured
     # text contains brace/quote sequences that hand-escaping kept

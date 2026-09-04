@@ -509,17 +509,56 @@ if np.abs(qin).max() > 0 and max(len(iface) - 1, 0) == 0:
                      "condition exists: the flux will be silently ignored and "
                      "this run would return the no-flux solution.")
 
-# YOUR OWN OUTWARD FLUX IS THE NEGATIVE OF WHAT YOU APPLIED, and that is what
-# the task asks you to report. Recover it from your own solution: the
-# consistent nodal flux is q = -(K u - b_volume)/h with h the node's
-# tributary length, b_volume the VOLUME load only -- the face load must NOT go
-# into the residual or the reported flux comes out identically zero.
+# YOUR OWN OUTWARD FLUX IS RECOVERED FROM YOUR OWN SOLUTION, never copied
+# from the import. An earlier revision of this file exported `-qin` here --
+# the negated import array -- which reads as a bit-exact mirror of the
+# partner's data and proves nothing about this solve. The consistent
+# recovery below passes THROUGH the assembled system: when the delivery
+# worked it equals the negated, P1-mass-smoothed applied flux (the FE
+# identity), and when the ThermalFace conditions never entered the system
+# it reads ~0, which the arrival check turns into a hard stop instead of a
+# silent no-flux submission.
+
+
+def consistent_outward_flux():
+    """q_i = -(K u - b_vol)_i / h_i on the interface rows.
+
+    Assembled with exactly the discretisation Kratos used: P1 stiffness
+    with the nodal conductivity, and the one-point centroid source rule
+    area/3 * mean(f at the vertices). b_vol is the VOLUME load only --
+    the face load must NOT go into the residual or the recovered flux
+    comes out identically zero.
+    """
+    resid = np.zeros(len(nodes))
+    for el in tris:
+        P = nodes[el]
+        area = 0.5 * abs(np.cross(P[1] - P[0], P[2] - P[0]))
+        g = np.array([[P[1, 1] - P[2, 1], P[2, 0] - P[1, 0]],
+                      [P[2, 1] - P[0, 1], P[0, 0] - P[2, 0]],
+                      [P[0, 1] - P[1, 1], P[1, 0] - P[0, 0]]]) / (2.0 * area)
+        resid[el] += K_VAL * area * (g @ g.T) @ T[el] \\
+            - area / 3.0 * np.mean(fnodal[el])
+    h_trib = ys[1] - ys[0]           # interior interface nodes only
+    return np.array([-resid[i] / h_trib for i in iface])
+
+
+q_own = consistent_outward_flux()
+# ARRIVAL CHECK: a recovered flux of ~0 against a nonzero applied flux means
+# the interface load never entered the assembled system.
+if np.abs(qin).max() > 1e-30 and np.abs(q_own).max() < 1e-9 * np.abs(qin).max():
+    raise SystemExit("recovered interface flux is ~0 against a nonzero "
+                     "applied flux: the ThermalFace conditions never entered "
+                     "the assembled system.")
+print(f"flux recovery: max|q_own + q_applied| / max|q_applied| = "
+      f"{{(np.abs(q_own + qin).max() / max(np.abs(qin).max(), 1e-30)):.3e}} "
+      f"(P1 smoothing gap; ~0 to O(h^2) when delivery worked)")
 np.savetxt("interface_out.csv",
            np.column_stack([np.full(len(iface), edge), nodes[iface, 1],
-                            T[iface], -qin]),
+                            T[iface], q_own]),
            delimiter=", ", header="x, y, u, qn", comments="", fmt="%.15e")
 json.dump({{"n_interface": len(iface), "n_conditions": max(len(iface) - 1, 0),
            "max_abs_T": float(np.abs(T).max()),
+           "q_recovery": "consistent residual -(K u - b_vol)/h_trib",
            "solver": "Kratos ConvectionDiffusionApplication",
            "element": "LaplacianElement2D3N",
            "interface_condition": "ThermalFace2D2N"}},

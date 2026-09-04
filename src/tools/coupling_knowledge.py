@@ -358,7 +358,13 @@ a file with one in it fails to parse:
 What each key is for (this list is NOT part of the file):
   * `field_name`     REQUIRED key, free-form value
   * `coordinates`    REQUIRED — YOUR interface points, one [x, y] per point
-  * `values`         REQUIRED — one per point, same order as `coordinates`
+  * `values`         REQUIRED as a KEY — one per point, same order as
+                     `coordinates`. A side whose ROLE exports only a flux
+                     (e.g. a Dirichlet-role side returning its outward flux)
+                     writes `"values": []` — legal, and the driver's
+                     per-block change checks then skip the values block.
+                     Echoing the trace you IMPOSED back as `values` is what
+                     trips those checks instead.
   * `normal_fluxes`  optional, one per point
   * `n_points`       optional label, never read
 
@@ -868,6 +874,24 @@ The run that did this had a real iteration history behind it — it had driven
 an honest Dirichlet-Neumann loop and then manufactured the one number that
 proves it. Recover your flux from your own assembled system (r = A u - b_vol
 on the free interface rows, q = -r/w) and export that.
+
+WHICH RECOVERY FEEDS `normal_fluxes`: the consistent (residual) recovery, on
+BOTH sides. A gradient-based recovery's RELATIVE error is inflated on a
+high-diffusivity side (the normal gradient there is ~q/k): measured on a
+1:200 material pair at h=1/8, the gradient route missed the true flux by 6.5%
+pointwise / 6.9% net — outside a 5% conservation tolerance that the
+consistent recovery passed at every level. A gradient recovery remains a fine
+INDEPENDENT cross-check for your own reported interface files; it is the
+conservation check you must not feed with it at coarse resolution.
+
+THE SAME IDENTITY IS A FREE ARRIVAL DETECTOR on the side that RECEIVES a
+flux: the consistent recovery there returns (up to P1 mass smoothing) exactly
+the data you applied — which is why it proves no convergence order (see the
+round-trip warning elsewhere in this corpus) but DOES prove delivery. If it
+returns ~0 while the applied data is nonzero, the interface load never
+entered the assembled system — the face conditions are missing (measured:
+1e-16 on a solve whose interface conditions had been left out, against an
+applied flux of order 1).
 
 WHAT A CORRECT RECOVERY LOOKS LIKE WHEN YOU MEASURE IT — do not "fix" this.
 With the consistent (reaction) recovery on a manufactured problem, expect:
@@ -2482,15 +2506,19 @@ def _fourc() -> str:
 * ''' + _FOURC_GRAMMAR_BULLET + '''
 
 * `PROBLEMTYPE: "Scalar_Transport"` with `TIMEINTEGR: "Stationary"` is the
-  conduction problem. Element line is `TRANSP QUAD4 ... MAT 1 TYPE Std` in a
-  `TRANSPORT ELEMENTS` section — `SOLID QUAD4` is a structural element and will
-  be rejected against `MAT_scatra`.
-* A SPATIALLY VARYING boundary datum is `VAL: [1.0]` together with
-  `FUNCT: [1]`, where `FUNCT1` holds a `SYMBOLIC_FUNCTION_OF_SPACE_TIME`. 4C
-  multiplies the two. There is no table form, so the imported samples must be
-  fitted to an expression; the script uses a least-squares polynomial in y.
-  RAISE `FIT_DEG` if your interface profile is not close to polynomial — a
-  bad fit is a silently wrong boundary condition, not an error.
+  conduction problem. Element line is `TRANSP QUAD4 ... MAT 1 TYPE Std` (P1
+  triangles: `TRANSP TRI3 <n1> <n2> <n3> MAT <m> TYPE Std`) in a
+  `TRANSPORT ELEMENTS` section — `SOLID QUAD4`/`SOLID TRI3` are structural
+  elements and will be rejected against `MAT_scatra`.
+* A SPATIALLY VARYING boundary datum has an EXACT route: one
+  `DESIGN POINT DIRICH` condition PER INTERFACE NODE (each with its own DNODE
+  topology entry and the sampled value in VAL). Imported interface samples go
+  in node-by-node, no fit, no fit error — this is the route to use for
+  coupling imports, verified by execution. The `VAL: [1.0]` x `FUNCT: [1]`
+  route (FUNCT1 a `SYMBOLIC_FUNCTION_OF_SPACE_TIME`; 4C multiplies the two)
+  exists for data you hold as an EXPRESSION; fitting a polynomial to samples
+  just to feed it is a silently wrong boundary condition when the fit is bad,
+  so reserve it for closed-form data.
 * The same `VAL x FUNCT` rule holds for `DESIGN LINE NEUMANN CONDITIONS`, and
   4C's Neumann `VAL` is exactly the flux quantity the partner exported. Hand it
   over unchanged.
@@ -2501,8 +2529,11 @@ def _fourc() -> str:
 * The scalar field is named `phi_1`, never `temperature`.
 * USE THE BOUNDARY FLUX, NOT THE DOMAIN FLUX, ON THE DIRICHLET SIDE. Set
   `CALCFLUX_BOUNDARY: "diffusive"` in `SCALAR TRANSPORT DYNAMIC` and give the
-  interface line a `DESIGN SURF/LINE TRANSPORT FLUX CALCULATION` condition
-  (`ScaTraFluxCalc`); 4C then reports the CONSISTENT (Gresho) boundary flux,
+  interface line a `SCATRA FLUX CALC LINE CONDITIONS` entry (`- E: <line>`;
+  the SURF variant in 3D) -- that spelling is the one in the binary's own
+  grammar (`4C -p`), verified by execution; an earlier revision of this file
+  said `DESIGN SURF/LINE TRANSPORT FLUX CALCULATION`, which is not a valid
+  section name. 4C then reports the CONSISTENT (Gresho) boundary flux,
   computed from its true residual exactly as the reaction recovery is derived
   for every other backend in this corpus.
 
