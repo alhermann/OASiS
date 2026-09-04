@@ -93,7 +93,12 @@ scheme = galerkin(
     solver="gmres",
     parameters={{"linear.tolerance": 1e-10,
                 "linear.maxiterations": 20000,
-                "linear.preconditioning.method": "ssor"}})
+                "linear.preconditioning.method": "ssor",
+                # DUNE is near-silent once the JIT cache is warm; without
+                # this the run's captured log carries no solver output at
+                # all on a re-run (measured: first run logs the JIT build,
+                # second run ~nothing).
+                "linear.verbose": True}})
 solution = space.interpolate(0, name="u")
 info = scheme.solve(target=solution)
 values = np.asarray(solution.as_numpy)

@@ -1777,7 +1777,13 @@ def _fuzzy_match_physics(backend, query: str) -> str:
     # the transient One-Step-Theta recipe is considered.
     available = {p.name for p in backend.supported_physics()}
     tokens = set(normalised.split("_"))
-    if ("dg_advection_diffusion" in available and "advection" in tokens
+    # 'convection' and 'advection' name the same transport term (Kratos
+    # says convection, DUNE says advection). Without the alias the query
+    # 'convection_diffusion' reaches the token-overlap fallback, ties
+    # reaction_diffusion and dg_advection_diffusion at one shared token,
+    # and catalog order picks the reaction problem (measured).
+    if ("dg_advection_diffusion" in available
+            and tokens.intersection({"advection", "convection"})
             and tokens.intersection({"diffusion", "sipg", "ipdg"})):
         return "dg_advection_diffusion"
     if ("thermo_transient_mms" in available
