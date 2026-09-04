@@ -2220,7 +2220,11 @@ _DECIDING_FACTS = {
         "submitted nothing.\n"
         "7. `No protocol specified` and `Invalid MIT-MAGIC-COOKIE-1 key` on "
         "stderr are X11 noise from a headless session. They are not the "
-        "failure and they appear on successful runs too."),
+        "failure and they appear on successful runs too."
+        # Facts 8-9 measured by execution 2026-09-04 (4C 2026.2.0-dev,
+        # 89519cfe76): CALCFLUX route, VTU step-0 trap. repr literals.
+        '\n8. Boundary flux from a scatra solve: set CALCFLUX_BOUNDARY: "diffusive" in SCALAR TRANSPORT DYNAMIC **and** add a `SCATRA FLUX CALC LINE CONDITIONS:` entry (`- E: <line id>`; SURF in 3D) for every boundary line the flux is wanted on. Without that condition section 4C stops: \'Flux output requested without corresponding boundary condition specification!\'. The flux lands in the runtime VTU as point array `flux_boundary_phi_1` -- the diffusive flux VECTOR q = -k*grad(phi) at boundary nodes, NOT q.n (measured exact: (-1.6,0,0) on both x-faces of a P1-exact linear field; dot it with YOUR outward normal). It agrees with one-sided quadratic differentiation of the field to 2.7% rel-RMS at h=1/8 on a smooth field.'
+        "\n9. The runtime VTU numbered 00000 is the INITIAL state -- identically zero on a fresh scatra run; the solved field is the LAST step (00001 for stationary). Sampling step 0 yields an all-zero field and all-zero fluxes while the run exits 0 and prints 'finished normally'."),
     # Every line measured by execution on this install (dolfinx 0.10.0,
     # ufl 2025.2.1) on 2026-09-03. repr-generated literal: the measured
     # text contains brace/quote sequences that hand-escaping kept
@@ -6805,6 +6809,8 @@ _COUPLING_HEAD_LIMIT = 24000
 _COUPLING_MUST_READ = """
 THE SUBMISSION IS GRADED ON THE FIELDS; THE HISTORY IS THE EVIDENCE. What scores is the solution and interface CSVs at the prescribed probe points, for every level and both sides -- a run that converges its coupling and writes no field files scores NOTHING (measured: one run drove level 1 to 6.37e-07 and submitted only residual_level1.csv; graded FAILED, NO_SOLUTION_FILES). Alongside them the task asks for `residual_level<k>.csv` -- one row per partitioned-iteration step, per mesh level. That file IS the evidence that two
 codes iterated against each other; nothing else in the submission can show it.
+
+THE DIRICHLET SIDE RETURNS A MEASURED FLUX, NEVER A PLACEHOLDER. Recover it from the computed field: the code's native boundary-flux output where one exists, otherwise one-sided quadratic extrapolation of -k*du/dn from field values at three points into the domain along the interface normal (measured: the two routes agree to 2.7% rel-RMS at h=1/8). A constant or invented exchanged quantity turns the partitioned update into a no-op -- measured: a driver that sent a hard-coded 0.0 flux fell 9x in 50 iterations and never approached tolerance; a real recovered flux on the same arrangement converged in 4 iterations to 3.2e-08. If the residual is not contracting, check FIRST that the data you SEND changes between iterations.
 
     couple(participants='[{"name": "A", "command": "<run side A>",
                            "work_dir": "<ABSOLUTE path>", "imports_from": ["B"]},
