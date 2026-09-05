@@ -6962,6 +6962,24 @@ _COUPLING_HEAD_LIMIT = 24000
 # so the default max_iter = 50 is ALREADY SHORT at rho = 2, and the default
 # accelerator diverges on exactly the severe-contrast cells this campaign uses.
 _COUPLING_MUST_READ = """
+START HERE -- THE WHOLE COUPLING IS ONE TOOL CALL. Write one script per
+side that reads ./imports.json, runs its own solver once, writes
+./exports.json. Then call:
+
+    couple(participants='[
+      {"name": "A", "command": ["<python>", "side_a.py"],
+       "work_dir": "<ABSOLUTE dir of side A>", "imports_from": ["B"]},
+      {"name": "B", "command": ["<python>", "side_b.py"],
+       "work_dir": "<ABSOLUTE dir of side B>", "imports_from": ["A"]}]',
+      max_iter=50, tol=<the tolerance your task prescribes>)
+
+The tool runs the whole iteration -- relaxation, convergence, validation --
+and on success returns your interface tables READY TO SAVE plus the paths of
+the captured solver logs. DO NOT hand-roll this loop yourself: measured
+across the runs that did, the hand-rolled exchange stalls (residuals
+9.92->9.98 over 100 iterations; constant 1.0) and grades as not coupled.
+One couple call per mesh level, on the exact levels your task prescribes.
+
 THE SUBMISSION IS GRADED ON THE FIELDS; THE HISTORY IS THE EVIDENCE. Export interface rows AT THE EXACT PROBE POINTS THE TASK PRINTS -- generate them from the task's own formula, verbatim. A uniform sampling of the whole interface is NOT equivalent: prescribed probe sets deliberately exclude regions (interface ends are Dirichlet-Neumann corners whose recovered flux does not converge), and rows at unprescribed points are refused wholesale -- measured: a coupling with converged evidence at every level scored nothing because all 44 of its interface rows sat at self-chosen coordinates. What scores is the solution and interface CSVs at the prescribed probe points, for every level and both sides -- a run that converges its coupling and writes no field files scores NOTHING (measured: one run drove level 1 to 6.37e-07 and submitted only residual_level1.csv; graded FAILED, NO_SOLUTION_FILES). Alongside them the task asks for `residual_level<k>.csv` -- one row per partitioned-iteration step, per mesh level. That file IS the evidence that two
 codes iterated against each other; nothing else in the submission can show it.
 

@@ -650,6 +650,38 @@ def _extra_script_checks(written: Path, content: str) -> str:
             "points along the normal; both are second order and agree to "
             "2.7%% rel-RMS at h=1/8. Never difference two nearest nodes "
             "over a hard-coded spacing.")
+    # A HAND-ROLLED PARTITIONED COUPLING LOOP. Re-added with 12 measured
+    # instances after being withdrawn once for want of evidence: across the
+    # last 18 runs of one coupled cell, 12 hand-rolled this loop instead of
+    # calling the couple tool, and every graded one of their exchanges
+    # stalled -- 9.92 -> 9.98 over 100 iterations, 1.5 -> 1.3, constant
+    # 1.0 -- the placeholder-exchange class, hand-rolled edition. The shape,
+    # keyed to the real scripts: an iteration loop, a residual, and
+    # subprocess-launched sides in ONE file, without the driver import. A
+    # PARTICIPANT script subprocesses its own solver but has no outer
+    # iteration loop, so it does not match.
+    if ("run_coupling" not in content
+            and _re.search(r"for\s+\w+\s+in\s+range\s*\(\s*\w*max_iter"
+                           r"|while\s+not\s+converged"
+                           r"|for\s+iteration\s+in", content)
+            and _re.search(r"residual", content, _re.I)
+            and _re.search(r"subprocess\.(?:run|Popen|call)", content)):
+        out.append(
+            "  * THIS SCRIPT HAND-ROLLS THE PARTITIONED COUPLING LOOP "
+            "(iteration + residual + subprocess-launched sides in one "
+            "file). Measured across the runs that did this: the hand-rolled "
+            "exchange stalls -- residuals 9.92->9.98 over 100 iterations, "
+            "1.5->1.3, constant 1.0 -- because the data one side sends "
+            "never actually changes, and the submission is graded as not "
+            "having coupled. The `couple` tool runs EXACTLY this loop and "
+            "adds what this script has no code for: measured relaxation, "
+            "per-block convergence, finiteness and flux-balance validation, "
+            "a did-the-output-move check, and on success it returns your "
+            "interface tables ready to save and the captured solver logs. "
+            "Wrap each side as a participant (reads imports.json, writes "
+            "exports.json, runs its own solver once) and call couple with "
+            "the two commands -- it also verifies your script paths before "
+            "running anything.")
     if _re.search(r"solver\s*=\s*[\"']cg[\"']", content) and _re.search(
             r"dot\s*\(\s*b\w*\s*,\s*grad|inner\s*\(\s*b\w*\s*,\s*grad"
             r"|velocity|\badvect", content, _re.I):
