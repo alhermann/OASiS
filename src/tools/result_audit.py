@@ -1548,6 +1548,42 @@ def interface_ends_findings(work: Path) -> list[dict]:
     return out
 
 
+def unlaunched_participants_findings(work: Path) -> list[dict]:
+    """Participants built, coupling never run — stated at SUBMIT, not only
+    at give-up.
+
+    Measured: two sessions wrote exports-contract participant scripts (4 and
+    6 of them), never drove the coupling iteration, and SUBMITTED — so the
+    give-up gate, which already states exactly this, never saw them. The
+    statement is structural and belongs on every path that reads the
+    workdir: scripts implementing the exchange exist, no partitioned
+    iteration history exists anywhere, therefore the one step that turns
+    this work into coupling evidence was never taken.
+    """
+    if any(work.rglob("residual_level*.csv")):
+        return []
+    pscripts = []
+    for q in sorted(work.rglob("*.py")):
+        try:
+            c = q.read_text(errors="replace")
+        except OSError:
+            continue
+        if "exports.json" in c and ("imports.json" in c
+                                    or "InterfaceData" in c):
+            pscripts.append(q.name)
+    if not pscripts:
+        return []
+    return [{"sequence": "coupling never run", "values": [], "finding": (
+        f"{len(pscripts)} script(s) implement the imports/exports participant "
+        f"exchange ({', '.join(pscripts[:4])}) and NO partitioned-iteration "
+        f"residual history exists anywhere in this directory. The participants "
+        f"were built and the coupling iteration over them was never run — a "
+        f"submission in this state carries no coupling evidence and is graded "
+        f"as not having coupled. Run the coupling over these participants "
+        f"before submitting; that single step is what stands between the work "
+        f"on disk and a gradeable answer.")}]
+
+
 def ndof_ladder_findings(work: Path) -> list[dict]:
     """The mesh ladder the agent's own logs imply, stated before grading.
 
@@ -1680,6 +1716,7 @@ def audit(work_dir: str, claimed_order: float | None = None) -> dict:
     findings.extend(completeness_findings(work))
     findings.extend(ndof_ladder_findings(work))
     findings.extend(interface_ends_findings(work))
+    findings.extend(unlaunched_participants_findings(work))
     seqs = _sequences_from_workdir(work)
     csvs = _sequences_from_level_csvs(work)
     if "__ambiguous__" in csvs:

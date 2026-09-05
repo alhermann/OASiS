@@ -4947,6 +4947,41 @@ def register_consolidated_tools(mcp: FastMCP):
         if noise_block < 1:
             return json.dumps({"error": f"noise_block must be >= 1, got "
                                         f"{noise_block}"})
+        # FIRST-CONTACT PREFLIGHT: the script a command names must exist
+        # BEFORE anything runs. Measured: one session called this tool
+        # EIGHT times, every call dying on "can't open file .../
+        # participant_A.py: No such file or directory" — a work_dir/command
+        # path mismatch it could have fixed in one step had the reply shown
+        # what the directory actually holds. Checked here, not left to the
+        # subprocess: an informed refusal beats eight blind retries.
+        _missing = []
+        for _p in parts:
+            _wd = Path(_p.work_dir)
+            for _arg in _p.command[1:]:
+                if not str(_arg).endswith((".py", ".sh", ".jl", ".cc")):
+                    continue
+                _cand = Path(_arg)
+                if not _cand.is_absolute():
+                    _cand = _wd / _cand
+                if not _cand.is_file():
+                    try:
+                        _have = sorted(q.name for q in _wd.iterdir())[:20]
+                    except OSError:
+                        _have = ["<work_dir not listable>"]
+                    _missing.append(
+                        f"participant {_p.name}: command references "
+                        f"{_arg!r} which resolves to {_cand} and DOES NOT "
+                        f"EXIST. Its work_dir {_wd} holds: {_have}")
+        if _missing:
+            return json.dumps({
+                "error": "participant script(s) not found — nothing was run",
+                "detail": _missing,
+                "fix": ("Point each command at a script that exists: either "
+                        "an ABSOLUTE path, or a path relative to that "
+                        "participant's work_dir (the command runs WITH "
+                        "work_dir as its current directory). Write the "
+                        "script first, then call couple again.")},
+                indent=2)
         try:
             r = run_coupling(parts, max_iter=max_iter, tol=tol,
                              accelerator=accelerator, theta0=theta, probe=probe,
