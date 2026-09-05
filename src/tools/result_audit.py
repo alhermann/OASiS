@@ -1445,11 +1445,71 @@ def export_findings(work: Path) -> list[dict]:
     return findings
 
 
+def completeness_findings(work: Path) -> list[dict]:
+    """Members of the per-level x per-side deliverable set that are absent.
+
+    Inferred from the agent's OWN files, no task parsing: the levels are
+    every k seen in any *_level<k>* deliverable, the sides are every _A/_B
+    suffix seen in any of them, and each family that uses sides is expected
+    to have every (level, side) member once any of its members exists.
+    MEASURED, the case this exists for: a run with coupling evidence at
+    every level ended with 17 minutes of budget unused and two solution
+    files never attempted -- nothing at submit time enumerated the required
+    set against the disk, and the auto-audit named quality defects but not
+    absent files. A missing member is graded MALFORMED_SUBMISSION
+    (missing-subdomain-file / wrong-level-count), the same zero as no
+    submission.
+    """
+    import re as _re
+    seen: dict[str, set] = {}
+    levels: set[int] = set()
+    sides: set[str] = set()
+    for q in work.rglob("*_level*"):
+        m = _re.match(r"(solution|interface|residual|run)_level(\d+)"
+                      r"(?:_([AB]))?\.(csv|log)$", q.name)
+        if not m:
+            continue
+        fam = m.group(1)
+        levels.add(int(m.group(2)))
+        if m.group(3):
+            sides.add(m.group(3))
+        seen.setdefault(fam, set()).add((int(m.group(2)), m.group(3)))
+    if not levels or not seen:
+        return []
+    missing = []
+    for fam, members in seen.items():
+        sided = any(s for _, s in members)
+        for k in sorted(levels):
+            if fam == "residual" or not sided:
+                if (k, None) not in members and not any(
+                        lv == k for lv, _ in members):
+                    ext = "log" if fam == "run" else "csv"
+                    missing.append(f"{fam}_level{k}.{ext}")
+            else:
+                for s in sorted(sides or {"A", "B"}):
+                    if (k, s) not in members:
+                        ext = "log" if fam == "run" else "csv"
+                        missing.append(f"{fam}_level{k}_{s}.{ext}")
+    if not missing:
+        return []
+    return [{"sequence": "deliverable completeness", "values": [],
+             "finding": (
+        "THE DELIVERABLE SET IS INCOMPLETE: judged only by the levels and "
+        "sides your OWN files establish, these members are absent: "
+        + ", ".join(missing[:8])
+        + (f" (+{len(missing)-8} more)" if len(missing) > 8 else "")
+        + ". A submission missing a level or a side is malformed and scores "
+        "the same zero as no submission, however good the members that "
+        "exist are. Write the missing files from the numbers you already "
+        "have before anything else.")}]
+
+
 def audit(work_dir: str, claimed_order: float | None = None) -> dict:
     """The three questions, answered from the agent's own files."""
     work = Path(work_dir)
     findings: list[dict] = []
     findings.extend(residual_findings(work))
+    findings.extend(completeness_findings(work))
     seqs = _sequences_from_workdir(work)
     csvs = _sequences_from_level_csvs(work)
     if "__ambiguous__" in csvs:
