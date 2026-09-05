@@ -951,9 +951,30 @@ def interface_sign_findings(work: Path) -> list[dict]:
             gs, _why = _IF.read_interface_csv(sp, 2, 1, 0)
             if gs is None:
                 continue
-            sign = 1.0 if side == "A" else -1.0
+            # THE GEOMETRY COMES FROM THE FILES, NOT FROM AN ASSUMPTION.
+            # This call used to hard-code axis 0 (a vertical interface at
+            # the first probe's x) and A-left/B-right. On a HORIZONTAL
+            # interface it recovered du/dn along the wrong axis at a plane
+            # that is not the interface and told a verified-correct
+            # submission WRONG SIGN at every level -- and negating the flux
+            # to obey it silenced the finding while corrupting the
+            # submission (measured: implied k -0.4946 under the hard-coded
+            # geometry; +1.060 and +2.092, both consistent, under the
+            # files' own geometry). The interface axis is the coordinate
+            # that is CONSTANT across the interface probes; the plane is
+            # its value; the outward sign follows from which side of the
+            # plane this side's own field points lie on.
+            import numpy as _np
+            _ip = _np.asarray(ipts, float)
+            if _ip.ndim != 2 or _ip.shape[0] < 2:
+                continue
+            _axis = int(_np.argmin(_ip.var(axis=0)))
+            _plane = float(_ip[:, _axis].mean())
+            _sp_pts = _np.asarray(gs[0], float)
+            _mean_side = float(_sp_pts[:, _axis].mean())
+            sign = 1.0 if _mean_side < _plane else -1.0
             dudn = _IF.recover_normal_derivative(
-                gs[0], gs[1], ipts, 0, ipts[0][0] if len(ipts) else 0.0, sign)
+                gs[0], gs[1], ipts, _axis, _plane, sign)
             res = _IF.flux_ratio_consistency(iq, dudn)
         except Exception:
             continue
