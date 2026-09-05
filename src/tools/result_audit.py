@@ -1472,6 +1472,55 @@ def export_findings(work: Path) -> list[dict]:
     return findings
 
 
+def ndof_ladder_findings(work: Path) -> list[dict]:
+    """The mesh ladder the agent's own logs imply, stated before grading.
+
+    Measured three times in one development stretch: converged couplings
+    (evidence PROVEN at every level) graded malformed because the levels
+    were solved on a SELF-CHOSEN mesh ladder rather than the one the task
+    prescribes. The signal was in the agent's own run logs the whole time:
+    a halved mesh multiplies the DOF count by ~2^dim per level, so NDOF
+    growth factors far from that reveal a non-halved ladder before any
+    grader sees it. No task parsing: this states what the files imply and
+    what halving would imply, and leaves the comparison to the reader who
+    holds the task sheet.
+    """
+    import re as _re
+    per_level: dict[int, float] = {}
+    for q in sorted(work.rglob("run_level*.log")):
+        m = _re.match(r"run_level(\d+)", q.name)
+        if not m:
+            continue
+        try:
+            txt = q.read_text(errors="replace")
+        except OSError:
+            continue
+        nm = None
+        for mm in _re.finditer(r"^\s*NDOF\s*=\s*(\d+)\s*$", txt, _re.M):
+            nm = int(mm.group(1))
+        if nm:
+            k = int(m.group(1))
+            per_level[k] = per_level.get(k, 0) + nm
+    ks = sorted(per_level)
+    if len(ks) < 2:
+        return []
+    factors = [per_level[b] / per_level[a]
+               for a, b in zip(ks, ks[1:]) if per_level[a] > 0]
+    if not factors:
+        return []
+    if all(1.8 <= f <= 8.6 for f in factors):
+        return []
+    return [{"sequence": "ndof ladder", "values": factors, "finding": (
+        "YOUR OWN LOGS IMPLY A MESH LADDER THAT WAS NOT HALVED: total NDOF "
+        "per level grows by " + ", ".join(f"{f:.2f}x" for f in factors)
+        + ", while halving h multiplies the DOF count by ~4 in 2D and ~8 in "
+        "3D. If your task prescribes specific mesh levels, re-check every "
+        "level against that prescription NOW: a submission on a different "
+        "ladder is graded malformed however well it converged — measured on "
+        "runs whose coupling evidence was proven at every level and which "
+        "scored zero for exactly this.")}]
+
+
 def completeness_findings(work: Path) -> list[dict]:
     """Members of the per-level x per-side deliverable set that are absent.
 
@@ -1537,6 +1586,7 @@ def audit(work_dir: str, claimed_order: float | None = None) -> dict:
     findings: list[dict] = []
     findings.extend(residual_findings(work))
     findings.extend(completeness_findings(work))
+    findings.extend(ndof_ladder_findings(work))
     seqs = _sequences_from_workdir(work)
     csvs = _sequences_from_level_csvs(work)
     if "__ambiguous__" in csvs:
