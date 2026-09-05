@@ -1606,7 +1606,7 @@ def audit(work_dir: str, claimed_order: float | None = None) -> dict:
         if _is_iface:
             continue
         if claimed_order is not None and med < claimed_order - 0.4:
-            entry["finding"] = (
+            _msg = (
                 f"ORDER MISMATCH: you are about to claim order "
                 f"{claimed_order:g} but your own levels improve at ~{med:.2f}. "
                 f"Common causes: an element degree lower than the task states; "
@@ -1615,6 +1615,29 @@ def audit(work_dir: str, claimed_order: float | None = None) -> dict:
                 f"a pure displacement form — if your notes say 'mixed "
                 f"formulation', check the assembled form actually uses it); "
                 f"a low-order quadrature or projection in post-processing.")
+            # THE COUPLED CAUSE WAS MISSING FROM THIS LIST. Measured three
+            # times in one development day: couplings with converged
+            # three-level evidence graded at 0.85, 0.96 and 0.97 against a
+            # theoretical 2, each from a DIFFERENT first-order interface
+            # recovery (a two-point nearest-node difference; a P1 element
+            # gradient evaluated ON the boundary). Pattern checks cannot
+            # enumerate the variants; the ORDER ITSELF is the signature, and
+            # this is the one message every such run reads before submitting.
+            if 0.5 <= med <= 1.45 and any(
+                    True for _ in work.rglob("interface_level*_[AB].csv")):
+                _msg += (
+                    " On a COUPLED run an order stuck near 1 with a converged "
+                    "coupling is the FIRST-ORDER INTERFACE RECOVERY "
+                    "signature: the exchanged datum (flux or trace) is O(h) "
+                    "accurate and pollutes the field everywhere — the "
+                    "boundary trace of a P1 element gradient and a two-point "
+                    "nearest-node difference are both worth order ~1 there. "
+                    "Recover the exchanged quantity with the consistent "
+                    "residual (q = -(A u - b_vol)/w on the interface rows of "
+                    "YOUR OWN system) or a one-sided QUADRATIC through three "
+                    "points along the normal, then re-derive it at EVERY "
+                    "level and both sides.")
+            entry["finding"] = _msg
             findings.append(entry)
         elif any(o < -0.1 for o in orders):
             entry["finding"] = (
