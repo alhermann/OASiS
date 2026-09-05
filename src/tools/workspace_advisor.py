@@ -622,6 +622,34 @@ def _extra_script_checks(written: Path, content: str) -> str:
     if written.suffix != ".py":
         return ""
     out = []
+    # A TWO-POINT FIRST-ORDER FLUX RECOVERY CAPS THE WHOLE RUN AT ORDER ~1.
+    # MEASURED: two submissions with converged three-level couplings graded
+    # orders 0.85 and 0.97 against a theoretical 2, both flagged
+    # flux-inconsistent-with-field; their recovery was literally
+    # `du_dx = (u_val - u_a[idx_inner]) / 0.005` -- one difference of two
+    # nearest-node values over a hard-coded spacing. The exchanged interface
+    # datum is then O(h) accurate and pollutes the field everywhere; no
+    # amount of coupling iterations recovers the lost order. The consistent
+    # (residual) recovery and the 3-point one-sided quadratic are both
+    # second order (they agree to 2.7% rel-RMS at h=1/8, measured).
+    if (_re.search(r"argmin", content)
+            and _re.search(
+                r"\(\s*\w+(?:\[[^\]]+\])?\s*-\s*\w+\[[^\]]+\]\s*\)"
+                r"\s*/\s*(?:0\.\d+|h\b|dx\b|\w*spacing\w*)", content)
+            and _re.search(r"q_?n?\s*=|flux", content, _re.I)):
+        out.append(
+            "  * THIS SCRIPT RECOVERS THE INTERFACE FLUX BY A TWO-POINT "
+            "DIFFERENCE OVER NEAREST-NODE LOOKUPS. That recovery is first "
+            "order, so the exchanged interface datum is O(h) accurate and "
+            "CAPS THE WHOLE COUPLED FIELD AT ORDER ~1 whatever the elements "
+            "do (measured: converged couplings graded 0.85 and 0.97 against "
+            "a theoretical 2, both also flagged as flux inconsistent with "
+            "their own field). Use the consistent recovery -- assemble "
+            "r = A u - b_vol on the free interface rows of YOUR OWN system "
+            "and export q = -r/w -- or a one-sided QUADRATIC through three "
+            "points along the normal; both are second order and agree to "
+            "2.7%% rel-RMS at h=1/8. Never difference two nearest nodes "
+            "over a hard-coded spacing.")
     if _re.search(r"solver\s*=\s*[\"']cg[\"']", content) and _re.search(
             r"dot\s*\(\s*b\w*\s*,\s*grad|inner\s*\(\s*b\w*\s*,\s*grad"
             r"|velocity|\badvect", content, _re.I):
