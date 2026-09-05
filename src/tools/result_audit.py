@@ -1188,7 +1188,13 @@ def interface_sign_findings(work: Path) -> list[dict]:
             "FACE_HEAT_FLUX is the inward flux -- so write the NEGATIVE of "
             "the value you applied. With the sign reversed the two sides "
             "appear to balance when they do not, and the observed order "
-            "cannot see it.")})
+            "cannot see it. THE DEFECT IS IN YOUR RECOVERY FUNCTION, NOT IN "
+            "THE LEVEL(S) NAMED ABOVE: the same code produced every level's "
+            "flux, so after any fix RE-DERIVE AND RE-WRITE THE FLUX AT EVERY "
+            "LEVEL AND BOTH SIDES, then re-run this audit. Measured: one run "
+            "corrected only the level a warning named, left the others as "
+            "they were, and the submission failed on a level it never "
+            "re-checked.")})
     # A FIXED PROBE GRID HAS THE SAME ROW COUNT AT EVERY LEVEL.
     #
     # MEASURED, C2_27b_MCP_seed1502: its coupling genuinely converged
