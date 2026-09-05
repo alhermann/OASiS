@@ -1605,7 +1605,26 @@ def audit(work_dir: str, claimed_order: float | None = None) -> dict:
             label.startswith("magnitude_interface")
         if _is_iface:
             continue
-        if claimed_order is not None and med < claimed_order - 0.4:
+        _coupled_low = (0.5 <= med <= 1.45 and any(
+            True for _ in work.rglob("interface_level*_[AB].csv")))
+        if (claimed_order is None and _coupled_low
+                and not label.startswith("magnitude_")):
+            entry["finding"] = (
+                f"YOUR OWN LEVELS IMPROVE AT ONLY ~{med:.2f}. On a COUPLED "
+                "run an order stuck near 1 with a converged coupling is the "
+                "FIRST-ORDER INTERFACE RECOVERY signature: the exchanged "
+                "datum (flux or trace) is O(h) accurate and pollutes the "
+                "field everywhere — the boundary trace of a P1 element "
+                "gradient and a two-point nearest-node difference are both "
+                "worth order ~1 there. Recover the exchanged quantity with "
+                "the consistent residual (q = -(A u - b_vol)/w on the "
+                "interface rows of YOUR OWN system) or a one-sided QUADRATIC "
+                "through three points along the normal, then re-derive it at "
+                "EVERY level and both sides. Measured on this cell class: "
+                "conversions from 0.85-0.97 to ~1.84 come from exactly this "
+                "change and nothing else.")
+            findings.append(entry)
+        elif claimed_order is not None and med < claimed_order - 0.4:
             _msg = (
                 f"ORDER MISMATCH: you are about to claim order "
                 f"{claimed_order:g} but your own levels improve at ~{med:.2f}. "
