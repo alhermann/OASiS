@@ -5277,6 +5277,29 @@ def register_consolidated_tools(mcp: FastMCP):
             result["history_file"] = history_file
         if iface_csv is not None:
             result["interface_csv"] = iface_csv
+        # THE CAPTURED SOLVER LOGS ALREADY EXIST — POINT AT THEM. Measured
+        # on a six-seed read: the top kill (3 of 6) was couplings with
+        # PROVEN evidence submitting levels without their captured solver
+        # logs — reconstructing what the driver had already persisted. Each
+        # participant's latest native output (command, returncode, stdout,
+        # stderr) is on disk in its work_dir; a per-level log is a COPY of
+        # that file plus the NDOF line, never a reconstruction.
+        _logs = {}
+        for _p in parts:
+            _lp = Path(_p.work_dir) / "participant_output.log"
+            if _lp.is_file():
+                _logs[_p.name] = str(_lp)
+        if _logs:
+            result["captured_solver_logs"] = {
+                **_logs,
+                "_how_to_use": (
+                    "Each path holds that side's solver output as the driver "
+                    "captured it (command, returncode, stdout, stderr). If "
+                    "your task requires a per-level run log with the named "
+                    "code's own output, COPY this file (plus the required "
+                    "NDOF line) -- do not retype or reconstruct it. A level "
+                    "submitted without its captured log counts as not run, "
+                    "however real the numbers beside it are.")}
         if r.noise_floor is not None:
             result["noise_floor"] = r.noise_floor
             result["tol_effective"] = r.tol_effective
