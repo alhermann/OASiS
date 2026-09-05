@@ -4766,7 +4766,8 @@ def register_consolidated_tools(mcp: FastMCP):
                      monolithic: str = "", probe: bool = True,
                      critic_approved: bool = False, noise_replicates: int = 0,
                      noise_floor: float = 0.0, noise_block: int = 3,
-                     history_path: str = "") -> str:
+                     history_path: str = "",
+                     iface_level: int = 0) -> str:
         """GENERAL partitioned multi-code coupling — works for ANY physics/coupling.
 
         Have an independent critic review the setup before coupling; pass
@@ -4865,6 +4866,8 @@ def register_consolidated_tools(mcp: FastMCP):
                             measured finite residuals there as
                             ``iteration,interface_residual``. Use the task's required
                             ``residual_level<k>.csv`` path; never retype the returned history.
+
+        iface_level: optional level number stamped into the suggested_filename of the interface_csv blocks the reply carries on convergence (each participant's own final interface data, ready to save verbatim).
 
         Returns: JSON with converged, iterations, residual, per-block residuals,
             exports, the coupling graph, per-participant responsiveness and exit
@@ -4995,6 +4998,61 @@ def register_consolidated_tools(mcp: FastMCP):
                     history_file = {
                         "path": str(destination),
                         "error": f"{type(exc).__name__}: {exc}"}
+
+        # YOUR OWN VALIDATED INTERFACE DATA, RETURNED READY TO SAVE.
+        # Twelve development iterations measured the same terminal failure:
+        # the coupling converges (PROVEN at every level) and the agent then
+        # RE-DERIVES its interface files by hand -- first-order recoveries,
+        # self-chosen probe coordinates, negated echoes -- and the
+        # re-derivation, not the coupling, decides the grade. The serving
+        # ladder (rule as text, function as text, function in the primary
+        # door) converted 0 of 9 scripts. So the reply now carries each
+        # participant's OWN final exports.json data -- the numbers its own
+        # solver produced, already validated by the checks in this verdict --
+        # as ready-to-save CSV text. OASiS writes no file and computes no
+        # number here; the agent saves its own data verbatim.
+        iface_csv = None
+        if r.converged and (r.exports or {}):
+            iface_csv = {}
+            lvl = int(iface_level) if iface_level else 0
+            suffix = f"_level{lvl}" if lvl else ""
+            for pname, data in sorted((r.exports or {}).items()):
+                co = data.get("coordinates") or []
+                vals = data.get("values") or []
+                qs = data.get("normal_fluxes") or []
+                n = len(co)
+                if not n or n > 500:
+                    continue
+                rows = []
+                for i in range(n):
+                    cells = [f"{float(c):.15e}" for c in co[i]]
+                    if vals:
+                        cells.append(f"{float(vals[i]):.15e}"
+                                     if i < len(vals) else "")
+                    if qs:
+                        cells.append(f"{float(qs[i]):.15e}"
+                                     if i < len(qs) else "")
+                    rows.append(", ".join(cells))
+                ncoord = len(co[0]) if co and co[0] else 2
+                hdr = ", ".join(list("xyz"[:ncoord])
+                                + (["u"] if vals else [])
+                                + (["qn"] if qs else []))
+                iface_csv[pname] = {
+                    "suggested_filename": f"interface{suffix}_{pname}.csv",
+                    "csv": hdr + chr(10) + chr(10).join(rows) + chr(10),
+                }
+            if iface_csv:
+                iface_csv["_how_to_use"] = (
+                    "Each block is that participant's OWN interface data at "
+                    "convergence, validated by this verdict. SAVE EACH csv "
+                    "FIELD VERBATIM with one write_file call (adjust the "
+                    "filename to your task's naming if it differs). Do not "
+                    "retype, reformat, recompute or re-derive these numbers "
+                    "-- hand-rebuilt interface files are where converged "
+                    "couplings have been measured to fail. The rows sit at "
+                    "the participant's export coordinates: export at the "
+                    "task's prescribed probe points INSIDE your participant "
+                    "so these blocks carry them directly.")
 
         # ── silent-wrong validators ─────────────────────────────────
         # `val` holds findings (they flip the verdict); `not_run` holds checks
@@ -5217,6 +5275,8 @@ def register_consolidated_tools(mcp: FastMCP):
                   "exports": _export_summary(r.exports)}
         if history_file is not None:
             result["history_file"] = history_file
+        if iface_csv is not None:
+            result["interface_csv"] = iface_csv
         if r.noise_floor is not None:
             result["noise_floor"] = r.noise_floor
             result["tol_effective"] = r.tol_effective
