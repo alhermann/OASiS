@@ -1472,6 +1472,82 @@ def export_findings(work: Path) -> list[dict]:
     return findings
 
 
+def interface_ends_findings(work: Path) -> list[dict]:
+    """Interface rows that reach the ends of the interface, before grading.
+
+    Physics, not contract: where a partitioned interface meets the outer
+    boundary the split problem has a Dirichlet-Neumann corner, and the
+    recovered flux there does not converge under refinement — measured in
+    this corpus (2.11x -> 2.51x the true value over a 4x refinement).
+    Prescribed probe sets therefore exclude the interface ends. A file
+    whose interface rows run to the very ends of the interface is the
+    signature of a SELF-CHOSEN uniform sampling of the whole interface —
+    measured twice: two converged couplings scored zero because all 44 of
+    their rows sat at self-chosen coordinates covering the full span,
+    including the excluded ends.
+    """
+    import re as _re
+    dom = {}
+    for q in sorted(work.rglob("solution_level*.csv")):
+        try:
+            rows = q.read_text(errors="replace").splitlines()
+        except OSError:
+            continue
+        for ln in rows[1:5000]:
+            parts = ln.split(",")
+            try:
+                x, y = float(parts[0]), float(parts[1])
+            except (ValueError, IndexError):
+                continue
+            for ax, v in ((0, x), (1, y)):
+                lohi = dom.setdefault(ax, [v, v])
+                lohi[0] = min(lohi[0], v); lohi[1] = max(lohi[1], v)
+    if not dom:
+        return []
+    out = []
+    for q in sorted(work.rglob("interface_level*_[AB].csv")):
+        try:
+            rows = q.read_text(errors="replace").splitlines()[1:]
+        except OSError:
+            continue
+        pts = []
+        for ln in rows:
+            parts = ln.split(",")
+            try:
+                pts.append((float(parts[0]), float(parts[1])))
+            except (ValueError, IndexError):
+                continue
+        if len(pts) < 4:
+            continue
+        xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
+        var_ax = 0 if (max(xs) - min(xs)) > (max(ys) - min(ys)) else 1
+        vals = xs if var_ax == 0 else ys
+        lo, hi = dom.get(var_ax, (None, None))
+        if lo is None:
+            continue
+        span = hi - lo
+        if span <= 0:
+            continue
+        margin = 0.05 * span
+        if min(vals) < lo + margin or max(vals) > hi - margin:
+            out.append({"sequence": q.name, "values":
+                        [min(vals), max(vals), lo, hi], "finding": (
+                f"YOUR INTERFACE ROWS RUN TO THE ENDS OF THE INTERFACE "
+                f"({min(vals):.4g}..{max(vals):.4g} against a domain span "
+                f"{lo:.4g}..{hi:.4g}). The recovered flux at the points "
+                f"where the interface meets the outer boundary does not "
+                f"converge (Dirichlet-Neumann corner — measured 2.1x-2.5x "
+                f"the true value, worsening under refinement), so "
+                f"prescribed interface probe sets EXCLUDE the ends. Rows at "
+                f"the ends are the signature of a self-chosen uniform "
+                f"sampling: re-read your task's interface probe "
+                f"prescription and regenerate these rows from its printed "
+                f"formula verbatim — measured twice, a converged coupling "
+                f"scored zero for exactly this.")})
+            break
+    return out
+
+
 def ndof_ladder_findings(work: Path) -> list[dict]:
     """The mesh ladder the agent's own logs imply, stated before grading.
 
@@ -1508,7 +1584,23 @@ def ndof_ladder_findings(work: Path) -> list[dict]:
                for a, b in zip(ks, ks[1:]) if per_level[a] > 0]
     if not factors:
         return []
-    if all(1.8 <= f <= 8.6 for f in factors):
+    # The halving band is DIMENSION-AWARE, read from the agent's own files:
+    # a 2D halving multiplies DOF by ~4, a 3D one by ~8. One loose band
+    # admitted a 2D level that grew only 2.15x (a non-halved third level,
+    # charged by the assessment) — measured the round after this check
+    # landed.
+    dim = 2
+    for q in sorted(work.rglob("solution_level*.csv")):
+        try:
+            hdr = q.read_text(errors="replace").splitlines()[0].lower()
+        except (OSError, IndexError):
+            continue
+        cols = [c.strip() for c in hdr.split(",")]
+        if cols[:3] == ["x", "y", "z"]:
+            dim = 3
+        break
+    lo, hi = (2.6, 6.0) if dim == 2 else (5.2, 12.0)
+    if all(lo <= f <= hi for f in factors):
         return []
     return [{"sequence": "ndof ladder", "values": factors, "finding": (
         "YOUR OWN LOGS IMPLY A MESH LADDER THAT WAS NOT HALVED: total NDOF "
@@ -1587,6 +1679,7 @@ def audit(work_dir: str, claimed_order: float | None = None) -> dict:
     findings.extend(residual_findings(work))
     findings.extend(completeness_findings(work))
     findings.extend(ndof_ladder_findings(work))
+    findings.extend(interface_ends_findings(work))
     seqs = _sequences_from_workdir(work)
     csvs = _sequences_from_level_csvs(work)
     if "__ambiguous__" in csvs:
