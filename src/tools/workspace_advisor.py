@@ -191,7 +191,7 @@ def _work_on_disk_contradicting_a_give_up(work: Path) -> str:
             bits.append(
                 f"{name}: NOT WORK — {finding}. A written-in, constant or "
                 f"non-finite history is a liability in a submission, not "
-                f"evidence: it is graded as fabrication, below an honest "
+                f"evidence: it is read as invented, below an honest "
                 f"unconverged report. Delete it and either couple for real "
                 f"or submit the honest state.")
         elif finding:
@@ -665,15 +665,17 @@ def _extra_script_checks(written: Path, content: str) -> str:
                            r"|while\s+not\s+converged"
                            r"|for\s+iteration\s+in", content)
             and _re.search(r"residual", content, _re.I)
-            and _re.search(r"subprocess\.(?:run|Popen|call)", content)):
+            and _re.search(r"subprocess\.(?:run|Popen|call)", content)
+            and _re.search(r"imports\.json|exports\.json|interface",
+                           content, _re.I)):
         out.append(
             "  * THIS SCRIPT HAND-ROLLS THE PARTITIONED COUPLING LOOP "
             "(iteration + residual + subprocess-launched sides in one "
             "file). Measured across the runs that did this: the hand-rolled "
             "exchange stalls -- residuals 9.92->9.98 over 100 iterations, "
             "1.5->1.3, constant 1.0 -- because the data one side sends "
-            "never actually changes, and the submission is graded as not "
-            "having coupled. The `couple` tool runs EXACTLY this loop and "
+            "never actually changes, and the file set cannot show a "
+            "real coupling. The `couple` tool runs EXACTLY this loop and "
             "adds what this script has no code for: measured relaxation, "
             "per-block convergence, finiteness and flux-balance validation, "
             "a did-the-output-move check, and on success it returns your "

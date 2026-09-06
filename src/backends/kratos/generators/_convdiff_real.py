@@ -469,9 +469,15 @@ iface = [i for i in np.where(on_iface)[0] if not (on_bot[i] or on_top[i])]
 iface.sort(key=lambda i: nodes[i, 1])
 
 # ---- THE CONDITIONS. WITHOUT THESE THE NEXT LOOP IS A NO-OP.
-for c in range(len(iface) - 1):
+# CONDITIONS COVER THE CORNER SEGMENTS TOO. Without them the first and
+# last interior nodes receive roughly HALF their consistent load, and the
+# recovered flux there exports ~q/2 for any profile nonzero at the ends
+# (reviewer finding; the corner node's own row is Dirichlet-fixed, so the
+# extra condition is harmless there).
+edge_nodes = sorted(int(i) for i in np.where(on_iface)[0])
+for c in range(len(edge_nodes) - 1):
     mp.CreateNewCondition("ThermalFace2D2N", c + 1,
-                          [int(iface[c]) + 1, int(iface[c + 1]) + 1], prop)
+                          [edge_nodes[c] + 1, edge_nodes[c + 1] + 1], prop)
 for i in iface:
     # FACE_HEAT_FLUX is INWARD; the partner's outward flux enters here as +q.
     mp.GetNode(int(i) + 1).SetSolutionStepValue(

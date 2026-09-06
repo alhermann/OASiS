@@ -663,12 +663,21 @@ def contract_findings(work: Path) -> list[dict]:
         if not ncomp_u or not ncomp_q:
             continue
         du = dq = 0.0
+        u_ref = max((abs(x) for row in (uA + uB) for x in row), default=0.0)
+        q_ref = max((abs(x) for row in (qA + qB) for x in row), default=0.0)
+        # a component that is physically ~0 on both sides (tangential
+        # traction in a symmetric arrangement) must not be judged against
+        # its own noise scale (reviewer finding)
         for c in range(ncomp_u):
             us = max(max(abs(r[c]) for r in uA), max(abs(r[c]) for r in uB))
+            if us < 1e-9 * (u_ref or 1.0):
+                continue
             du = max(du, max(abs(a[c] - b[c]) for a, b in zip(uA, uB))
                      / (us or 1.0))
         for c in range(ncomp_q):
             qs = max(max(abs(r[c]) for r in qA), max(abs(r[c]) for r in qB))
+            if qs < 1e-9 * (q_ref or 1.0):
+                continue
             dq = max(dq, max(abs(a[c] + b[c]) for a, b in zip(qA, qB))
                      / (qs or 1.0))
         reported = None
@@ -1528,9 +1537,12 @@ def interface_ends_findings(work: Path) -> list[dict]:
         span = hi - lo
         if span <= 0:
             continue
-        margin = 0.05 * span
+        sv = sorted(vals)
+        gaps = [b - a for a, b in zip(sv, sv[1:]) if b > a]
+        row_dx = (sorted(gaps)[len(gaps)//2] if gaps else 0.02 * span)
+        margin = 0.5 * row_dx      # only rows essentially AT the extremes
         if min(vals) < lo + margin or max(vals) > hi - margin:
-            out.append({"sequence": q.name, "values":
+            out.append({"sequence": q.name, "informational": True, "values":
                         [min(vals), max(vals), lo, hi], "finding": (
                 f"YOUR INTERFACE ROWS RUN TO THE ENDS OF THE INTERFACE "
                 f"({min(vals):.4g}..{max(vals):.4g} against a domain span "
@@ -1538,12 +1550,11 @@ def interface_ends_findings(work: Path) -> list[dict]:
                 f"where the interface meets the outer boundary does not "
                 f"converge (Dirichlet-Neumann corner — measured 2.1x-2.5x "
                 f"the true value, worsening under refinement), so "
-                f"prescribed interface probe sets EXCLUDE the ends. Rows at "
-                f"the ends are the signature of a self-chosen uniform "
-                f"sampling: re-read your task's interface probe "
-                f"prescription and regenerate these rows from its printed "
-                f"formula verbatim — measured twice, a converged coupling "
-                f"scored zero for exactly this.")})
+                f"probe prescriptions typically EXCLUDE the ends. If your task "
+                f"prints an interface probe formula, re-check these rows "
+                f"against it verbatim; rows at the extremes have twice been "
+                f"the signature of a self-chosen uniform sampling on runs "
+                f"whose coupling itself was sound.")})
             break
     return out
 
@@ -1571,17 +1582,19 @@ def unlaunched_participants_findings(work: Path) -> list[dict]:
         if "exports.json" in c and ("imports.json" in c
                                     or "InterfaceData" in c):
             pscripts.append(q.name)
-    if not pscripts:
+    if len(pscripts) < 2:
         return []
+    if not any(work.rglob("interface_level*.csv")) and not any(
+            work.rglob("exports.json")):
+        return []            # no sign this workdir is a coupling at all
     return [{"sequence": "coupling never run", "values": [], "finding": (
         f"{len(pscripts)} script(s) implement the imports/exports participant "
-        f"exchange ({', '.join(pscripts[:4])}) and NO partitioned-iteration "
-        f"residual history exists anywhere in this directory. The participants "
-        f"were built and the coupling iteration over them was never run — a "
-        f"submission in this state carries no coupling evidence and is graded "
-        f"as not having coupled. Run the coupling over these participants "
-        f"before submitting; that single step is what stands between the work "
-        f"on disk and a gradeable answer.")}]
+        f"exchange ({', '.join(pscripts[:4])}) and no history matching "
+        f"residual_level<k>.csv exists anywhere in this directory. The "
+        f"participants were built and the coupling iteration over them was "
+        f"never run — a file set in this state cannot show two codes coupled. "
+        f"Run the coupling over these participants; that single step is what "
+        f"stands between the work on disk and a usable answer.")}]
 
 
 def ndof_ladder_findings(work: Path) -> list[dict]:
@@ -1600,7 +1613,7 @@ def ndof_ladder_findings(work: Path) -> list[dict]:
     import re as _re
     per_level: dict[int, float] = {}
     for q in sorted(work.rglob("run_level*.log")):
-        m = _re.match(r"run_level(\d+)", q.name)
+        m = _re.fullmatch(r"run_level(\d+)(?:_[A-Za-z0-9]+)?\.log", q.name)
         if not m:
             continue
         try:
@@ -1628,12 +1641,19 @@ def ndof_ladder_findings(work: Path) -> list[dict]:
     dim = 2
     for q in sorted(work.rglob("solution_level*.csv")):
         try:
-            hdr = q.read_text(errors="replace").splitlines()[0].lower()
-        except (OSError, IndexError):
+            lines = q.read_text(errors="replace").splitlines()
+        except OSError:
             continue
-        cols = [c.strip() for c in hdr.split(",")]
+        if not lines:
+            continue
+        cols = [c.strip().lower() for c in lines[0].split(",")]
         if cols[:3] == ["x", "y", "z"]:
             dim = 3
+            break
+        if cols and all(c.replace(".","",1).replace("-","",1)
+                        .replace("e","",1).replace("+","",1).isdigit()
+                        for c in cols[:1]):
+            continue        # headerless: try the next file for a header
         break
     lo, hi = (2.6, 6.0) if dim == 2 else (5.2, 12.0)
     if all(lo <= f <= hi for f in factors):
@@ -1644,9 +1664,9 @@ def ndof_ladder_findings(work: Path) -> list[dict]:
         + ", while halving h multiplies the DOF count by ~4 in 2D and ~8 in "
         "3D. If your task prescribes specific mesh levels, re-check every "
         "level against that prescription NOW: a submission on a different "
-        "ladder is graded malformed however well it converged — measured on "
-        "runs whose coupling evidence was proven at every level and which "
-        "scored zero for exactly this.")}]
+        "ladder cannot be compared level-to-level however well it "
+        "converged — measured on runs whose coupling evidence was sound "
+        "at every level and which were unusable for exactly this.")}]
 
 
 def completeness_findings(work: Path) -> list[dict]:
@@ -1703,9 +1723,11 @@ def completeness_findings(work: Path) -> list[dict]:
         + ", ".join(missing[:8])
         + (f" (+{len(missing)-8} more)" if len(missing) > 8 else "")
         + ". A submission missing a level or a side is malformed and scores "
-        "the same zero as no submission, however good the members that "
-        "exist are. Write the missing files from the numbers you already "
-        "have before anything else.")}]
+        "unusable however good the present members are. For members "
+        "whose level already has a run log or residual history, write "
+        "them from the numbers you already have; for a level with NO "
+        "run evidence, solve it or remove its stale files -- never "
+        "invent members.")}]
 
 
 def audit(work_dir: str, claimed_order: float | None = None) -> dict:
@@ -1821,7 +1843,7 @@ def audit(work_dir: str, claimed_order: float | None = None) -> dict:
                 "the consistent residual (q = -(A u - b_vol)/w on the "
                 "interface rows of YOUR OWN system) or a one-sided QUADRATIC "
                 "through three points along the normal, then re-derive it at "
-                "EVERY level and both sides. Measured on this cell class: "
+                "EVERY level and both sides. Measured: "
                 "conversions from 0.85-0.97 to ~1.84 come from exactly this "
                 "change and nothing else.")
             findings.append(entry)

@@ -1037,13 +1037,13 @@ def _stamp_verification(result: dict, *, evidence_ok: bool, reason: str = "",
                 "finding alongside them, and only then investigate. NOT "
                 "VERIFIED and NOT A RESULT are different verdicts and only "
                 "one of them is worth zero. A CONVERGED level is SETTLED "
-                "regardless of the caveat: THIS reply carries your "
-                "interface tables ready to save (interface_csv) and the "
-                "paths of the captured solver logs "
-                "(captured_solver_logs) — save this level's files NOW, then "
-                "run the NEXT level. Measured: a run with two converged "
-                "levels spent its last minutes on the caveat instead of "
-                "banking them and submitted one level's files.")
+                "regardless of the caveat: save this level's outputs now, "
+                "then run the NEXT level. Where this reply carries "
+                "interface_csv and captured_solver_logs keys, they hold "
+                "this level's tables and log paths ready to use. Measured: "
+                "a run with two converged levels spent its last minutes on "
+                "the caveat instead of banking them and kept one level's "
+                "files.")
         else:
             result["verification"] = (
                 "NOT VERIFIED — "
@@ -1074,8 +1074,8 @@ def _stamp_verification(result: dict, *, evidence_ok: bool, reason: str = "",
             "re-proves what is already proven — measured: one session drove "
             "six VERIFIED couplings of the same mesh level, banked none of "
             "them, and ran out of budget with the remaining levels untouched; "
-            "an incomplete level sequence scores the same zero as no "
-            "submission however many times its first level was verified. "
+            "an incomplete level sequence is unusable however many times its "
+            "first level was verified. "
             + _residual_coverage_note(result)
             + " " + _critic_coverage_note())
     result["critic_review"] = critic_note
@@ -4346,12 +4346,30 @@ def register_consolidated_tools(mcp: FastMCP):
                                    "your own field and the SIGN IS UNTESTED"
                                    % (lvl, side))})
                     continue
-                iface_coord = (ipts[0][interface_axis] if len(ipts) else 0.0)
-                # side A of a left/right split has its outward normal along +n
-                sign = 1.0 if side == "A" else -1.0
+                # GEOMETRY FROM THE FILES, NOT FROM AN ASSUMPTION. The
+                # audit's copy of this check was fixed the same way after it
+                # reported WRONG SIGN on a verified-correct horizontal-
+                # interface submission (obeying it corrupted the data). The
+                # axis is the coordinate constant across the interface
+                # probes; the plane its value; the outward sign follows
+                # from which side of the plane this side's own field lies.
+                import numpy as _np
+                _ipa = _np.asarray(ipts, float)
+                if _ipa.ndim == 2 and _ipa.shape[0] >= 2:
+                    _ax = int(_np.argmin(_ipa.var(axis=0)))
+                    _plane = float(_ipa[:, _ax].mean())
+                else:
+                    _ax, _plane = interface_axis, (
+                        ipts[0][interface_axis] if len(ipts) else 0.0)
+                try:
+                    _sp = _np.asarray(fld[0], float)
+                    sign = (1.0 if float(_sp[:, _ax].mean()) < _plane
+                            else -1.0)
+                except Exception:                       # noqa: BLE001
+                    sign = 1.0 if side == "A" else -1.0
                 try:
                     dudn = _IF.recover_normal_derivative(
-                        fld[0], fld[1], ipts, interface_axis, iface_coord,
+                        fld[0], fld[1], ipts, _ax, _plane,
                         sign)
                     res = _IF.flux_ratio_consistency(iq, dudn)
                 except Exception as exc:
@@ -4964,9 +4982,18 @@ def register_consolidated_tools(mcp: FastMCP):
         _missing = []
         for _p in parts:
             _wd = Path(_p.work_dir)
+            _staged = {Path(x).name for x in
+                       (getattr(_p, "data_files", None) or [])}
+            _prev = ""
             for _arg in _p.command[1:]:
+                _flagged = _prev in ("-c", "-e", "-m", "-x")
+                _prev = str(_arg)
+                if _flagged:
+                    continue          # inline code / module, not a file path
                 if not str(_arg).endswith((".py", ".sh", ".jl", ".cc")):
                     continue
+                if Path(_arg).name in _staged:
+                    continue          # the driver stages data_files itself
                 _cand = Path(_arg)
                 if not _cand.is_absolute():
                     _cand = _wd / _cand
@@ -6987,19 +7014,20 @@ side that reads ./imports.json, runs its own solver once, writes
        "work_dir": "<ABSOLUTE dir of side A>", "imports_from": ["B"]},
       {"name": "B", "command": ["<python>", "side_b.py"],
        "work_dir": "<ABSOLUTE dir of side B>", "imports_from": ["A"]}]',
-      max_iter=50, tol=<the tolerance your task prescribes>)
+      max_iter=<from the rho guidance below; when unsure use 150>,
+      tol=<the tolerance your task prescribes>)
 
 The tool runs the whole iteration -- relaxation, convergence, validation --
 and on success returns your interface tables READY TO SAVE plus the paths of
 the captured solver logs. DO NOT hand-roll this loop yourself: measured
 across the runs that did, the hand-rolled exchange stalls (residuals
-9.92->9.98 over 100 iterations; constant 1.0) and grades as not coupled.
+9.92->9.98 over 100 iterations; constant 1.0) and cannot show two codes coupled.
 One couple call per mesh level, on the exact levels your task prescribes.
 
 THE SUBMISSION IS GRADED ON THE FIELDS; THE HISTORY IS THE EVIDENCE. Export interface rows AT THE EXACT PROBE POINTS THE TASK PRINTS -- generate them from the task's own formula, verbatim. A uniform sampling of the whole interface is NOT equivalent: prescribed probe sets deliberately exclude regions (interface ends are Dirichlet-Neumann corners whose recovered flux does not converge), and rows at unprescribed points are refused wholesale -- measured: a coupling with converged evidence at every level scored nothing because all 44 of its interface rows sat at self-chosen coordinates. What scores is the solution and interface CSVs at the prescribed probe points, for every level and both sides -- a run that converges its coupling and writes no field files scores NOTHING (measured: one run drove level 1 to 6.37e-07 and submitted only residual_level1.csv; graded FAILED, NO_SOLUTION_FILES). Alongside them the task asks for `residual_level<k>.csv` -- one row per partitioned-iteration step, per mesh level. That file IS the evidence that two
 codes iterated against each other; nothing else in the submission can show it.
 
-THE DIRICHLET SIDE RETURNS A MEASURED FLUX, NEVER A PLACEHOLDER. Recover it from the computed field: the code's native boundary-flux output where one exists, otherwise one-sided quadratic extrapolation of -k*du/dn from field values at three points into the domain along the interface normal (measured: the two routes agree to 2.7% rel-RMS at h=1/8). A constant or invented exchanged quantity turns the partitioned update into a no-op -- measured: a driver that sent a hard-coded 0.0 flux fell 9x in 50 iterations and never approached tolerance; a real recovered flux on the same arrangement converged in 4 iterations to 3.2e-08. If the residual is not contracting, check FIRST that the data you SEND changes between iterations.
+THE DIRICHLET SIDE RETURNS A MEASURED FLUX, NEVER A PLACEHOLDER. Recover it from your OWN system, in this order: (1) the CONSISTENT residual recovery q = -(A u - b_vol)/w on the interface rows -- second order, valid on BOTH sides; (2) the code's native boundary-flux output ONLY on a side whose interface is Dirichlet (on a Neumann-loaded line it echoes the applied load); (3) one-sided quadratic extrapolation of -k*du/dn from three field points along the normal as a CROSS-CHECK, not the exported value on a high-diffusivity side (measured: routes 1 and 3 agree to 2.7% rel-RMS at h=1/8 on the low-k side; route 3 alone missed by 6.5% on a k=200 side). A constant or invented exchanged quantity turns the partitioned update into a no-op -- measured: a driver that sent a hard-coded 0.0 flux fell 9x in 50 iterations and never approached tolerance; a real recovered flux on the same arrangement converged in 4 iterations to 3.2e-08. If the residual is not contracting, check FIRST that the data you SEND changes between iterations.
 
 THE RECOVERY, READY TO COPY (P1 triangles; split quads into two triangles first; works for any interface axis) -- verified by execution, 9.3e-4 max relative error against an analytic outward flux at h=1/16, second order under refinement. A first-order recovery here caps the whole coupled field at order ~1 however good the elements are:
 
@@ -7014,7 +7042,7 @@ def consistent_interface_flux(nodes, tris, k, u, f_vol, iface_ids, h_trib):
     kn = np.full(len(nodes), float(k)) if np.isscalar(k) else np.asarray(k, float)
     for el in np.asarray(tris, int):
         P = nodes[el]
-        area = 0.5 * abs(np.cross(P[1] - P[0], P[2] - P[0]))
+        area = 0.5 * abs((P[1,0]-P[0,0])*(P[2,1]-P[0,1]) - (P[1,1]-P[0,1])*(P[2,0]-P[0,0]))
         g = np.array([[P[1,1]-P[2,1], P[2,0]-P[1,0]],
                       [P[2,1]-P[0,1], P[0,0]-P[2,0]],
                       [P[0,1]-P[1,1], P[1,0]-P[0,0]]]) / (2.0*area)
@@ -7203,7 +7231,7 @@ which code ran on which side. If you invoke the solver through subprocess you
 already hold those bytes; the whole fix is not to drop them:
 
     r = subprocess.run(cmd, capture_output=True, text=True)
-    Path(log).write_text(f"NDOF = {ndof}\n" + r.stdout + r.stderr)
+    Path(log).write_text(f"NDOF = {ndof}\\n" + r.stdout + r.stderr)
 
 or skip the capture and redirect, `cmd > run_level<k>_<side>.log 2>&1`.
 Measured, on the same cell and the same two codes: a real capture is 2947 and
