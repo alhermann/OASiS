@@ -7024,6 +7024,16 @@ across the runs that did, the hand-rolled exchange stalls (residuals
 9.92->9.98 over 100 iterations; constant 1.0) and cannot show two codes coupled.
 One couple call per mesh level, on the exact levels your task prescribes.
 
+PARAMETERIZE BY LEVEL, OR THE BUDGET EATS YOU. Have each participant read
+its mesh size from a tiny ./config.json ({"level": 1, "nx": 5, "ny": 8})
+instead of hard-coding it; advancing a level is then: edit one number in
+each side's config, call couple again, save that level's outputs. Measured
+both ways: participants built this way ran all three levels in under two
+minutes of compute; sessions that regenerated their meshes by hand inside
+the participant spent their whole budget on level 1. Build the config
+route FIRST -- it costs one extra minute at level 1 and buys the other
+two levels.
+
 THE SUBMISSION IS GRADED ON THE FIELDS; THE HISTORY IS THE EVIDENCE. Export interface rows AT THE EXACT PROBE POINTS THE TASK PRINTS -- generate them from the task's own formula, verbatim. A uniform sampling of the whole interface is NOT equivalent: prescribed probe sets deliberately exclude regions (interface ends are Dirichlet-Neumann corners whose recovered flux does not converge), and rows at unprescribed points are refused wholesale -- measured: a coupling with converged evidence at every level scored nothing because all 44 of its interface rows sat at self-chosen coordinates. What scores is the solution and interface CSVs at the prescribed probe points, for every level and both sides -- a run that converges its coupling and writes no field files scores NOTHING (measured: one run drove level 1 to 6.37e-07 and submitted only residual_level1.csv; graded FAILED, NO_SOLUTION_FILES). Alongside them the task asks for `residual_level<k>.csv` -- one row per partitioned-iteration step, per mesh level. That file IS the evidence that two
 codes iterated against each other; nothing else in the submission can show it.
 
