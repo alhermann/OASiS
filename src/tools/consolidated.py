@@ -1036,7 +1036,14 @@ def _stamp_verification(result: dict, *, evidence_ok: bool, reason: str = "",
                 "DELIVERABLES FIRST from the numbers you have, report this "
                 "finding alongside them, and only then investigate. NOT "
                 "VERIFIED and NOT A RESULT are different verdicts and only "
-                "one of them is worth zero.")
+                "one of them is worth zero. A CONVERGED level is SETTLED "
+                "regardless of the caveat: THIS reply carries your "
+                "interface tables ready to save (interface_csv) and the "
+                "paths of the captured solver logs "
+                "(captured_solver_logs) — save this level's files NOW, then "
+                "run the NEXT level. Measured: a run with two converged "
+                "levels spent its last minutes on the caveat instead of "
+                "banking them and submitted one level's files.")
         else:
             result["verification"] = (
                 "NOT VERIFIED — "
@@ -5048,7 +5055,8 @@ def register_consolidated_tools(mcp: FastMCP):
         # number here; the agent saves its own data verbatim.
         iface_csv = None
         if r.converged and (r.exports or {}):
-            iface_csv = {}
+          try:                       # a malformed export must not destroy
+            iface_csv = {}           # a converged reply (reviewer finding)
             lvl = int(iface_level) if iface_level else 0
             suffix = f"_level{lvl}" if lvl else ""
             for pname, data in sorted((r.exports or {}).items()):
@@ -5058,15 +5066,17 @@ def register_consolidated_tools(mcp: FastMCP):
                 n = len(co)
                 if not n or n > 500:
                     continue
+                def _flatrow(v):
+                    if isinstance(v, (list, tuple)):
+                        return [float(x) for x in v]
+                    return [float(v)]
                 rows = []
                 for i in range(n):
-                    cells = [f"{float(c):.15e}" for c in co[i]]
-                    if vals:
-                        cells.append(f"{float(vals[i]):.15e}"
-                                     if i < len(vals) else "")
-                    if qs:
-                        cells.append(f"{float(qs[i]):.15e}"
-                                     if i < len(qs) else "")
+                    cells = [f"{x:.15e}" for x in _flatrow(co[i])]
+                    if vals and i < len(vals):
+                        cells += [f"{x:.15e}" for x in _flatrow(vals[i])]
+                    if qs and i < len(qs):
+                        cells += [f"{x:.15e}" for x in _flatrow(qs[i])]
                     rows.append(", ".join(cells))
                 ncoord = len(co[0]) if co and co[0] else 2
                 hdr = ", ".join(list("xyz"[:ncoord])
@@ -5078,16 +5088,22 @@ def register_consolidated_tools(mcp: FastMCP):
                 }
             if iface_csv:
                 iface_csv["_how_to_use"] = (
-                    "Each block is that participant's OWN interface data at "
-                    "convergence, validated by this verdict. SAVE EACH csv "
-                    "FIELD VERBATIM with one write_file call (adjust the "
-                    "filename to your task's naming if it differs). Do not "
-                    "retype, reformat, recompute or re-derive these numbers "
-                    "-- hand-rebuilt interface files are where converged "
-                    "couplings have been measured to fail. The rows sit at "
-                    "the participant's export coordinates: export at the "
-                    "task's prescribed probe points INSIDE your participant "
-                    "so these blocks carry them directly.")
+                    "Each block is that participant OWN interface data at "
+                    "convergence, validated by this verdict. ONE DECISION "
+                    "RULE: IF your participants exported AT the exact probe "
+                    "points your task prescribes, save each csv field "
+                    "verbatim with one write_file call and you are done. IF "
+                    "they exported at their own mesh nodes, do NOT save "
+                    "these blocks as your reported interface files -- "
+                    "follow the reporting key in this same reply, which "
+                    "interpolates each side converged solution onto the "
+                    "prescribed points with its own material and outward "
+                    "normal. Never retype numbers either way. The simplest "
+                    "route is to export at the prescribed probe points "
+                    "INSIDE your participant so these blocks carry them "
+                    "directly.")
+          except Exception as _e:                     # noqa: BLE001
+            iface_csv = {"error": f"interface blocks not built: {_e}"}
 
         # ── silent-wrong validators ─────────────────────────────────
         # `val` holds findings (they flip the verdict); `not_run` holds checks
@@ -6936,7 +6952,7 @@ def _re_words(text: str) -> list:
 # pointer to audit_results -- are moved to the front, and the rest is offered
 # rather than pushed. Nothing is deleted: every section is still reachable by
 # asking for it, which is what the `signal` argument is for.
-_COUPLING_HEAD_LIMIT = 24000
+_COUPLING_HEAD_LIMIT = 28000
 
 
 # WHAT MUST SURVIVE TRUNCATION, BECAUSE AN AGENT CANNOT ASK FOR WHAT IT DOES
