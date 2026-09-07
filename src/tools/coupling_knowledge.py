@@ -1065,7 +1065,7 @@ COMPONENT, and the two differ unless the subdomains share a Poisson ratio
 for component c is sqrt((1-theta)^2 + rho_c theta^2), below one only while
 theta < 2/(1+rho_c), so the LARGEST rho binds. Whenever rho_max > 1 + 2 rho_min,
 theta from the smaller one DIVERGES on the other component while the first
-settles — and the global residual reports only "did not converge".
+settles — and the global residual reports only "did not converge". Budget iterations generously even when every per-component rho is below one: component MIXING under unequal Poisson ratios can inflate the effective contraction ratio well above each component estimate (measured: 1.27 effective against 0.47 per-component on a mu 1:5 pair — still convergent, in 26 iterations).
 
 **5. A FREE (traction) BOUNDARY NEXT TO THE INTERFACE OPENS THE SPECTRUM.**
 Bending compliance scales as L^3 against L^1 for the axial one, so a subdomain

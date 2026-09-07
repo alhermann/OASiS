@@ -23,7 +23,7 @@ class InterfaceData:
     coordinates: np.ndarray   # (N, dim) — interface node positions
     values: np.ndarray        # (N,) or (N, n_comp) — field values
     field_name: str
-    normal_fluxes: Optional[np.ndarray] = None  # (N,) — normal gradient at interface
+    normal_fluxes: Optional[np.ndarray] = None  # (N,) or (N, n_comp) — outward flux/traction per point; both shapes round-trip (measured)
 
     def to_dict(self) -> dict:
         d = {
