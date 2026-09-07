@@ -821,6 +821,30 @@ def _early_artefact_check(workdir: Path, written: Path) -> str:
 
     name = written.name
     try:
+        if _re.fullmatch(r"run_level\d+(?:_[A-Za-z0-9]+)?\.log", name):
+            # A LOG THAT HOLDS A CRASH IS NOT A RUN LOG. Measured: a
+            # submission with sound coupling evidence at every level fell on
+            # ONE file -- its level-1 side-B log captured a Python traceback
+            # from a typo re-run script (a mangled expression), no solver
+            # banner, no NDOF line -- and a level whose log carries no
+            # solver output counts as not run at all.
+            try:
+                _lg = written.read_text(errors="replace")
+            except OSError:
+                _lg = ""
+            _crash = ("Traceback (most recent call last)" in _lg
+                      or "SyntaxError:" in _lg)
+            _has_ndof = bool(_re.search(r"^\s*NDOF\s*=\s*\d+", _lg, _re.M))
+            if _crash and not _looks_like_captured_output(_lg):
+                return ("\n\n[early check of " + name + ", read from the "
+                        "file you just wrote:]\n  * THIS LOG HOLDS A CRASH "
+                        "TRACEBACK, NOT THE NAMED CODE'S OUTPUT"
+                        + ("" if _has_ndof else " (and no NDOF line)")
+                        + ". A level whose log carries no solver output "
+                        "counts as not run, however sound the numbers "
+                        "beside it are. Fix the script, re-run this level, "
+                        "and recapture the log so it holds the solver's own "
+                        "console output plus the NDOF line.")
         if _re.fullmatch(r"residual_level\d+\.csv", name):
             from tools.result_audit import residual_findings
             # THE RESIDUAL FILE IS THE MOMENT TO CHECK IT AGAINST THE
