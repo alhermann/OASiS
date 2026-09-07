@@ -624,6 +624,29 @@ def check_interface_balance(export_a, export_b, label_a="A", label_b="B",
                 "which is the same number on both sides."
                 if same_sign else "")
         if not hint:
+            # ONE SIDE'S FLUX IS ~ZERO AGAINST A NONZERO PARTNER: the
+            # imported interface load never entered that side's assembled
+            # system (measured signature: a coupling that converges cleanly
+            # while the receiving side keeps returning its no-load
+            # solution). This is an ARRIVAL failure, not a conservation
+            # error, and it has a one-step test and an exact per-code cure
+            # in the receiving side's own served deciding facts.
+            _mag_a, _mag_b = abs(fa), abs(fb)
+            _big = max(_mag_a, _mag_b)
+            if _big > 0 and min(_mag_a, _mag_b) < 0.02 * _big:
+                _zero = label_a if _mag_a < _mag_b else label_b
+                hint = (f" Side {_zero}'s net flux is ~ZERO against a "
+                        f"nonzero partner: the imported load likely never "
+                        f"entered {_zero}'s system (a run that converges "
+                        f"while one side returns its no-load solution). "
+                        f"Test it in one step: solve that side once with "
+                        f"the import zeroed and once with the real import "
+                        f"-- if the two fields match, the load is not "
+                        f"being applied. The exact condition syntax for "
+                        f"applying a sampled interface load is in that "
+                        f"side's served deciding facts (prepare_simulation "
+                        f"for that solver).")
+        if not hint:
             hint = _unit_ratio_hint(fa, fb)
         w.append(
             f"Interface flux NOT balanced: net({label_a})={fa:.4g}, net({label_b})={fb:.4g}, "
