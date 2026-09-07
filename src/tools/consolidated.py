@@ -5355,6 +5355,32 @@ def register_consolidated_tools(mcp: FastMCP):
             result["history_file"] = history_file
         if iface_csv is not None:
             result["interface_csv"] = iface_csv
+        # THE RESIDUAL HISTORY, READY TO SAVE. Measured: a session that had
+        # CALLED this tool -- the real history sat in this very reply --
+        # still hand-wrote per-level residual files containing a single
+        # placeholder row of 1.0, and its otherwise-sound file set was
+        # unusable. The transcription step is where placeholders creep in;
+        # remove it the same way the interface tables were removed.
+        try:
+            import math as _math
+            _hrows = [(_i, float(_v)) for _i, _v in
+                      enumerate(r.history, 1) if _math.isfinite(float(_v))]
+        except Exception:                                # noqa: BLE001
+            _hrows = []
+        if r.converged and len(_hrows) >= 2:
+            _lvl = int(iface_level) if iface_level else 0
+            _sfx = f"_level{_lvl}" if _lvl else ""
+            result["residual_csv"] = {
+                "suggested_filename": f"residual{_sfx}.csv",
+                "csv": ("iteration,interface_residual" + chr(10)
+                        + chr(10).join(f"{_i},{_v:.17g}"
+                                       for _i, _v in _hrows) + chr(10)),
+                "_how_to_use": (
+                    "This is the measured iteration history of THIS "
+                    "coupling, ready to save verbatim (adjust the filename "
+                    "to your task naming). Never retype it and never write "
+                    "a placeholder history: a single-row or constant "
+                    "residual file reads as no coupling at all.")}
         # THE CAPTURED SOLVER LOGS ALREADY EXIST — POINT AT THEM. Measured
         # on a six-seed read: the top kill (3 of 6) was couplings with
         # PROVEN evidence submitting levels without their captured solver
