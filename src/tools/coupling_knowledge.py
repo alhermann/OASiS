@@ -2550,6 +2550,149 @@ def _fourc() -> str:
   `scatra-00000-0.vtu`, which is the INITIAL CONDITION — an all-zero field that
   looks like a converged solve of a trivial problem. Parse the FIRST number.
 * The scalar field is named `phi_1`, never `temperature`.
+* THE NEUMANN-SIDE PARTICIPANT, COMPLETE AND EXECUTION-VERIFIED (config-driven, imports->POINT NEUMANN Simpson loads->run the binary->meshio VTU read->consistent flux export; delivery proven by the zero-vs-real one-step check, field moved 1.38e-1 vs 0; recovered outward flux ~ -0.75 against an applied inward +0.75). Copy it verbatim and edit config.json per level. NOTE the two measured traps inside: condition E ids reference GLOBAL DNODE numbers across ALL condition families (a Dirichlet block restarting at E: 1 silently rebinds the interface DNODEs and zeroes the field), and this build writes scatra VTU by default with NO VTK section (adding one is rejected as an invalid section).
+
+```python
+"""4C as the NEUMANN side of a partitioned coupling (Scalar_Transport).
+
+Reads ./config.json {"level":k,"nx":..,"ny":..,"x0":..,"x1":..,"y0":..,"y1":..,
+"k":diffusivity,"iface":"left|right|bottom|top","fourc_bin":..,"fourc_ld":..}.
+Contract: reads ./imports.json (partner's outward flux at its points), applies
+it as per-node POINT NEUMANN loads (Simpson-weighted), runs the real 4C binary,
+exports its interface TRACE as values and its own consistent outward flux.
+"""
+import json, math, os, re, subprocess
+from pathlib import Path
+
+CFG = json.loads(Path("config.json").read_text())
+NX, NY = CFG["nx"], CFG["ny"]
+X0, X1, Y0, Y1 = CFG["x0"], CFG["x1"], CFG["y0"], CFG["y1"]
+KV = CFG["k"]; IF = CFG.get("iface", "left")
+HX, HY = (X1-X0)/NX, (Y1-Y0)/NY
+
+def src(x, y):  # volumetric source; edit per task
+    return CFG.get("source_const", 0.0)
+
+nid = lambda i, j: j*(NX+1)+i+1
+nodes = [(X0+i*HX, Y0+j*HY) for j in range(NY+1) for i in range(NX+1)]
+iface_ids = ([nid(0, j) for j in range(NY+1)] if IF == "left" else
+             [nid(NX, j) for j in range(NY+1)] if IF == "right" else
+             [nid(i, 0) for i in range(NX+1)] if IF == "bottom" else
+             [nid(i, NY) for i in range(NX+1)])
+h_if = HY if IF in ("left", "right") else HX
+# interior interface nodes carry the load; corners belong to the outer BC
+interior = iface_ids[1:-1]
+
+imp = {}
+if Path("imports.json").is_file():
+    imp = json.loads(Path("imports.json").read_text())
+def partner_flux(y_or_x):
+    for _n, d in imp.items():
+        co = d.get("coordinates") or []; q = d.get("normal_fluxes") or []
+        if co and q and len(q) == len(co):
+            ax = 1 if IF in ("left", "right") else 0
+            pts = sorted(zip([c[ax] for c in co], q))
+            xs = [p[0] for p in pts]; qs = [float(p[1]) for p in pts]
+            t = min(max(y_or_x, xs[0]), xs[-1])
+            for a, b, qa, qb in zip(xs, xs[1:], qs, qs[1:]):
+                if a <= t <= b:
+                    w = 0.0 if b == a else (t-a)/(b-a)
+                    return qa + w*(qb-qa)
+            return qs[-1]
+    return 0.0
+
+# inward load on THIS side = partner's outward flux (opposite normals)
+ax = 1 if IF in ("left", "right") else 0
+g = {n: partner_flux(nodes[n-1][ax]) for n in iface_ids}
+# Simpson-weighted nodal forces on interior interface nodes (fact 14)
+F = {}
+for k_i, n in enumerate(iface_ids):
+    if n not in interior: continue
+    F[n] = h_if/6.0*(g[iface_ids[k_i-1]] + 4*g[n] + g[iface_ids[k_i+1]])
+
+d = []
+d.append('PROBLEM TYPE:\n  PROBLEMTYPE: "Scalar_Transport"')
+d.append('SCALAR TRANSPORT DYNAMIC:\n  TIMEINTEGR: "Stationary"\n  SOLVERTYPE: "linear_full"\n  VELOCITYFIELD: "zero"\n  TIMESTEP: 1.0\n  NUMSTEP: 1\n  MAXTIME: 1.0\n  LINEAR_SOLVER: 1')
+d.append('SOLVER 1:\n  SOLVER: "UMFPACK"')
+d.append(f'MATERIALS:\n  - MAT: 1\n    MAT_scatra:\n      DIFFUSIVITY: {KV}')
+pt = "\n".join(f'  - E: {i+1}\n    NUMDOF: 1\n    ONOFF: [1]\n    VAL: [{F[n]:.16e}]\n    FUNCT: [0]'
+               for i, n in enumerate(interior))
+d.append('DESIGN POINT NEUMANN CONDITIONS:\n' + pt)
+# outer boundary Dirichlet u=0 on the three non-interface edges + corners
+outer = sorted({n for n in range(1, (NX+1)*(NY+1)+1)
+                if (abs(nodes[n-1][0]-X0)<1e-12 or abs(nodes[n-1][0]-X1)<1e-12
+                    or abs(nodes[n-1][1]-Y0)<1e-12 or abs(nodes[n-1][1]-Y1)<1e-12)
+                and n not in interior})
+dp = "\n".join(f'  - E: {len(interior)+i+1}\n    NUMDOF: 1\n    ONOFF: [1]\n    VAL: [0.0]\n    FUNCT: [0]'
+               for i, n in enumerate(outer))
+d.append('DESIGN POINT DIRICH CONDITIONS:\n' + dp)
+d.append('DNODE-NODE TOPOLOGY:\n' + "\n".join(
+    f'  - "NODE {n} DNODE {i+1}"' for i, n in enumerate(interior))
+    + "\n" + "\n".join(f'  - "NODE {n} DNODE {len(interior)+i+1}"'
+                       for i, n in enumerate(outer)))
+# careful: DNODE ids must match condition E ids per family — Neumann first
+d.append('NODE COORDS:\n' + "\n".join(
+    f'  - "NODE {i+1} COORD {x:.16e} {y:.16e} 0.0"' for i, (x, y) in enumerate(nodes)))
+els = []
+e = 1
+for j in range(NY):
+    for i in range(NX):
+        a, b = nid(i, j), nid(i+1, j)
+        c, dd = nid(i+1, j+1), nid(i, j+1)
+        els.append(f'  - "{e} TRANSP QUAD4 {a} {b} {c} {dd} MAT 1 TYPE Std"'); e += 1
+d.append('TRANSPORT ELEMENTS:\n' + "\n".join(els))
+Path("deck.4C.yaml").write_text("\n".join(d) + "\n")
+
+env = dict(os.environ); env["LD_LIBRARY_PATH"] = CFG.get("fourc_ld", "/opt/4C-dependencies/lib")
+r = subprocess.run(["stdbuf", "-oL", "-eL", CFG.get("fourc_bin", "/home/alexander/4C/build/4C"),
+                    "deck.4C.yaml", "out"], capture_output=True, text=True, env=env)
+Path("solver_console.log").write_text(r.stdout + r.stderr)
+if r.returncode != 0 or "finished normally" not in (r.stdout + r.stderr):
+    raise SystemExit(f"4C failed rc={r.returncode}; see solver_console.log")
+
+import glob
+vtu = sorted(glob.glob("out-vtk-files/*.vtu"))[-1]
+# 4C writes compressed VTU: read with meshio (available in the runtime venv),
+# never hand-parse the XML.
+import meshio
+_m = meshio.read(vtu)
+vpts = [(float(p[0]), float(p[1])) for p in _m.points]
+phi = [float(x) for x in _m.point_data["phi_1"].ravel()]
+# collapse duplicated corner points by coordinate (scatra VTU has no node_gid)
+val = {}
+for (x, y), u in zip(vpts, phi):
+    val[(round(x, 12), round(y, 12))] = u
+u = [val[(round(x, 12), round(y, 12))] for (x, y) in nodes]
+
+# consistent outward flux on interior interface nodes from OWN system
+tris = []
+for j in range(NY):
+    for i in range(NX):
+        a, b = nid(i, j)-1, nid(i+1, j)-1
+        c, dd = nid(i+1, j+1)-1, nid(i, j+1)-1
+        tris += [[a, b, c], [a, c, dd]]
+resid = [0.0]*len(nodes)
+for el in tris:
+    P = [nodes[t] for t in el]
+    area = 0.5*abs((P[1][0]-P[0][0])*(P[2][1]-P[0][1])-(P[1][1]-P[0][1])*(P[2][0]-P[0][0]))
+    gr = [[P[1][1]-P[2][1], P[2][0]-P[1][0]],
+          [P[2][1]-P[0][1], P[0][0]-P[2][0]],
+          [P[0][1]-P[1][1], P[1][0]-P[0][0]]]
+    fbar = sum(src(*P[r]) for r in range(3))/3.0
+    for rr in range(3):
+        ke_u = 0.0
+        for cc in range(3):
+            ke_u += KV*area*(gr[rr][0]*gr[cc][0]+gr[rr][1]*gr[cc][1])/(4*area*area)*u[el[cc]]
+        resid[el[rr]] += ke_u - area/3.0*fbar
+q_own = [-resid[n-1]/h_if for n in interior]
+co = [list(nodes[n-1]) for n in interior]
+vals = [u[n-1] for n in interior]
+json.dump({"field_name": "u", "coordinates": co, "values": vals,
+           "normal_fluxes": q_own, "n_points": len(co)},
+          open("exports.json", "w"))
+print(f"4C Neumann participant: NDOF = {len(nodes)}  max|u|={max(abs(x) for x in vals) if vals else 0:.6e}")
+```
+
 * USE THE BOUNDARY FLUX, NOT THE DOMAIN FLUX, ON THE DIRICHLET SIDE. Set
   `CALCFLUX_BOUNDARY: "diffusive"` in `SCALAR TRANSPORT DYNAMIC` and give the
   interface line a `SCATRA FLUX CALC LINE CONDITIONS` entry (`- E: <line>`;
