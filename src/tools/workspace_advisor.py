@@ -209,7 +209,7 @@ def _work_on_disk_contradicting_a_give_up(work: Path) -> str:
           "the numbers you already have is graded on those numbers, PROVIDED "
           "it is complete: every level the task prescribes and, where the "
           "task names two subdomains, both files per level. A submission "
-          "missing a level or a side is malformed and scores the same zero "
+          "missing a level or a side is unusable, worth the same "
           "as no submission, so complete the sequence from what you have "
           "rather than filing part of it. A verification "
           "finding — a flux imbalance, a failed conservation check — is NOT a "

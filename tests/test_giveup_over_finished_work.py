@@ -80,7 +80,7 @@ def test_partial_work_still_fires(tmp_path):
     (tmp_path / "solution_level1_A.csv").write_text("x,y,ux,uy\n0,0,1,1\n")
     out = _fn()(tmp_path)
     assert out and "1 solution_level" in out
-    assert "scores the same zero" in out
+    assert "unusable, worth the same" in out
     assert "graded on the part you supply" not in out
 
 

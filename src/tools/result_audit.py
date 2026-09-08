@@ -449,7 +449,7 @@ def residual_findings(work: Path) -> list[dict]:
                             f"{', '.join(names)} agree digit "
                             f"for digit. The history depends on the "
                             f"discretisation, so these cannot both be "
-                            f"measurements; this is graded as fabrication.")})
+                            f"measurements; this reads as an invented history.")})
     return out
 
 
@@ -1471,9 +1471,9 @@ def export_findings(work: Path) -> list[dict]:
                 f"(N-1)^2+1 interior values. Nearest-node lookup is O(h), so it "
                 f"CAPS YOUR REPORTED ORDER AT 1 however good the solve is. "
                 f"PROVEN against the sealed answer: one coupled submission was "
-                f"graded CORRECT at order 1.9796, and the SAME SOLVE re-exported "
+                f"gives order 1.9796 by interpolation, and the SAME SOLVE re-exported "
                 f"by nearest-node lookup -- nothing else changed -- graded "
-                f"CONFIDENTLY_WRONG at order 0.9815. A separate 4C cell gave "
+                f"order 0.9815 by nearest-node sampling. A separate case gave "
                 f"+1.9516 interpolated against +1.0179 nearest-node, and +1.0179 "
                 f"is exactly what that submission reported. Interpolate inside "
                 f"the element that CONTAINS each probe point; this is a "
@@ -1680,7 +1680,7 @@ def completeness_findings(work: Path) -> list[dict]:
     every level ended with 17 minutes of budget unused and two solution
     files never attempted -- nothing at submit time enumerated the required
     set against the disk, and the auto-audit named quality defects but not
-    absent files. A missing member is graded MALFORMED_SUBMISSION
+    absent files. A missing member makes the file set unusable
     (missing-subdomain-file / wrong-level-count), the same zero as no
     submission.
     """

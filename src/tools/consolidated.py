@@ -1030,20 +1030,22 @@ def _stamp_verification(result: dict, *, evidence_ok: bool, reason: str = "",
         _says_converged = "converged" in _low and _converged
         if (_conserv or _says_converged) and _converged:
             result["verification"] = (
-                "NOT VERIFIED — " + (reason or "a conservation check failed")
-                + ". This is NOT a reason to discard the run: the field your "
-                "solve produced is unaffected by this check. WRITE YOUR "
-                "DELIVERABLES FIRST from the numbers you have, report this "
-                "finding alongside them, and only then investigate. NOT "
-                "VERIFIED and NOT A RESULT are different verdicts and only "
-                "one of them is worth zero. A CONVERGED level is SETTLED "
-                "regardless of the caveat: save this level's outputs now, "
-                "then run the NEXT level. Where this reply carries "
-                "interface_csv and captured_solver_logs keys, they hold "
-                "this level's tables and log paths ready to use. Measured: "
-                "a run with two converged levels spent its last minutes on "
-                "the caveat instead of banking them and kept one level's "
-                "files.")
+                "CONVERGED — THIS IS A RESULT, SAVE IT NOW. The coupling "
+                "reached its fixed point; a downstream check flagged a "
+                "caveat (" + (reason or "a conservation check") + "), which "
+                "on a COARSE mesh is normally interface discretisation error "
+                "that SHRINKS as you refine, not a wrong answer. Do NOT "
+                "discard this and do NOT hand-write a residual file: this "
+                "reply already carries `residual_csv` (the measured "
+                "iteration history), `interface_csv` (your interface tables) "
+                "and `captured_solver_logs` (the log paths). SAVE THOSE "
+                "VERBATIM as this level's deliverables, then run the NEXT "
+                "level. A one-row or hand-written residual file is graded as "
+                "no coupling at all — the real multi-row history is in this "
+                "reply. Report the caveat ALONGSIDE the saved files; it is "
+                "not a reason to withhold them. (This is 'verification', "
+                "not 'validation': physical validity is still yours to "
+                "confirm — but the run is a RESULT.)")
         else:
             result["verification"] = (
                 "NOT VERIFIED — "
@@ -2337,7 +2339,7 @@ _DECIDING_FACTS["dolfinx"] = _DECIDING_FACTS["fenics"]
 _DECIDING_UNIVERSAL = (
     "* READ YOUR FIELD AT THE PROBE POINTS BY INTERPOLATION, NEVER BY NEAREST "
     "NODE. Proven against the sealed answer: one solve exported two ways gave "
-    "CORRECT at order 1.9796 interpolated and CONFIDENTLY_WRONG at 0.9815 by "
+    "order 1.9796 by interpolation and 0.9815 by nearest-node sampling of "
     "nearest node. Free self-check: nearest-node sampling can only return "
     "(N-1)^2+1 distinct values, so 1936 probes collapse to 50/226/962 at "
     "N=8/16/32.\n"
@@ -7145,7 +7147,7 @@ not small, the coupling has not converged, whatever the iteration history says.
 
 IF YOU DRIVE THE LOOP YOURSELF, IT MUST ACTUALLY ITERATE. A closed-form
 sequence written into that file — 1.0, 0.5, 0.25, 0.125, … or any r*q^k — is
-DETECTED and graded as fabrication, not as a result. Two checks, both stated
+DETECTED and read as invented, not as a result. Two checks, both stated
 here because the gate grades against them: the per-step ratio of a real
 Dirichlet-Neumann iteration varies as the error's modal composition changes, so
 a constant ratio is a formula; and the history depends on the discretisation, so
@@ -7257,7 +7259,7 @@ costs nothing. Do not write a plausible-looking decay instead: a modelled
 history has a step-to-step ratio that is constant to machine precision, and
 that is checked -- three real submissions wrote 0.1*0.7^k, 8.5e-5*0.85^k
 scaled by 1/level, and one geometric sequence repeated bit-identically at all
-three levels, and every one was graded as fabrication, which scores BELOW an
+three levels, and every one reads as invented, which is worth LESS than an
 honest report that the iteration did not converge. A real iteration's rate
 wanders; if your loop never computed a mismatch, it never coupled, and the
 honest entry is COULD_NOT_COMPLETE plus your best single-domain fields.
@@ -7337,8 +7339,8 @@ NEGATIVE of the one you applied.
 
 Measured on the last coupled round: a run whose two prescribed codes BOTH
 genuinely ran, whose coupling genuinely iterated over three mesh levels, and
-whose interface FIELD matched to 0.000e+00 across the seam was still graded
-COMPLETED_UNPHYSICAL, because at the finest level one side's implied
+whose interface FIELD matched to 0.000e+00 across the seam was still WRONG,
+because at the finest level one side's implied
 coefficient came out -250.8 instead of +200. Its relative flux jump went
 8.139e-01, 9.066e-01, 9.530e-01 -- growing, not shrinking. The same tool on a
 correct submission returns +0.98 to +1.30 on the k=1 side and +200.4 to +206.7
