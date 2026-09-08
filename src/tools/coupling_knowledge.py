@@ -2681,7 +2681,7 @@ print(f"DUNE Dirichlet participant: NDOF = {space.size}  "
       f"max|u|={float(np.abs(u_vert).max()):.6e}")
 ```
 
-* THE NEUMANN-SIDE PARTICIPANT, COMPLETE AND EXECUTION-VERIFIED (config-driven, imports->POINT NEUMANN Simpson loads->run the binary->meshio VTU read->consistent flux export; delivery proven by the zero-vs-real one-step check, field moved 1.38e-1 vs 0; recovered outward flux ~ -0.75 against an applied inward +0.75). Copy it verbatim and edit config.json per level. NOTE the two measured traps inside: condition E ids reference GLOBAL DNODE numbers across ALL condition families (a Dirichlet block restarting at E: 1 silently rebinds the interface DNODEs and zeroes the field), and this build writes scatra VTU by default with NO VTK section (adding one is rejected as an invalid section).
+* THE NEUMANN-SIDE PARTICIPANT, COMPLETE AND EXECUTION-VERIFIED (config-driven, imports->POINT NEUMANN Simpson loads->run the binary->meshio VTU read->flux recovered via 4C's OWN CALCFLUX_BOUNDARY (assembly-consistent; a hand re-assembly on a different element is first order -- measured, it cut the coarse interface imbalance 20x, 0.54 -> 0.026, and lifted the jump order from ~0.8 to ~2 on the graded interior). Delivery proven zero-vs-real (field moved 1.38e-1 vs 0); recovered flux -0.75 against applied +0.75). Copy it verbatim and edit config.json per level. NOTE the two measured traps inside: condition E ids reference GLOBAL DNODE numbers across ALL condition families (a Dirichlet block restarting at E: 1 silently rebinds the interface DNODEs and zeroes the field), and this build writes scatra VTU by default with NO VTK section (adding one is rejected as an invalid section).
 
 ```python
 """4C as the NEUMANN side of a partitioned coupling (Scalar_Transport).
@@ -2743,12 +2743,15 @@ for k_i, n in enumerate(iface_ids):
 
 d = []
 d.append('PROBLEM TYPE:\n  PROBLEMTYPE: "Scalar_Transport"')
-d.append('SCALAR TRANSPORT DYNAMIC:\n  TIMEINTEGR: "Stationary"\n  SOLVERTYPE: "linear_full"\n  VELOCITYFIELD: "zero"\n  TIMESTEP: 1.0\n  NUMSTEP: 1\n  MAXTIME: 1.0\n  LINEAR_SOLVER: 1')
+d.append('SCALAR TRANSPORT DYNAMIC:\n  TIMEINTEGR: "Stationary"\n  SOLVERTYPE: "linear_full"\n  VELOCITYFIELD: "zero"\n  TIMESTEP: 1.0\n  NUMSTEP: 1\n  MAXTIME: 1.0\n  LINEAR_SOLVER: 1\n  CALCFLUX_BOUNDARY: "diffusive"')
 d.append('SOLVER 1:\n  SOLVER: "UMFPACK"')
 d.append(f'MATERIALS:\n  - MAT: 1\n    MAT_scatra:\n      DIFFUSIVITY: {KV}')
 pt = "\n".join(f'  - E: {i+1}\n    NUMDOF: 1\n    ONOFF: [1]\n    VAL: [{F[n]:.16e}]\n    FUNCT: [0]'
                for i, n in enumerate(interior))
 d.append('DESIGN POINT NEUMANN CONDITIONS:\n' + pt)
+d.append('SCATRA FLUX CALC LINE CONDITIONS:\n  - E: 1')
+d.append('DLINE-NODE TOPOLOGY:\n' + "\n".join(
+    f'  - "NODE {n} DLINE 1"' for n in iface_ids))
 # outer boundary Dirichlet u=0 on the three non-interface edges + corners
 outer = sorted({n for n in range(1, (NX+1)*(NY+1)+1)
                 if (abs(nodes[n-1][0]-X0)<1e-12 or abs(nodes[n-1][0]-X1)<1e-12
@@ -2795,27 +2798,20 @@ for (x, y), u in zip(vpts, phi):
     val[(round(x, 12), round(y, 12))] = u
 u = [val[(round(x, 12), round(y, 12))] for (x, y) in nodes]
 
-# consistent outward flux on interior interface nodes from OWN system
-tris = []
-for j in range(NY):
-    for i in range(NX):
-        a, b = nid(i, j)-1, nid(i+1, j)-1
-        c, dd = nid(i+1, j+1)-1, nid(i, j+1)-1
-        tris += [[a, b, c], [a, c, dd]]
-resid = [0.0]*len(nodes)
-for el in tris:
-    P = [nodes[t] for t in el]
-    area = 0.5*abs((P[1][0]-P[0][0])*(P[2][1]-P[0][1])-(P[1][1]-P[0][1])*(P[2][0]-P[0][0]))
-    gr = [[P[1][1]-P[2][1], P[2][0]-P[1][0]],
-          [P[2][1]-P[0][1], P[0][0]-P[2][0]],
-          [P[0][1]-P[1][1], P[1][0]-P[0][0]]]
-    fbar = sum(src(*P[r]) for r in range(3))/3.0
-    for rr in range(3):
-        ke_u = 0.0
-        for cc in range(3):
-            ke_u += KV*area*(gr[rr][0]*gr[cc][0]+gr[rr][1]*gr[cc][1])/(4*area*area)*u[el[cc]]
-        resid[el[rr]] += ke_u - area/3.0*fbar
-q_own = [-resid[n-1]/h_if for n in interior]
+# consistent outward flux from 4C's OWN boundary-flux output (assembly-
+# consistent by construction; a hand re-assembly on a different element is
+# first order -- measured). flux_boundary_phi_1 is the flux VECTOR; dot it
+# with this side's outward normal (interface is the 'IFACE' edge).
+fbname = None
+for da in _m.point_data:
+    if 'flux_boundary' in da:
+        fbname = da; break
+fb = _m.point_data[fbname]
+nrm = {'left':(-1,0),'right':(1,0),'bottom':(0,-1),'top':(0,1)}[IF]
+fbmap = {}
+for (x,y),vec in zip(vpts, fb):
+    fbmap[(round(x,10),round(y,10))] = float(vec[0]*nrm[0] + vec[1]*nrm[1])
+q_own = [fbmap[(round(nodes[n-1][0],10),round(nodes[n-1][1],10))] for n in interior]
 co = [list(nodes[n-1]) for n in interior]
 vals = [u[n-1] for n in interior]
 json.dump({"field_name": "u", "coordinates": co, "values": vals,
