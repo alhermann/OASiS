@@ -1331,6 +1331,36 @@ def interface_sign_findings(work: Path) -> list[dict]:
             "O(1) as h halves means the iteration converged to a fixed "
             "point of the WRONG transmission condition, which a clean "
             "convergence order cannot reveal. Check the SIGN first.")})
+    elif len(trend) >= 3 and all(trend[i + 1] < trend[i]
+                                 for i in range(len(trend) - 1)):
+        # THE JUMP SHRINKS, BUT TOO SLOWLY = A FIRST-ORDER INTERFACE
+        # RECOVERY. On the prescribed halving a consistent (2nd-order)
+        # recovery drops the two-sided flux jump ~4x per level; a jump that
+        # only halves (~2x, order ~1) or worse means the flux one side
+        # exports is not assembly-consistent with how it was applied --
+        # the classic apply-with-one-quadrature / recover-with-another
+        # mismatch (measured on a 4C-Neumann pair: applied Simpson nodal
+        # loads on a QUAD4 solve, recovered by a P1-triangle re-assembly ->
+        # jump fell only 1.5-1.8x per level, order ~0.8, and the coupled
+        # field order was capped there). It converges cleanly to the wrong
+        # fixed point, so neither the residual nor the sign check sees it.
+        import math as _m
+        orders = [_m.log2(trend[i] / trend[i + 1])
+                  for i in range(len(trend) - 1) if trend[i + 1] > 0]
+        med = sorted(orders)[len(orders) // 2] if orders else 0.0
+        if med < 1.3:
+            out.append({"sequence": "interface flux jump", "values": trend,
+                        "finding": (
+                "THE FLUX JUMP SHRINKS TOO SLOWLY (" +
+                ", ".join(f"{v:.3e}" for v in trend) + f"; order ~{med:.2f} "
+                "per halving, against ~2 for a consistent recovery). The "
+                "flux one side exports is not assembly-consistent with how "
+                "the partner applied it -- recover it with the SAME "
+                "discretisation the solver used (the code's native boundary "
+                "flux, or a re-assembly with the SAME element and quadrature "
+                "as the solve), not a hand-rolled stand-in on a different "
+                "element. A first-order interface recovery caps the coupled "
+                "field's order however good the solves are.")})
     if not out and assessed == 0:
         if vector_layout:
             # Say WHY, accurately. Measured: a correct thermo-mechanical
